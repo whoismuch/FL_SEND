@@ -264,13 +264,8 @@ def main():
         run_opts={"device": device}
     ).to(device)
     
-    # Load and preprocess data with force download
-    dataset = load_dataset(
-        "edinburghcstr/ami",
-        "ihm",
-        cache_dir="./ami_cache",
-        download_mode="force_redownload"
-    )
+    # Load and preprocess data
+    dataset = load_dataset("edinburghcstr/ami", "ihm")
     
     # Take a small subset for testing
     test_size = 1000  # small number for quick testing
