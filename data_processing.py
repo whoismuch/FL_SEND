@@ -104,191 +104,235 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
         num_clients: Number of clients to split data among
         min_overlap_ratio: Minimum ratio of overlapping samples to total samples
     """
-    # Create speaker ID to index mapping
-    speaker_to_idx = {}
-    for meeting_id, samples in grouped_data.items():
-        for sample in samples:
-            speaker_id = sample["speaker_id"]
-            if speaker_id not in speaker_to_idx:
-                speaker_to_idx[speaker_id] = len(speaker_to_idx)
-    
-    logger.info(f"Found {len(speaker_to_idx)} unique speakers: {speaker_to_idx}")
-    
-    # Convert grouped data to list of samples
-    all_samples = []
-    for meeting_id, samples in grouped_data.items():
-        # Sort samples by begin_time
-        samples = sorted(samples, key=lambda x: x["begin_time"])
+    try:
+        logger.info("Starting data processing for clients...")
         
-        # First, add original non-overlapping segments
-        for sample in samples:
-            # Create power set encoded label for single speaker
-            max_speakers = len(speaker_to_idx)
-            speaker_label = [0] * max_speakers
-            speaker_idx = speaker_to_idx[sample["speaker_id"]]
-            speaker_label[speaker_idx] = 1
-            encoded_label = sum(label * (2 ** i) for i, label in enumerate(speaker_label))
-            
-            all_samples.append({
-                "audio": sample["audio"],
-                "speaker_id": encoded_label,
-                "begin_time": sample["begin_time"],
-                "end_time": sample["end_time"],
-                "is_overlap": False
-            })
-        
-        # Then, find real overlapping segments
-        overlapping_segments = []
-        for i in range(len(samples)):
-            current = samples[i]
-            # Look for overlapping segments
-            for j in range(i + 1, len(samples)):
-                next_seg = samples[j]
-                # Check if segments overlap
-                if next_seg["begin_time"] < current["end_time"]:
-                    # Create overlapping segment
-                    overlap_begin = max(current["begin_time"], next_seg["begin_time"])
-                    overlap_end = min(current["end_time"], next_seg["end_time"])
-                    
-                    # Get audio segments
-                    current_audio = current["audio"]["array"]
-                    next_audio = next_seg["audio"]["array"]
-                    
-                    # Calculate overlap duration in samples
-                    current_start = int((overlap_begin - current["begin_time"]) * 16000)  # assuming 16kHz
-                    current_end = int((overlap_end - current["begin_time"]) * 16000)
-                    next_start = int((overlap_begin - next_seg["begin_time"]) * 16000)
-                    next_end = int((overlap_end - next_seg["begin_time"]) * 16000)
-                    
-                    # Extract overlapping portions
-                    current_overlap = current_audio[current_start:current_end]
-                    next_overlap = next_audio[next_start:next_end]
-                    
-                    # Ensure both segments have the same length
-                    min_length = min(len(current_overlap), len(next_overlap))
-                    current_overlap = current_overlap[:min_length]
-                    next_overlap = next_overlap[:min_length]
-                    
-                    # Combine audio segments
-                    combined_audio = current_overlap + next_overlap
-                    
-                    # Normalize
-                    if np.max(np.abs(combined_audio)) > 0:
-                        combined_audio = combined_audio / np.max(np.abs(combined_audio))
-                    
-                    # Create power set encoded label
-                    max_speakers = len(speaker_to_idx)
-                    speaker_label = [0] * max_speakers
-                    current_speaker_idx = speaker_to_idx[current["speaker_id"]]
-                    next_speaker_idx = speaker_to_idx[next_seg["speaker_id"]]
-                    speaker_label[current_speaker_idx] = 1
-                    speaker_label[next_speaker_idx] = 1
-                    encoded_label = sum(label * (2 ** i) for i, label in enumerate(speaker_label))
-                    
-                    overlapping_segments.append({
-                        "audio": {"array": combined_audio},
-                        "speaker_id": encoded_label,
-                        "begin_time": overlap_begin,
-                        "end_time": overlap_end,
-                        "is_overlap": True
-                    })
-        
-        # If we don't have enough overlapping segments, create artificial ones
-        if len(overlapping_segments) < len(samples) * min_overlap_ratio:
-            # Group samples by speaker
-            speaker_segments = {}
+        # Create speaker ID to index mapping
+        speaker_to_idx = {}
+        for meeting_id, samples in grouped_data.items():
             for sample in samples:
                 speaker_id = sample["speaker_id"]
-                if speaker_id not in speaker_segments:
-                    speaker_segments[speaker_id] = []
-                speaker_segments[speaker_id].append(sample["audio"]["array"])
+                if speaker_id not in speaker_to_idx:
+                    speaker_to_idx[speaker_id] = len(speaker_to_idx)
+        
+        logger.info(f"Found {len(speaker_to_idx)} unique speakers: {speaker_to_idx}")
+        
+        # Convert grouped data to list of samples
+        all_samples = []
+        logger.info("Processing meetings for overlapping segments...")
+        
+        for meeting_id, samples in grouped_data.items():
+            try:
+                logger.info(f"Processing meeting {meeting_id} with {len(samples)} samples")
+                
+                # Sort samples by begin_time
+                samples = sorted(samples, key=lambda x: x["begin_time"])
+                
+                # First, add original non-overlapping segments
+                logger.info("Adding non-overlapping segments...")
+                for sample in samples:
+                    # Create power set encoded label for single speaker
+                    max_speakers = len(speaker_to_idx)
+                    speaker_label = [0] * max_speakers
+                    speaker_idx = speaker_to_idx[sample["speaker_id"]]
+                    speaker_label[speaker_idx] = 1
+                    encoded_label = sum(label * (2 ** i) for i, label in enumerate(speaker_label))
+                    
+                    all_samples.append({
+                        "audio": sample["audio"],
+                        "speaker_id": encoded_label,
+                        "begin_time": sample["begin_time"],
+                        "end_time": sample["end_time"],
+                        "is_overlap": False
+                    })
+                
+                # Then, find real overlapping segments
+                logger.info("Finding real overlapping segments...")
+                overlapping_segments = []
+                for i in range(len(samples)):
+                    current = samples[i]
+                    # Look for overlapping segments
+                    for j in range(i + 1, len(samples)):
+                        next_seg = samples[j]
+                        # Check if segments overlap
+                        if next_seg["begin_time"] < current["end_time"]:
+                            logger.debug(f"Found overlap between segments {i} and {j}")
+                            # Create overlapping segment
+                            overlap_begin = max(current["begin_time"], next_seg["begin_time"])
+                            overlap_end = min(current["end_time"], next_seg["end_time"])
+                            
+                            # Get audio segments
+                            current_audio = current["audio"]["array"]
+                            next_audio = next_seg["audio"]["array"]
+                            
+                            # Calculate overlap duration in samples
+                            current_start = int((overlap_begin - current["begin_time"]) * 16000)  # assuming 16kHz
+                            current_end = int((overlap_end - current["begin_time"]) * 16000)
+                            next_start = int((overlap_begin - next_seg["begin_time"]) * 16000)
+                            next_end = int((overlap_end - next_seg["begin_time"]) * 16000)
+                            
+                            # Extract overlapping portions
+                            current_overlap = current_audio[current_start:current_end]
+                            next_overlap = next_audio[next_start:next_end]
+                            
+                            # Ensure both segments have the same length
+                            min_length = min(len(current_overlap), len(next_overlap))
+                            current_overlap = current_overlap[:min_length]
+                            next_overlap = next_overlap[:min_length]
+                            
+                            # Combine audio segments
+                            combined_audio = current_overlap + next_overlap
+                            
+                            # Normalize
+                            if np.max(np.abs(combined_audio)) > 0:
+                                combined_audio = combined_audio / np.max(np.abs(combined_audio))
+                            
+                            # Create power set encoded label
+                            max_speakers = len(speaker_to_idx)
+                            speaker_label = [0] * max_speakers
+                            current_speaker_idx = speaker_to_idx[current["speaker_id"]]
+                            next_speaker_idx = speaker_to_idx[next_seg["speaker_id"]]
+                            speaker_label[current_speaker_idx] = 1
+                            speaker_label[next_speaker_idx] = 1
+                            encoded_label = sum(label * (2 ** i) for i, label in enumerate(speaker_label))
+                            
+                            overlapping_segments.append({
+                                "audio": {"array": combined_audio},
+                                "speaker_id": encoded_label,
+                                "begin_time": overlap_begin,
+                                "end_time": overlap_end,
+                                "is_overlap": True
+                            })
+                
+                # If we don't have enough overlapping segments, create artificial ones
+                if len(overlapping_segments) < len(samples) * min_overlap_ratio:
+                    logger.info("Creating artificial overlapping segments...")
+                    # Group samples by speaker
+                    speaker_segments = {}
+                    for sample in samples:
+                        speaker_id = sample["speaker_id"]
+                        if speaker_id not in speaker_segments:
+                            speaker_segments[speaker_id] = []
+                        speaker_segments[speaker_id].append(sample["audio"]["array"])
+                    
+                    # Create artificial overlapping segments
+                    audio_segments = []
+                    speaker_labels = []
+                    for speaker_id, segments in speaker_segments.items():
+                        for segment in segments:
+                            audio_segments.append(segment)
+                            speaker_labels.append(speaker_to_idx[speaker_id])
+                    
+                    logger.info(f"Simulating overlapping speech with {len(audio_segments)} segments...")
+                    # Simulate overlapping speech
+                    artificial_segments, power_set_labels = simulate_overlapping_speech(
+                        audio_segments=audio_segments,
+                        speaker_labels=speaker_labels,
+                        max_speakers=len(speaker_to_idx)
+                    )
+                    
+                    # Add artificial overlapping segments
+                    for segment, label in zip(artificial_segments, power_set_labels):
+                        overlapping_segments.append({
+                            "audio": {"array": segment},
+                            "speaker_id": label,
+                            "begin_time": 0,  # Artificial segments don't have real timestamps
+                            "end_time": 0,
+                            "is_overlap": True
+                        })
+                
+                # Add overlapping segments
+                all_samples.extend(overlapping_segments)
+                logger.info(f"Added {len(overlapping_segments)} overlapping segments for meeting {meeting_id}")
             
-            # Create artificial overlapping segments
-            audio_segments = []
-            speaker_labels = []
-            for speaker_id, segments in speaker_segments.items():
-                for segment in segments:
-                    audio_segments.append(segment)
-                    speaker_labels.append(speaker_to_idx[speaker_id])
+            except KeyboardInterrupt:
+                logger.info(f"\nInterrupted while processing meeting {meeting_id}. Saving progress...")
+                break
+            except Exception as e:
+                logger.error(f"Error processing meeting {meeting_id}: {str(e)}")
+                continue
+        
+        # Balance the dataset
+        logger.info("Balancing dataset...")
+        non_overlap_samples = [s for s in all_samples if not s["is_overlap"]]
+        overlap_samples = [s for s in all_samples if s["is_overlap"]]
+        
+        # Ensure we have a good balance between overlapping and non-overlapping samples
+        min_samples = min(len(non_overlap_samples), len(overlap_samples))
+        balanced_samples = non_overlap_samples[:min_samples] + overlap_samples[:min_samples]
+        
+        # Shuffle samples
+        np.random.shuffle(balanced_samples)
+        
+        logger.info(f"Total samples: {len(balanced_samples)}")
+        logger.info(f"Non-overlapping samples: {len(non_overlap_samples[:min_samples])}")
+        logger.info(f"Overlapping samples: {len(overlap_samples[:min_samples])}")
+        
+        # Split samples among clients
+        logger.info(f"Splitting {len(balanced_samples)} samples among {num_clients} clients...")
+        samples_per_client = len(balanced_samples) // num_clients
+        client_samples = [balanced_samples[i:i + samples_per_client] for i in range(0, len(balanced_samples), samples_per_client)]
+        
+        # Create data loaders for each client
+        logger.info("Creating data loaders for clients...")
+        client_data = []
+        for client_id, samples in enumerate(client_samples[:num_clients]):
+            try:
+                logger.info(f"Processing client {client_id} with {len(samples)} samples")
+                # Create dataset for this client
+                features = []
+                labels = []
+                for sample in samples:
+                    feature = extract_features(sample["audio"]["array"])
+                    label = sample["speaker_id"]
+                    features.append(feature)
+                    labels.append(label)
+                
+                # Split into train and validation
+                train_size = int(0.8 * len(features))
+                val_size = len(features) - train_size
+                
+                # Split features and labels
+                train_features = features[:train_size]
+                train_labels = labels[:train_size]
+                val_features = features[train_size:]
+                val_labels = labels[train_size:]
+                
+                # Create datasets
+                train_dataset = torch.utils.data.TensorDataset(
+                    torch.tensor(train_features, dtype=torch.float32),
+                    torch.tensor(train_labels, dtype=torch.long)
+                )
+                val_dataset = torch.utils.data.TensorDataset(
+                    torch.tensor(val_features, dtype=torch.float32),
+                    torch.tensor(val_labels, dtype=torch.long)
+                )
+                
+                # Create data loaders
+                train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+                val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+                
+                client_data.append((train_loader, val_loader))
+                logger.info(f"Created data loaders for client {client_id}")
             
-            # Simulate overlapping speech
-            artificial_segments, power_set_labels = simulate_overlapping_speech(
-                audio_segments=audio_segments,
-                speaker_labels=speaker_labels,
-                max_speakers=len(speaker_to_idx)
-            )
-            
-            # Add artificial overlapping segments
-            for segment, label in zip(artificial_segments, power_set_labels):
-                overlapping_segments.append({
-                    "audio": {"array": segment},
-                    "speaker_id": label,
-                    "begin_time": 0,  # Artificial segments don't have real timestamps
-                    "end_time": 0,
-                    "is_overlap": True
-                })
+            except KeyboardInterrupt:
+                logger.info(f"\nInterrupted while processing client {client_id}. Saving progress...")
+                break
+            except Exception as e:
+                logger.error(f"Error processing client {client_id}: {str(e)}")
+                continue
         
-        # Add overlapping segments
-        all_samples.extend(overlapping_segments)
+        logger.info("Data processing completed successfully")
+        return client_data
     
-    # Balance the dataset
-    non_overlap_samples = [s for s in all_samples if not s["is_overlap"]]
-    overlap_samples = [s for s in all_samples if s["is_overlap"]]
-    
-    # Ensure we have a good balance between overlapping and non-overlapping samples
-    min_samples = min(len(non_overlap_samples), len(overlap_samples))
-    balanced_samples = non_overlap_samples[:min_samples] + overlap_samples[:min_samples]
-    
-    # Shuffle samples
-    np.random.shuffle(balanced_samples)
-    
-    logger.info(f"Total samples: {len(balanced_samples)}")
-    logger.info(f"Non-overlapping samples: {len(non_overlap_samples[:min_samples])}")
-    logger.info(f"Overlapping samples: {len(overlap_samples[:min_samples])}")
-    
-    # Split samples among clients
-    samples_per_client = len(balanced_samples) // num_clients
-    client_samples = [balanced_samples[i:i + samples_per_client] for i in range(0, len(balanced_samples), samples_per_client)]
-    
-    # Create data loaders for each client
-    client_data = []
-    for samples in client_samples[:num_clients]:
-        # Create dataset for this client
-        features = []
-        labels = []
-        for sample in samples:
-            feature = extract_features(sample["audio"]["array"])
-            label = sample["speaker_id"]
-            features.append(feature)
-            labels.append(label)
-        
-        # Split into train and validation
-        train_size = int(0.8 * len(features))
-        val_size = len(features) - train_size
-        
-        # Split features and labels
-        train_features = features[:train_size]
-        train_labels = labels[:train_size]
-        val_features = features[train_size:]
-        val_labels = labels[train_size:]
-        
-        # Create datasets
-        train_dataset = torch.utils.data.TensorDataset(
-            torch.tensor(train_features, dtype=torch.float32),
-            torch.tensor(train_labels, dtype=torch.long)
-        )
-        val_dataset = torch.utils.data.TensorDataset(
-            torch.tensor(val_features, dtype=torch.float32),
-            torch.tensor(val_labels, dtype=torch.long)
-        )
-        
-        # Create data loaders
-        train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-        val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
-        
-        client_data.append((train_loader, val_loader))
-    
-    return client_data
+    except KeyboardInterrupt:
+        logger.info("\nProcess interrupted by user. Saving progress...")
+        if 'client_data' in locals() and client_data:
+            return client_data
+        return []
+    except Exception as e:
+        logger.error(f"An error occurred during data processing: {str(e)}")
+        return []
 
 def plot_training_curves(
     train_losses: List[float],
