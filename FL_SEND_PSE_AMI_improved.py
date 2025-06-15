@@ -75,57 +75,114 @@ class PowerSetEncoder:
         binary = format(encoded_value, f'0{self.max_speakers}b')
         return [int(bit) for bit in binary]
 
+class FSMNLayer(nn.Module):
+    """Feedforward Sequential Memory Network layer."""
+    def __init__(self, input_dim: int, hidden_dim: int, stride: int = 1):
+        super().__init__()
+        self.stride = stride
+        self.linear = nn.Linear(input_dim, hidden_dim)
+        self.memory = nn.Linear(input_dim, hidden_dim)
+        
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x shape: (batch_size, seq_len, input_dim)
+        batch_size, seq_len, _ = x.shape
+        
+        # Linear projection
+        h = self.linear(x)  # (batch_size, seq_len, hidden_dim)
+        
+        # Memory mechanism
+        memory = torch.zeros_like(h)
+        for i in range(seq_len):
+            start_idx = max(0, i - self.stride)
+            memory[:, i] = self.memory(x[:, start_idx:i+1].mean(dim=1))
+        
+        return h + memory
+
 class SENDModel(nn.Module):
     """Speaker Embedding-aware Neural Diarization model with Power-Set Encoding."""
-    def __init__(self, input_dim: int = 80, hidden_dim: int = 256, num_classes: int = 16):
+    def __init__(self, input_dim: int = 80, hidden_dim: int = 512, num_classes: int = 16):
         super().__init__()
-        self.conv1 = nn.Conv1d(input_dim, hidden_dim, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv1d(hidden_dim, hidden_dim, kernel_size=3, padding=1)
-        self.conv3 = nn.Conv1d(hidden_dim, hidden_dim, kernel_size=3, padding=1)
         
-        self.lstm = nn.LSTM(
-            input_size=hidden_dim,
-            hidden_size=hidden_dim,
-            num_layers=2,
-            batch_first=True,
-            bidirectional=True
+        # Speech Encoder (FSMN)
+        self.speech_encoder = nn.ModuleList([
+            FSMNLayer(input_dim if i == 0 else hidden_dim, hidden_dim, stride=2**i)
+            for i in range(8)  # 8 FSMN layers
+        ])
+        
+        # Speaker Encoder (MLP)
+        self.speaker_encoder = nn.Sequential(
+            nn.Linear(192, hidden_dim),  # ECAPA-TDNN output size is 192
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim)
         )
         
-        self.attention = nn.MultiheadAttention(
-            embed_dim=hidden_dim * 2,
-            num_heads=4,
+        # CI Scorer (Context-Independent)
+        self.ci_scorer = nn.Linear(hidden_dim, 1)  # Dot product with speaker embeddings
+        
+        # CD Scorer (Context-Dependent)
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=hidden_dim,
+            nhead=4,
+            dim_feedforward=hidden_dim * 4,
+            dropout=0.1,
             batch_first=True
         )
+        self.cd_scorer = nn.TransformerEncoder(encoder_layer, num_layers=4)
         
-        self.fc = nn.Sequential(
-            nn.Linear(hidden_dim * 2, hidden_dim),
+        # Post-Net (FSMN)
+        self.post_net = nn.ModuleList([
+            FSMNLayer(hidden_dim, hidden_dim, stride=2**i)
+            for i in range(6)  # 6 FSMN layers
+        ])
+        
+        # Final classification
+        self.classifier = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
-            nn.Dropout(0.5),
+            nn.Dropout(0.1),
             nn.Linear(hidden_dim, num_classes)
         )
         
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Input shape: (batch_size, sequence_length, input_dim)
-        x = x.transpose(1, 2)  # (batch_size, input_dim, sequence_length)
+    def forward(self, x: torch.Tensor, speaker_embeddings: torch.Tensor) -> torch.Tensor:
+        # x shape: (batch_size, sequence_length, input_dim)
+        # speaker_embeddings shape: (batch_size, num_speakers, 192)
+        batch_size, seq_len, _ = x.shape
+        num_speakers = speaker_embeddings.size(1)
         
-        # Convolutional layers
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
+        # Process audio features through Speech Encoder
+        for fsmn in self.speech_encoder:
+            x = fsmn(x)  # (batch_size, sequence_length, hidden_dim)
         
-        # Transpose back for LSTM
-        x = x.transpose(1, 2)  # (batch_size, sequence_length, hidden_dim)
+        # Process speaker embeddings
+        speaker_features = self.speaker_encoder(speaker_embeddings)  # (batch_size, num_speakers, hidden_dim)
         
-        # LSTM layers
-        x, _ = self.lstm(x)
+        # CI Scoring
+        ci_scores = []
+        for i in range(num_speakers):
+            # Dot product between audio features and speaker embeddings
+            score = torch.matmul(x, speaker_features[:, i].unsqueeze(-1)).squeeze(-1)  # (batch_size, sequence_length)
+            ci_scores.append(score)
+        ci_scores = torch.stack(ci_scores, dim=1)  # (batch_size, num_speakers, sequence_length)
         
-        # Self-attention
-        x, _ = self.attention(x, x, x)
+        # CD Scoring
+        cd_scores = self.cd_scorer(x)  # (batch_size, sequence_length, hidden_dim)
+        
+        # Combine CI and CD scores
+        combined = torch.cat([
+            ci_scores.transpose(1, 2),  # (batch_size, sequence_length, num_speakers)
+            cd_scores  # (batch_size, sequence_length, hidden_dim)
+        ], dim=2)
+        
+        # Process through Post-Net
+        for fsmn in self.post_net:
+            combined = fsmn(combined)
         
         # Final classification
-        x = self.fc(x)
+        out = self.classifier(combined)  # (batch_size, sequence_length, num_classes)
         
-        return x
+        return out
 
 class OverlappingSpeechDataset(Dataset):
     """Dataset for overlapping speech diarization."""
@@ -156,13 +213,15 @@ class SENDClient(NumPyClient):
         train_loader: DataLoader,
         val_loader: DataLoader,
         device: torch.device,
-        power_set_encoder: PowerSetEncoder
+        power_set_encoder: PowerSetEncoder,
+        speaker_encoder: EncoderClassifier
     ):
         self.model = model
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.device = device
         self.power_set_encoder = power_set_encoder
+        self.speaker_encoder = speaker_encoder
         self.optimizer = optim.Adam(model.parameters())
         self.criterion = nn.CrossEntropyLoss()
         
@@ -183,9 +242,19 @@ class SENDClient(NumPyClient):
         for batch_idx, (features, labels) in enumerate(self.train_loader):
             features, labels = features.to(self.device), labels.to(self.device)
             
+            # Get speaker embeddings for all speakers
+            with torch.no_grad():
+                speaker_embeddings = []
+                for i in range(self.power_set_encoder.max_speakers):
+                    # Create a dummy audio segment for each speaker
+                    dummy_audio = torch.zeros(1, 16000).to(self.device)  # 1 second of silence
+                    embedding = self.speaker_encoder.encode_batch(dummy_audio)
+                    speaker_embeddings.append(embedding)
+                speaker_embeddings = torch.stack(speaker_embeddings, dim=1)  # (batch_size, num_speakers, 192)
+            
             self.optimizer.zero_grad()
-            outputs = self.model(features)
-            loss = self.criterion(outputs, labels)
+            outputs = self.model(features, speaker_embeddings)
+            loss = self.criterion(outputs.view(-1, outputs.size(-1)), labels.view(-1))
             loss.backward()
             self.optimizer.step()
             
@@ -206,13 +275,21 @@ class SENDClient(NumPyClient):
             for features, labels in self.val_loader:
                 features, labels = features.to(self.device), labels.to(self.device)
                 
-                outputs = self.model(features)
-                loss = self.criterion(outputs, labels)
+                # Get speaker embeddings for all speakers
+                speaker_embeddings = []
+                for i in range(self.power_set_encoder.max_speakers):
+                    dummy_audio = torch.zeros(1, 16000).to(self.device)
+                    embedding = self.speaker_encoder.encode_batch(dummy_audio)
+                    speaker_embeddings.append(embedding)
+                speaker_embeddings = torch.stack(speaker_embeddings, dim=1)
+                
+                outputs = self.model(features, speaker_embeddings)
+                loss = self.criterion(outputs.view(-1, outputs.size(-1)), labels.view(-1))
                 val_loss += loss.item()
                 
-                predictions = torch.argmax(outputs, dim=1)
-                all_predictions.extend(predictions.cpu().numpy())
-                all_labels.extend(labels.cpu().numpy())
+                predictions = torch.argmax(outputs, dim=-1)
+                all_predictions.extend(predictions.cpu().numpy().flatten())
+                all_labels.extend(labels.cpu().numpy().flatten())
         
         # Calculate DER
         der = self.calculate_der(all_predictions, all_labels)
@@ -364,7 +441,8 @@ def main():
                     train_loader=train_loader,
                     val_loader=val_loader,
                     device=device,
-                    power_set_encoder=power_set_encoder
+                    power_set_encoder=power_set_encoder,
+                    speaker_encoder=speaker_encoder
                 )
             except Exception as e:
                 logger.error(f"Error creating client {cid}: {str(e)}")
@@ -423,13 +501,13 @@ def main():
                     labels.to(device)
                 )
                 
-                outputs = model(features)
+                outputs = model(features, speaker_embeddings)
                 loss = nn.CrossEntropyLoss()(outputs, labels)
                 test_loss += loss.item()
                 
-                predictions = torch.argmax(outputs, dim=1)
-                all_predictions.extend(predictions.cpu().numpy())
-                all_labels.extend(labels.cpu().numpy())
+                predictions = torch.argmax(outputs, dim=-1)
+                all_predictions.extend(predictions.cpu().numpy().flatten())
+                all_labels.extend(labels.cpu().numpy().flatten())
         
         # Calculate final metrics
         test_loss = test_loss / len(test_loader)
