@@ -180,12 +180,8 @@ class SENDClient(NumPyClient):
         # Train the model
         self.model.train()
         train_loss = 0.0
-        for batch_idx, (features, speaker_embeddings, labels) in enumerate(self.train_loader):
-            features, speaker_embeddings, labels = (
-                features.to(self.device),
-                speaker_embeddings.to(self.device),
-                labels.to(self.device)
-            )
+        for batch_idx, (features, labels) in enumerate(self.train_loader):
+            features, labels = features.to(self.device), labels.to(self.device)
             
             self.optimizer.zero_grad()
             outputs = self.model(features)
@@ -207,12 +203,8 @@ class SENDClient(NumPyClient):
         all_labels = []
         
         with torch.no_grad():
-            for features, speaker_embeddings, labels in self.val_loader:
-                features, speaker_embeddings, labels = (
-                    features.to(self.device),
-                    speaker_embeddings.to(self.device),
-                    labels.to(self.device)
-                )
+            for features, labels in self.val_loader:
+                features, labels = features.to(self.device), labels.to(self.device)
                 
                 outputs = self.model(features)
                 loss = self.criterion(outputs, labels)
