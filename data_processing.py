@@ -83,7 +83,24 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
         # Sort samples by begin_time
         samples = sorted(samples, key=lambda x: x["begin_time"])
         
-        # Find real overlapping segments
+        # First, add original non-overlapping segments
+        for sample in samples:
+            # Create power set encoded label for single speaker
+            max_speakers = len(speaker_to_idx)
+            speaker_label = [0] * max_speakers
+            speaker_idx = speaker_to_idx[sample["speaker_id"]]
+            speaker_label[speaker_idx] = 1
+            encoded_label = sum(label * (2 ** i) for i, label in enumerate(speaker_label))
+            
+            all_samples.append({
+                "audio": sample["audio"],
+                "speaker_id": encoded_label,
+                "begin_time": sample["begin_time"],
+                "end_time": sample["end_time"],
+                "is_overlap": False
+            })
+        
+        # Then, find real overlapping segments
         overlapping_segments = []
         for i in range(len(samples)):
             current = samples[i]
@@ -96,12 +113,29 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
                     overlap_begin = max(current["begin_time"], next_seg["begin_time"])
                     overlap_end = min(current["end_time"], next_seg["end_time"])
                     
-                    # Combine audio segments
+                    # Get audio segments
                     current_audio = current["audio"]["array"]
                     next_audio = next_seg["audio"]["array"]
                     
-                    # Normalize and combine
-                    combined_audio = current_audio + next_audio
+                    # Calculate overlap duration in samples
+                    current_start = int((overlap_begin - current["begin_time"]) * 16000)  # assuming 16kHz
+                    current_end = int((overlap_end - current["begin_time"]) * 16000)
+                    next_start = int((overlap_begin - next_seg["begin_time"]) * 16000)
+                    next_end = int((overlap_end - next_seg["begin_time"]) * 16000)
+                    
+                    # Extract overlapping portions
+                    current_overlap = current_audio[current_start:current_end]
+                    next_overlap = next_audio[next_start:next_end]
+                    
+                    # Ensure both segments have the same length
+                    min_length = min(len(current_overlap), len(next_overlap))
+                    current_overlap = current_overlap[:min_length]
+                    next_overlap = next_overlap[:min_length]
+                    
+                    # Combine audio segments
+                    combined_audio = current_overlap + next_overlap
+                    
+                    # Normalize
                     if np.max(np.abs(combined_audio)) > 0:
                         combined_audio = combined_audio / np.max(np.abs(combined_audio))
                     
@@ -118,7 +152,8 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
                         "audio": {"array": combined_audio},
                         "speaker_id": encoded_label,
                         "begin_time": overlap_begin,
-                        "end_time": overlap_end
+                        "end_time": overlap_end,
+                        "is_overlap": True
                     })
         
         # If we don't have enough overlapping segments, create artificial ones
@@ -152,19 +187,31 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
                     "audio": {"array": segment},
                     "speaker_id": label,
                     "begin_time": 0,  # Artificial segments don't have real timestamps
-                    "end_time": 0
+                    "end_time": 0,
+                    "is_overlap": True
                 })
         
-        # Add both original and overlapping segments
-        all_samples.extend(samples)
+        # Add overlapping segments
         all_samples.extend(overlapping_segments)
     
+    # Balance the dataset
+    non_overlap_samples = [s for s in all_samples if not s["is_overlap"]]
+    overlap_samples = [s for s in all_samples if s["is_overlap"]]
+    
+    # Ensure we have a good balance between overlapping and non-overlapping samples
+    min_samples = min(len(non_overlap_samples), len(overlap_samples))
+    balanced_samples = non_overlap_samples[:min_samples] + overlap_samples[:min_samples]
+    
     # Shuffle samples
-    np.random.shuffle(all_samples)
+    np.random.shuffle(balanced_samples)
+    
+    logger.info(f"Total samples: {len(balanced_samples)}")
+    logger.info(f"Non-overlapping samples: {len(non_overlap_samples[:min_samples])}")
+    logger.info(f"Overlapping samples: {len(overlap_samples[:min_samples])}")
     
     # Split samples among clients
-    samples_per_client = len(all_samples) // num_clients
-    client_samples = [all_samples[i:i + samples_per_client] for i in range(0, len(all_samples), samples_per_client)]
+    samples_per_client = len(balanced_samples) // num_clients
+    client_samples = [balanced_samples[i:i + samples_per_client] for i in range(0, len(balanced_samples), samples_per_client)]
     
     # Create data loaders for each client
     client_data = []
