@@ -294,10 +294,12 @@ def start_client(client: SENDClient, server_address: str):
         server_address: The address of the server
     """
     try:
+        logger.info(f"Client attempting to connect to {server_address}")
         fl.client.start_numpy_client(
             server_address=server_address,
             client=client
         )
+        logger.info("Client finished successfully")
     except Exception as e:
         logger.error(f"Client error: {str(e)}")
 
@@ -345,91 +347,44 @@ def main():
         client_data = split_data_for_clients(grouped_train, num_clients)
         logger.info(f"Split data among {num_clients} clients")
         
-        # Initialize clients with validation data
-        logger.info("Initializing clients...")
-        clients = []
-        for client_id, (train_loader, val_loader) in enumerate(client_data):
-            client = SENDClient(
+        # Define client function for simulation
+        def client_fn(cid: str):
+            """Create a client for the simulation."""
+            train_loader, val_loader = client_data[int(cid)]
+            return SENDClient(
                 model=model,
                 train_loader=train_loader,
                 val_loader=val_loader,
                 device=device,
                 power_set_encoder=power_set_encoder
             )
-            clients.append(client)
-            logger.info(f"Initialized client {client_id}")
         
-        # Start federated learning with fewer rounds
-        logger.info("Starting federated learning...")
+        # Start federated learning with simulation
+        logger.info("Starting federated learning simulation...")
         strategy = fl.server.strategy.FedAvg(
             min_available_clients=2,
             min_fit_clients=2,
             min_evaluate_clients=2,
-            on_fit_config_fn=lambda _: {"epochs": 3},  # increase to 3 epochs
-            on_evaluate_config_fn=lambda _: {"epochs": 3},  # increase to 3 epochs
+            on_fit_config_fn=lambda _: {"epochs": 3},
+            on_evaluate_config_fn=lambda _: {"epochs": 3},
             initial_parameters=fl.common.ndarrays_to_parameters(
                 [val.cpu().numpy() for _, val in model.state_dict().items()]
             ),
         )
         
-        # Find available port
-        try:
-            port = find_available_port()
-            server_address = f"[::]:{port}"
-            logger.info(f"Using port {port} for Flower server")
-            
-            if is_running_in_colab():
-                # В Colab используем потоки вместо процессов
-                import threading
-                threads = []
-                for client_id, client in enumerate(clients):
-                    logger.info(f"Starting client {client_id}")
-                    t = threading.Thread(
-                        target=start_client,
-                        args=(client, f"localhost:{port}")
-                    )
-                    t.start()
-                    threads.append(t)
-                
-                # Start Flower server
-                logger.info("Starting Flower server...")
-                fl.server.start_server(
-                    server_address=server_address,
-                    config=fl.server.ServerConfig(num_rounds=3),
-                    strategy=strategy
-                )
-                
-                # Wait for all threads to finish
-                for t in threads:
-                    t.join()
-            else:
-                # В обычном окружении используем процессы
-                import multiprocessing
-                processes = []
-                for client_id, client in enumerate(clients):
-                    logger.info(f"Starting client {client_id}")
-                    p = multiprocessing.Process(
-                        target=start_client,
-                        args=(client, f"localhost:{port}")
-                    )
-                    p.start()
-                    processes.append(p)
-                
-                # Start Flower server
-                logger.info("Starting Flower server...")
-                fl.server.start_server(
-                    server_address=server_address,
-                    config=fl.server.ServerConfig(num_rounds=3),
-                    strategy=strategy
-                )
-                
-                # Wait for all processes to finish
-                for p in processes:
-                    p.join()
-            
-        except RuntimeError as e:
-            logger.error(f"Failed to start server: {str(e)}")
-            return
+        # Start simulation
+        fl.simulation.start_simulation(
+            client_fn=client_fn,
+            num_clients=num_clients,
+            config=fl.server.ServerConfig(num_rounds=3),
+            strategy=strategy,
+            ray_init_args={
+                "num_cpus": num_clients,  # Use one CPU per client
+                "include_dashboard": False,
+                "ignore_reinit_error": True,
+            },
+            client_resources={"num_cpus": 1}  # Each client uses one CPU
+        )
         
         # Final evaluation on test set
         logger.info("Performing final evaluation on test set...")
