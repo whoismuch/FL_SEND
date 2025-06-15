@@ -89,7 +89,7 @@ class FSMNLayer(nn.Module):
         # x shape: (batch_size, seq_len, input_dim)
         batch_size, seq_len, current_dim = x.shape
         
-        # Проверяем и адаптируем размерность входа
+        # Check and adapt input dimensions
         if current_dim != self.input_dim:
             x = nn.Linear(current_dim, self.input_dim)(x)
         
@@ -151,7 +151,7 @@ class SENDModel(nn.Module):
             nn.Linear(hidden_dim, num_classes)
         )
         
-        # Адаптер для объединения CI и CD оценок
+        # Adapter for combining CI and CD scores
         self.combine_adapter = None
         
     def forward(self, x: torch.Tensor, speaker_embeddings: torch.Tensor) -> torch.Tensor:
@@ -185,11 +185,11 @@ class SENDModel(nn.Module):
             cd_scores  # (batch_size, sequence_length, hidden_dim)
         ], dim=2)  # (batch_size, sequence_length, num_speakers + hidden_dim)
         
-        # Создаем адаптер, если его еще нет или размерности изменились
+        # Create adapter if it doesn't exist or dimensions have changed
         if self.combine_adapter is None or self.combine_adapter.in_features != combined.size(-1):
             self.combine_adapter = nn.Linear(combined.size(-1), self.post_net[0].input_dim).to(combined.device)
         
-        # Адаптируем размерность перед Post-Net
+        # Adapt dimensions before Post-Net
         combined = self.combine_adapter(combined)
         
         # Process through Post-Net
