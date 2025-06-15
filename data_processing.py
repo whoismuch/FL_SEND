@@ -496,11 +496,23 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder):
     features = []
     labels = []
     
+    # Create speaker ID to index mapping
+    speaker_to_idx = {}
+    for meeting_id, samples in grouped_data.items():
+        for sample in samples:
+            speaker_id = sample["speaker_id"]
+            if speaker_id not in speaker_to_idx:
+                speaker_to_idx[speaker_id] = len(speaker_to_idx)
+    
+    logger.info(f"Created speaker ID mapping: {speaker_to_idx}")
+    
     for meeting_id, samples in grouped_data.items():
         for sample in samples:
             # Extract features and labels
             feature = extract_features(sample["audio"]["array"])
-            label = power_set_encoding(sample["speaker_id"])
+            # Convert string speaker ID to numeric index
+            speaker_idx = speaker_to_idx[sample["speaker_id"]]
+            label = power_set_encoding(speaker_idx)
             features.append(feature)
             labels.append(label)
     
@@ -583,7 +595,7 @@ def power_set_encoding(label):
     """Encodes speaker label into a single integer using power-set encoding.
     
     Args:
-        label: Either a single speaker ID or a list of speaker IDs
+        label: Either a single speaker index (int) or a list of speaker indices
         
     Returns:
         int: Encoded value representing the combination of speakers
