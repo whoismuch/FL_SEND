@@ -58,17 +58,23 @@ def simulate_overlapping_speech(
             seg2 = audio_segments[j]
             
             # Ensure both segments have the same length
-            min_length = min(len(seg1), len(seg2))
-            if min_length > target_length:
-                # If segments are longer than target, take a random slice
+            if len(seg1) > target_length:
+                # If segment is longer than target, take a random slice
                 start1 = np.random.randint(0, len(seg1) - target_length)
-                start2 = np.random.randint(0, len(seg2) - target_length)
                 seg1 = seg1[start1:start1 + target_length]
+            elif len(seg1) < target_length:
+                # If segment is shorter, pad with zeros
+                pad_length = target_length - len(seg1)
+                seg1 = np.pad(seg1, (0, pad_length))
+            
+            if len(seg2) > target_length:
+                # If segment is longer than target, take a random slice
+                start2 = np.random.randint(0, len(seg2) - target_length)
                 seg2 = seg2[start2:start2 + target_length]
-            else:
-                # If segments are shorter, pad with zeros
-                seg1 = np.pad(seg1, (0, target_length - len(seg1)))
-                seg2 = np.pad(seg2, (0, target_length - len(seg2)))
+            elif len(seg2) < target_length:
+                # If segment is shorter, pad with zeros
+                pad_length = target_length - len(seg2)
+                seg2 = np.pad(seg2, (0, pad_length))
             
             # Combine audio segments
             combined_audio = seg1 + seg2
