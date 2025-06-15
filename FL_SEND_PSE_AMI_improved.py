@@ -1,6 +1,7 @@
 # FL-SEND-PSE: Federated Learning for Speaker Embedding-aware Neural Diarization with Power-Set Encoding
 import os
 import pickle
+import random
 import numpy as np
 import torch
 import torch.nn as nn
