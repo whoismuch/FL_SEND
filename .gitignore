@@ -1,0 +1,8 @@
+*.pyc
+__pycache__/
+.ipynb_checkpoints/
+*.pkl
+pretrained_models/
+results/
+.env
+.DS_Store
