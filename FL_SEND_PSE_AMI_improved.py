@@ -278,6 +278,29 @@ def find_available_port(start_port: int = 8080, max_attempts: int = 10) -> int:
     
     raise RuntimeError(f"Could not find an available port after {max_attempts} attempts")
 
+def is_running_in_colab():
+    """Check if the code is running in Google Colab."""
+    try:
+        import google.colab
+        return True
+    except ImportError:
+        return False
+
+def start_client(client: SENDClient, server_address: str):
+    """Start a Flower client.
+    
+    Args:
+        client: The client to start
+        server_address: The address of the server
+    """
+    try:
+        fl.client.start_numpy_client(
+            server_address=server_address,
+            client=client
+        )
+    except Exception as e:
+        logger.error(f"Client error: {str(e)}")
+
 def main():
     try:
         # Initialize speaker encoder
@@ -352,15 +375,58 @@ def main():
         # Find available port
         try:
             port = find_available_port()
+            server_address = f"[::]:{port}"
             logger.info(f"Using port {port} for Flower server")
             
-            # Start Flower server with more rounds
-            logger.info("Starting Flower server...")
-            fl.server.start_server(
-                server_address=f"[::]:{port}",
-                config=fl.server.ServerConfig(num_rounds=3),  # increase to 3 rounds
-                strategy=strategy
-            )
+            if is_running_in_colab():
+                # В Colab используем потоки вместо процессов
+                import threading
+                threads = []
+                for client_id, client in enumerate(clients):
+                    logger.info(f"Starting client {client_id}")
+                    t = threading.Thread(
+                        target=start_client,
+                        args=(client, f"localhost:{port}")
+                    )
+                    t.start()
+                    threads.append(t)
+                
+                # Start Flower server
+                logger.info("Starting Flower server...")
+                fl.server.start_server(
+                    server_address=server_address,
+                    config=fl.server.ServerConfig(num_rounds=3),
+                    strategy=strategy
+                )
+                
+                # Wait for all threads to finish
+                for t in threads:
+                    t.join()
+            else:
+                # В обычном окружении используем процессы
+                import multiprocessing
+                processes = []
+                for client_id, client in enumerate(clients):
+                    logger.info(f"Starting client {client_id}")
+                    p = multiprocessing.Process(
+                        target=start_client,
+                        args=(client, f"localhost:{port}")
+                    )
+                    p.start()
+                    processes.append(p)
+                
+                # Start Flower server
+                logger.info("Starting Flower server...")
+                fl.server.start_server(
+                    server_address=server_address,
+                    config=fl.server.ServerConfig(num_rounds=3),
+                    strategy=strategy
+                )
+                
+                # Wait for all processes to finish
+                for p in processes:
+                    p.join()
+            
         except RuntimeError as e:
             logger.error(f"Failed to start server: {str(e)}")
             return
