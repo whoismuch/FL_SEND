@@ -80,12 +80,18 @@ class FSMNLayer(nn.Module):
     def __init__(self, input_dim: int, hidden_dim: int, stride: int = 1):
         super().__init__()
         self.stride = stride
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
         self.linear = nn.Linear(input_dim, hidden_dim)
         self.memory = nn.Linear(input_dim, hidden_dim)
         
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x shape: (batch_size, seq_len, input_dim)
-        batch_size, seq_len, _ = x.shape
+        batch_size, seq_len, current_dim = x.shape
+        
+        # Проверяем и адаптируем размерность входа
+        if current_dim != self.input_dim:
+            x = nn.Linear(current_dim, self.input_dim)(x)
         
         # Linear projection
         h = self.linear(x)  # (batch_size, seq_len, hidden_dim)
@@ -145,6 +151,9 @@ class SENDModel(nn.Module):
             nn.Linear(hidden_dim, num_classes)
         )
         
+        # Адаптер для объединения CI и CD оценок
+        self.combine_adapter = None
+        
     def forward(self, x: torch.Tensor, speaker_embeddings: torch.Tensor) -> torch.Tensor:
         # x shape: (batch_size, sequence_length, input_dim)
         # speaker_embeddings shape: (batch_size, num_speakers, 192)
@@ -175,6 +184,13 @@ class SENDModel(nn.Module):
             ci_scores,  # (batch_size, sequence_length, num_speakers)
             cd_scores  # (batch_size, sequence_length, hidden_dim)
         ], dim=2)  # (batch_size, sequence_length, num_speakers + hidden_dim)
+        
+        # Создаем адаптер, если его еще нет или размерности изменились
+        if self.combine_adapter is None or self.combine_adapter.in_features != combined.size(-1):
+            self.combine_adapter = nn.Linear(combined.size(-1), self.post_net[0].input_dim).to(combined.device)
+        
+        # Адаптируем размерность перед Post-Net
+        combined = self.combine_adapter(combined)
         
         # Process through Post-Net
         for fsmn in self.post_net:
