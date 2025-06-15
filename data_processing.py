@@ -16,6 +16,11 @@ logger = logging.getLogger(__name__)
 
 def extract_features(audio: np.ndarray, sr: int = 16000, n_mels: int = 80) -> np.ndarray:
     """Extract log-mel spectrogram features from audio."""
+    # Ensure minimum length for FFT
+    min_length = 2048  # minimum length for FFT
+    if len(audio) < min_length:
+        audio = np.pad(audio, (0, min_length - len(audio)))
+    
     mel_spec = librosa.feature.melspectrogram(
         y=audio,
         sr=sr,
@@ -383,19 +388,37 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
                 val_features = features[train_size:]
                 val_labels = labels[train_size:]
                 
+                # Create datasets with collate function
+                def collate_fn(batch):
+                    max_len = max(x[0].shape[0] for x in batch)
+                    features = []
+                    labels = []
+                    
+                    for feature, label in batch:
+                        if feature.shape[0] < max_len:
+                            pad_len = max_len - feature.shape[0]
+                            feature = np.pad(feature, ((0, pad_len), (0, 0)), mode='constant')
+                        features.append(feature)
+                        labels.append(label)
+                    
+                    features = torch.tensor(np.array(features), dtype=torch.float32)
+                    labels = torch.tensor(labels, dtype=torch.long)
+                    
+                    return features, labels
+                
                 # Create datasets
                 train_dataset = torch.utils.data.TensorDataset(
-                    torch.tensor(train_features, dtype=torch.float32),
+                    torch.tensor(np.array(train_features), dtype=torch.float32),
                     torch.tensor(train_labels, dtype=torch.long)
                 )
                 val_dataset = torch.utils.data.TensorDataset(
-                    torch.tensor(val_features, dtype=torch.float32),
+                    torch.tensor(np.array(val_features), dtype=torch.float32),
                     torch.tensor(val_labels, dtype=torch.long)
                 )
                 
                 # Create data loaders
-                train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-                val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+                train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, collate_fn=collate_fn)
+                val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False, collate_fn=collate_fn)
                 
                 client_data.append((train_loader, val_loader))
                 logger.info(f"Created data loaders for client {client_id}")
@@ -406,6 +429,9 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
             except Exception as e:
                 logger.error(f"Error processing client {client_id}: {str(e)}")
                 continue
+        
+        if not client_data:
+            raise ValueError("No client data was created successfully")
         
         logger.info("\nData processing completed successfully")
         return client_data
@@ -518,10 +544,35 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
     val_dataset = create_dataset_from_grouped(grouped_validation, speaker_encoder)
     test_dataset = create_dataset_from_grouped(grouped_test, speaker_encoder)
     
-    # Create data loaders
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+    # Create data loaders with collate function
+    def collate_fn(batch):
+        # Find max sequence length in batch
+        max_len = max(x[0].shape[0] for x in batch)
+        
+        # Pad sequences to max length
+        features = []
+        speaker_embeddings = []
+        labels = []
+        
+        for feature, speaker_embedding, label in batch:
+            # Pad feature sequence
+            if feature.shape[0] < max_len:
+                pad_len = max_len - feature.shape[0]
+                feature = np.pad(feature, ((0, pad_len), (0, 0)), mode='constant')
+            features.append(feature)
+            speaker_embeddings.append(speaker_embedding)
+            labels.append(label)
+        
+        # Convert to tensors
+        features = torch.tensor(np.array(features), dtype=torch.float32)
+        speaker_embeddings = torch.stack(speaker_embeddings)
+        labels = torch.tensor(labels, dtype=torch.long)
+        
+        return features, speaker_embeddings, labels
+    
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
     
     logger.info(f"Created data loaders with batch size {batch_size}")
     logger.info(f"Training samples: {len(train_dataset)}")
