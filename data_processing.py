@@ -33,14 +33,45 @@ def simulate_overlapping_speech(
     duration: float = 10.0,
     sr: int = 16000
 ) -> Tuple[np.ndarray, List[int]]:
-    """Simulate overlapping speech segments."""
+    """Simulate overlapping speech segments.
+    
+    Args:
+        audio_segments: List of audio segments
+        speaker_labels: List of speaker labels corresponding to audio segments
+        max_speakers: Maximum number of speakers
+        duration: Target duration for each segment in seconds
+        sr: Sample rate
+        
+    Returns:
+        Tuple of (overlapping_segments, power_set_labels)
+    """
     overlapping_segments = []
     power_set_labels = []
     
+    # Convert duration to samples
+    target_length = int(duration * sr)
+    
     for i in range(len(audio_segments)):
         for j in range(i + 1, len(audio_segments)):
+            # Get segments
+            seg1 = audio_segments[i]
+            seg2 = audio_segments[j]
+            
+            # Ensure both segments have the same length
+            min_length = min(len(seg1), len(seg2))
+            if min_length > target_length:
+                # If segments are longer than target, take a random slice
+                start1 = np.random.randint(0, len(seg1) - target_length)
+                start2 = np.random.randint(0, len(seg2) - target_length)
+                seg1 = seg1[start1:start1 + target_length]
+                seg2 = seg2[start2:start2 + target_length]
+            else:
+                # If segments are shorter, pad with zeros
+                seg1 = np.pad(seg1, (0, target_length - len(seg1)))
+                seg2 = np.pad(seg2, (0, target_length - len(seg2)))
+            
             # Combine audio segments
-            combined_audio = audio_segments[i] + audio_segments[j]
+            combined_audio = seg1 + seg2
             
             # Normalize
             if np.max(np.abs(combined_audio)) > 0:

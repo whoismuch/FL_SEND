@@ -265,7 +265,7 @@ def main():
     ).to(device)
     
     # Load and preprocess data
-    dataset = load_dataset("edinburghcstr/ami", "ihm")
+    dataset = load_dataset("edinburghcstr/ami", "ihm", trust_remote_code=True)
     
     # Take a small subset for testing
     test_size = 1000  # small number for quick testing
