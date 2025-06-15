@@ -234,6 +234,43 @@ class SENDClient(NumPyClient):
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
         self.model.load_state_dict(state_dict, strict=True)
     
+    def _prepare_speaker_embeddings(self, batch_size):
+        """Prepare speaker embeddings for a batch.
+        
+        Args:
+            batch_size: Size of the current batch
+            
+        Returns:
+            torch.Tensor: Speaker embeddings of shape (batch_size, num_speakers, 192)
+        """
+        speaker_embeddings = []
+        for i in range(self.power_set_encoder.max_speakers):
+            # Create a dummy audio segment for each speaker
+            dummy_audio = torch.zeros(1, 16000).to(self.device)  # 1 second of silence
+            embedding = self.speaker_encoder.encode_batch(dummy_audio)
+            
+            # Log the shape for debugging
+            logger.debug(f"Raw embedding shape: {embedding.shape}")
+            
+            # Ensure we have the right shape (192,)
+            if embedding.dim() > 1:
+                embedding = embedding.squeeze()  # Remove all size-1 dimensions
+            if embedding.dim() == 0:
+                embedding = embedding.unsqueeze(0)  # Add back dimension if needed
+                
+            speaker_embeddings.append(embedding)
+            
+        # Stack embeddings to get (num_speakers, 192)
+        speaker_embeddings = torch.stack(speaker_embeddings, dim=0)
+        logger.debug(f"Stacked embeddings shape: {speaker_embeddings.shape}")
+        
+        # Add batch dimension and expand
+        speaker_embeddings = speaker_embeddings.unsqueeze(0)  # (1, num_speakers, 192)
+        speaker_embeddings = speaker_embeddings.expand(batch_size, -1, -1)  # (batch_size, num_speakers, 192)
+        logger.debug(f"Final embeddings shape: {speaker_embeddings.shape}")
+        
+        return speaker_embeddings
+    
     def fit(self, parameters, config):
         self.set_parameters(parameters)
         
@@ -245,19 +282,7 @@ class SENDClient(NumPyClient):
             
             # Get speaker embeddings for all speakers
             with torch.no_grad():
-                speaker_embeddings = []
-                for i in range(self.power_set_encoder.max_speakers):
-                    # Create a dummy audio segment for each speaker
-                    dummy_audio = torch.zeros(1, 16000).to(self.device)  # 1 second of silence
-                    embedding = self.speaker_encoder.encode_batch(dummy_audio)
-                    # Remove extra dimensions if present
-                    while embedding.dim() > 2:
-                        embedding = embedding.squeeze(0)
-                    speaker_embeddings.append(embedding)
-                speaker_embeddings = torch.stack(speaker_embeddings, dim=0)  # (num_speakers, 192)
-                # Add batch dimension and expand
-                speaker_embeddings = speaker_embeddings.unsqueeze(0)  # (1, num_speakers, 192)
-                speaker_embeddings = speaker_embeddings.expand(features.size(0), -1, -1)  # (batch_size, num_speakers, 192)
+                speaker_embeddings = self._prepare_speaker_embeddings(features.size(0))
             
             self.optimizer.zero_grad()
             outputs = self.model(features, speaker_embeddings)
@@ -283,18 +308,7 @@ class SENDClient(NumPyClient):
                 features, labels = features.to(self.device), labels.to(self.device)
                 
                 # Get speaker embeddings for all speakers
-                speaker_embeddings = []
-                for i in range(self.power_set_encoder.max_speakers):
-                    dummy_audio = torch.zeros(1, 16000).to(self.device)
-                    embedding = self.speaker_encoder.encode_batch(dummy_audio)
-                    # Remove extra dimensions if present
-                    while embedding.dim() > 2:
-                        embedding = embedding.squeeze(0)
-                    speaker_embeddings.append(embedding)
-                speaker_embeddings = torch.stack(speaker_embeddings, dim=0)  # (num_speakers, 192)
-                # Add batch dimension and expand
-                speaker_embeddings = speaker_embeddings.unsqueeze(0)  # (1, num_speakers, 192)
-                speaker_embeddings = speaker_embeddings.expand(features.size(0), -1, -1)  # (batch_size, num_speakers, 192)
+                speaker_embeddings = self._prepare_speaker_embeddings(features.size(0))
                 
                 outputs = self.model(features, speaker_embeddings)
                 loss = self.criterion(outputs.view(-1, outputs.size(-1)), labels.view(-1))
