@@ -32,7 +32,7 @@ def simulate_overlapping_speech(
     max_speakers: int = 4,
     duration: float = 10.0,
     sr: int = 16000,
-    batch_size: int = 100
+    max_combinations: int = 1000  # Максимальное количество комбинаций
 ) -> Tuple[np.ndarray, List[int]]:
     """Simulate overlapping speech segments.
     
@@ -42,7 +42,7 @@ def simulate_overlapping_speech(
         max_speakers: Maximum number of speakers
         duration: Target duration for each segment in seconds
         sr: Sample rate
-        batch_size: Number of segments to process at once
+        max_combinations: Maximum number of combinations to generate
         
     Returns:
         Tuple of (overlapping_segments, power_set_labels)
@@ -50,7 +50,7 @@ def simulate_overlapping_speech(
     logger.info(f"Starting simulation with {len(audio_segments)} segments")
     
     # Ограничиваем количество сегментов для обработки
-    max_segments = min(len(audio_segments), 500)  # Максимум 500 сегментов
+    max_segments = min(len(audio_segments), 100)  # Уменьшаем до 100 сегментов
     if len(audio_segments) > max_segments:
         logger.info(f"Limiting segments from {len(audio_segments)} to {max_segments}")
         indices = np.random.choice(len(audio_segments), max_segments, replace=False)
@@ -63,69 +63,73 @@ def simulate_overlapping_speech(
     # Convert duration to samples
     target_length = int(duration * sr)
     
-    # Обработка пакетами
-    total_combinations = len(audio_segments) * (len(audio_segments) - 1) // 2
-    logger.info(f"Total possible combinations: {total_combinations}")
+    # Создаем список возможных комбинаций
+    combinations = []
+    for i in range(len(audio_segments)):
+        for j in range(i + 1, len(audio_segments)):
+            combinations.append((i, j))
     
+    # Ограничиваем количество комбинаций
+    if len(combinations) > max_combinations:
+        logger.info(f"Limiting combinations from {len(combinations)} to {max_combinations}")
+        combinations = np.random.choice(combinations, max_combinations, replace=False)
+    
+    logger.info(f"Processing {len(combinations)} combinations")
     processed = 0
-    for i in range(0, len(audio_segments), batch_size):
-        batch_end = min(i + batch_size, len(audio_segments))
-        logger.info(f"Processing batch {i//batch_size + 1} of {(len(audio_segments) + batch_size - 1)//batch_size}")
+    
+    for i, j in combinations:
+        try:
+            # Get segments
+            seg1 = audio_segments[i]
+            seg2 = audio_segments[j]
+            
+            # Ensure both segments have the same length
+            if len(seg1) > target_length:
+                # If segment is longer than target, take a random slice
+                start1 = np.random.randint(0, len(seg1) - target_length)
+                seg1 = seg1[start1:start1 + target_length]
+            elif len(seg1) < target_length:
+                # If segment is shorter, pad with zeros
+                pad_length = target_length - len(seg1)
+                seg1 = np.pad(seg1, (0, pad_length))
+            
+            if len(seg2) > target_length:
+                # If segment is longer than target, take a random slice
+                start2 = np.random.randint(0, len(seg2) - target_length)
+                seg2 = seg2[start2:start2 + target_length]
+            elif len(seg2) < target_length:
+                # If segment is shorter, pad with zeros
+                pad_length = target_length - len(seg2)
+                seg2 = np.pad(seg2, (0, pad_length))
+            
+            # Combine audio segments
+            combined_audio = seg1 + seg2
+            
+            # Normalize
+            if np.max(np.abs(combined_audio)) > 0:
+                combined_audio = combined_audio / np.max(np.abs(combined_audio))
+            
+            # Create power set encoded label
+            speaker_label = [0] * max_speakers
+            speaker_label[speaker_labels[i]] = 1
+            speaker_label[speaker_labels[j]] = 1
+            
+            # Encode label
+            encoded_label = sum(label * (2 ** i) for i, label in enumerate(speaker_label))
+            
+            overlapping_segments.append(combined_audio)
+            power_set_labels.append(encoded_label)
+            
+            processed += 1
+            if processed % 100 == 0:
+                logger.info(f"Processed {processed}/{len(combinations)} combinations")
         
-        for j in range(i, batch_end):
-            for k in range(j + 1, len(audio_segments)):
-                try:
-                    # Get segments
-                    seg1 = audio_segments[j]
-                    seg2 = audio_segments[k]
-                    
-                    # Ensure both segments have the same length
-                    if len(seg1) > target_length:
-                        # If segment is longer than target, take a random slice
-                        start1 = np.random.randint(0, len(seg1) - target_length)
-                        seg1 = seg1[start1:start1 + target_length]
-                    elif len(seg1) < target_length:
-                        # If segment is shorter, pad with zeros
-                        pad_length = target_length - len(seg1)
-                        seg1 = np.pad(seg1, (0, pad_length))
-                    
-                    if len(seg2) > target_length:
-                        # If segment is longer than target, take a random slice
-                        start2 = np.random.randint(0, len(seg2) - target_length)
-                        seg2 = seg2[start2:start2 + target_length]
-                    elif len(seg2) < target_length:
-                        # If segment is shorter, pad with zeros
-                        pad_length = target_length - len(seg2)
-                        seg2 = np.pad(seg2, (0, pad_length))
-                    
-                    # Combine audio segments
-                    combined_audio = seg1 + seg2
-                    
-                    # Normalize
-                    if np.max(np.abs(combined_audio)) > 0:
-                        combined_audio = combined_audio / np.max(np.abs(combined_audio))
-                    
-                    # Create power set encoded label
-                    speaker_label = [0] * max_speakers
-                    speaker_label[speaker_labels[j]] = 1
-                    speaker_label[speaker_labels[k]] = 1
-                    
-                    # Encode label
-                    encoded_label = sum(label * (2 ** i) for i, label in enumerate(speaker_label))
-                    
-                    overlapping_segments.append(combined_audio)
-                    power_set_labels.append(encoded_label)
-                    
-                    processed += 1
-                    if processed % 1000 == 0:
-                        logger.info(f"Processed {processed} combinations")
-                
-                except KeyboardInterrupt:
-                    logger.info("\nInterrupted during segment processing. Saving progress...")
-                    return np.array(overlapping_segments), power_set_labels
-                except Exception as e:
-                    logger.error(f"Error processing segments {j} and {k}: {str(e)}")
-                    continue
+        except KeyboardInterrupt:
+            logger.info("\nInterrupted during segment processing. Saving progress...")
+            return np.array(overlapping_segments), power_set_labels
+        except Exception as e:
+            logger.error(f"Error processing segments {i} and {j}: {str(e)}")
+            continue
     
     logger.info(f"Successfully created {len(overlapping_segments)} overlapping segments")
     return np.array(overlapping_segments), power_set_labels
