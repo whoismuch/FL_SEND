@@ -252,15 +252,24 @@ def main():
     # Load and preprocess data
     dataset = load_dataset("edinburghcstr/ami", "ihm")
     
+    # Take a small subset for testing
+    test_size = 100  # небольшое количество для быстрой проверки
+    logger.info(f"Using subset of {test_size} samples for testing")
+    
+    # Select subset from train split
+    train_subset = dataset["train"].select(range(test_size))
+    logger.info(f"Selected {len(train_subset)} samples from training set")
+    
     # Initialize Power Set Encoder
     power_set_encoder = PowerSetEncoder(max_speakers=4)
     
     # Create and train model
     model = SENDModel().to(device)
     
-    # Split data for federated learning
-    num_clients = 5
-    client_data = split_data_for_clients(dataset, num_clients)
+    # Split data for federated learning with fewer clients
+    num_clients = 2  # уменьшаем количество клиентов для тестирования
+    client_data = split_data_for_clients(train_subset, num_clients)
+    logger.info(f"Split data among {num_clients} clients")
     
     # Initialize clients
     clients = []
@@ -273,26 +282,27 @@ def main():
             power_set_encoder=power_set_encoder
         )
         clients.append(client)
+        logger.info(f"Initialized client {client_id}")
     
-    # Start federated learning
+    # Start federated learning with fewer rounds
     strategy = fl.server.strategy.FedAvg(
-        fraction_fit=0.8,
-        fraction_eval=0.2,
-        min_fit_clients=3,
+        fraction_fit=1.0,  # используем всех клиентов
+        fraction_eval=1.0,  # используем всех клиентов
+        min_fit_clients=2,
         min_eval_clients=2,
-        min_available_clients=3,
+        min_available_clients=2,
         eval_fn=None,
-        on_fit_config_fn=lambda _: {"epochs": 5},
+        on_fit_config_fn=lambda _: {"epochs": 1},  # уменьшаем количество эпох
         on_eval_config_fn=lambda _: {"epochs": 1},
         initial_parameters=fl.common.ndarrays_to_parameters(
             [val.cpu().numpy() for _, val in model.state_dict().items()]
         ),
     )
     
-    # Start Flower server
+    # Start Flower server with fewer rounds
     fl.server.start_server(
         server_address="[::]:8080",
-        config=fl.server.ServerConfig(num_rounds=10),
+        config=fl.server.ServerConfig(num_rounds=2),  # уменьшаем количество раундов
         strategy=strategy
     )
 
