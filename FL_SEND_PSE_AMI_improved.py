@@ -257,106 +257,128 @@ class SENDClient(NumPyClient):
         return der
 
 def main():
-    # Initialize speaker encoder
-    speaker_encoder = EncoderClassifier.from_hparams(
-        source="speechbrain/spkrec-ecapa-voxceleb",
-        savedir="pretrained_models/spkrec-ecapa",
-        run_opts={"device": device}
-    ).to(device)
-    
-    # Load and preprocess data
-    dataset = load_dataset("edinburghcstr/ami", "ihm", trust_remote_code=True)
-    
-    # Take a small subset for testing
-    test_size = 1000  # small number for quick testing
-    logger.info(f"Using subset of {test_size} samples for testing")
-    
-    # Group data by meeting ID for all splits
-    grouped_train = group_by_meeting(dataset["train"].select(range(test_size)))
-    grouped_validation = group_by_meeting(dataset["validation"].select(range(test_size)))
-    grouped_test = group_by_meeting(dataset["test"].select(range(test_size)))
-    
-    logger.info(f"Grouped {len(grouped_train)} meetings from training set")
-    logger.info(f"Grouped {len(grouped_validation)} meetings from validation set")
-    logger.info(f"Grouped {len(grouped_test)} meetings from test set")
-    
-    # Initialize Power Set Encoder
-    power_set_encoder = PowerSetEncoder(max_speakers=4)
-    
-    # Create and train model
-    model = SENDModel().to(device)
-    
-    # Split data for federated learning with fewer clients
-    num_clients = 2  # reduce number of clients for testing
-    client_data = split_data_for_clients(grouped_train, num_clients)
-    logger.info(f"Split data among {num_clients} clients")
-    
-    # Initialize clients with validation data
-    clients = []
-    for client_id, (train_loader, val_loader) in enumerate(client_data):
-        client = SENDClient(
-            model=model,
-            train_loader=train_loader,
-            val_loader=val_loader,
-            device=device,
-            power_set_encoder=power_set_encoder
-        )
-        clients.append(client)
-        logger.info(f"Initialized client {client_id}")
-    
-    # Start federated learning with fewer rounds
-    strategy = fl.server.strategy.FedAvg(
-        fraction_fit=1.0,  # use all clients
-        fraction_eval=1.0,  # use all clients
-        min_fit_clients=2,
-        min_eval_clients=2,
-        min_available_clients=2,
-        eval_fn=None,
-        on_fit_config_fn=lambda _: {"epochs": 3},  # increase to 3 epochs
-        on_eval_config_fn=lambda _: {"epochs": 3},  # increase to 3 epochs
-        initial_parameters=fl.common.ndarrays_to_parameters(
-            [val.cpu().numpy() for _, val in model.state_dict().items()]
-        ),
-    )
-    
-    # Start Flower server with more rounds
-    fl.server.start_server(
-        server_address="[::]:8080",
-        config=fl.server.ServerConfig(num_rounds=3),  # increase to 3 rounds
-        strategy=strategy
-    )
-    
-    # Final evaluation on test set
-    logger.info("Performing final evaluation on test set...")
-    _, _, test_loader = prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speaker_encoder)
-    
-    model.eval()
-    test_loss = 0.0
-    all_predictions = []
-    all_labels = []
-    
-    with torch.no_grad():
-        for features, speaker_embeddings, labels in test_loader:
-            features, speaker_embeddings, labels = (
-                features.to(device),
-                speaker_embeddings.to(device),
-                labels.to(device)
+    try:
+        # Initialize speaker encoder
+        logger.info("Initializing speaker encoder...")
+        speaker_encoder = EncoderClassifier.from_hparams(
+            source="speechbrain/spkrec-ecapa-voxceleb",
+            savedir="pretrained_models/spkrec-ecapa",
+            run_opts={"device": device}
+        ).to(device)
+        logger.info("Speaker encoder initialized successfully")
+        
+        # Load and preprocess data
+        logger.info("Loading AMI dataset...")
+        dataset = load_dataset("edinburghcstr/ami", "ihm", trust_remote_code=True)
+        logger.info("Dataset loaded successfully")
+        
+        # Take a small subset for testing
+        test_size = 1000  # small number for quick testing
+        logger.info(f"Using subset of {test_size} samples for testing")
+        
+        # Group data by meeting ID for all splits
+        logger.info("Grouping data by meeting ID...")
+        grouped_train = group_by_meeting(dataset["train"].select(range(test_size)))
+        grouped_validation = group_by_meeting(dataset["validation"].select(range(test_size)))
+        grouped_test = group_by_meeting(dataset["test"].select(range(test_size)))
+        
+        logger.info(f"Grouped {len(grouped_train)} meetings from training set")
+        logger.info(f"Grouped {len(grouped_validation)} meetings from validation set")
+        logger.info(f"Grouped {len(grouped_test)} meetings from test set")
+        
+        # Initialize Power Set Encoder
+        logger.info("Initializing Power Set Encoder...")
+        power_set_encoder = PowerSetEncoder(max_speakers=4)
+        
+        # Create and train model
+        logger.info("Creating SEND model...")
+        model = SENDModel().to(device)
+        
+        # Split data for federated learning with fewer clients
+        logger.info("Splitting data for federated learning...")
+        num_clients = 2  # reduce number of clients for testing
+        client_data = split_data_for_clients(grouped_train, num_clients)
+        logger.info(f"Split data among {num_clients} clients")
+        
+        # Initialize clients with validation data
+        logger.info("Initializing clients...")
+        clients = []
+        for client_id, (train_loader, val_loader) in enumerate(client_data):
+            client = SENDClient(
+                model=model,
+                train_loader=train_loader,
+                val_loader=val_loader,
+                device=device,
+                power_set_encoder=power_set_encoder
             )
-            
-            outputs = model(features)
-            loss = nn.CrossEntropyLoss()(outputs, labels)
-            test_loss += loss.item()
-            
-            predictions = torch.argmax(outputs, dim=1)
-            all_predictions.extend(predictions.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
-    
-    # Calculate final metrics
-    test_loss = test_loss / len(test_loader)
-    der = calculate_der(all_predictions, all_labels, power_set_encoder)
-    
-    logger.info(f"Final Test Loss: {test_loss:.4f}")
-    logger.info(f"Final DER: {der:.4f}")
+            clients.append(client)
+            logger.info(f"Initialized client {client_id}")
+        
+        # Start federated learning with fewer rounds
+        logger.info("Starting federated learning...")
+        strategy = fl.server.strategy.FedAvg(
+            fraction_fit=1.0,  # use all clients
+            fraction_eval=1.0,  # use all clients
+            min_fit_clients=2,
+            min_eval_clients=2,
+            min_available_clients=2,
+            eval_fn=None,
+            on_fit_config_fn=lambda _: {"epochs": 3},  # increase to 3 epochs
+            on_eval_config_fn=lambda _: {"epochs": 3},  # increase to 3 epochs
+            initial_parameters=fl.common.ndarrays_to_parameters(
+                [val.cpu().numpy() for _, val in model.state_dict().items()]
+            ),
+        )
+        
+        # Start Flower server with more rounds
+        logger.info("Starting Flower server...")
+        fl.server.start_server(
+            server_address="[::]:8080",
+            config=fl.server.ServerConfig(num_rounds=3),  # increase to 3 rounds
+            strategy=strategy
+        )
+        
+        # Final evaluation on test set
+        logger.info("Performing final evaluation on test set...")
+        _, _, test_loader = prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speaker_encoder)
+        
+        model.eval()
+        test_loss = 0.0
+        all_predictions = []
+        all_labels = []
+        
+        with torch.no_grad():
+            for features, speaker_embeddings, labels in test_loader:
+                features, speaker_embeddings, labels = (
+                    features.to(device),
+                    speaker_embeddings.to(device),
+                    labels.to(device)
+                )
+                
+                outputs = model(features)
+                loss = nn.CrossEntropyLoss()(outputs, labels)
+                test_loss += loss.item()
+                
+                predictions = torch.argmax(outputs, dim=1)
+                all_predictions.extend(predictions.cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
+        
+        # Calculate final metrics
+        test_loss = test_loss / len(test_loader)
+        der = calculate_der(all_predictions, all_labels, power_set_encoder)
+        
+        logger.info(f"Final Test Loss: {test_loss:.4f}")
+        logger.info(f"Final DER: {der:.4f}")
+        
+    except KeyboardInterrupt:
+        logger.info("\nProcess interrupted by user. Cleaning up...")
+        # Add any necessary cleanup code here
+        raise
+    except Exception as e:
+        logger.error(f"An error occurred: {str(e)}")
+        raise
+    finally:
+        logger.info("Process completed.")
 
 if __name__ == "__main__":
     main() 
