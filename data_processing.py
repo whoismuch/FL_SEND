@@ -372,11 +372,27 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
                 # Create dataset for this client
                 features = []
                 labels = []
+                
+                # First, extract all features to find max length
+                raw_features = []
                 for sample in samples:
                     feature = extract_features(sample["audio"]["array"])
-                    label = sample["speaker_id"]
+                    raw_features.append(feature)
+                    labels.append(sample["speaker_id"])
+                
+                # Find max sequence length
+                max_len = max(f.shape[0] for f in raw_features)
+                
+                # Pad all features to max length
+                for feature in raw_features:
+                    if feature.shape[0] < max_len:
+                        pad_len = max_len - feature.shape[0]
+                        feature = np.pad(feature, ((0, pad_len), (0, 0)), mode='constant')
                     features.append(feature)
-                    labels.append(label)
+                
+                # Convert to numpy arrays
+                features = np.array(features)
+                labels = np.array(labels)
                 
                 # Split into train and validation
                 train_size = int(0.8 * len(features))
@@ -388,37 +404,19 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
                 val_features = features[train_size:]
                 val_labels = labels[train_size:]
                 
-                # Create datasets with collate function
-                def collate_fn(batch):
-                    max_len = max(x[0].shape[0] for x in batch)
-                    features = []
-                    labels = []
-                    
-                    for feature, label in batch:
-                        if feature.shape[0] < max_len:
-                            pad_len = max_len - feature.shape[0]
-                            feature = np.pad(feature, ((0, pad_len), (0, 0)), mode='constant')
-                        features.append(feature)
-                        labels.append(label)
-                    
-                    features = torch.tensor(np.array(features), dtype=torch.float32)
-                    labels = torch.tensor(labels, dtype=torch.long)
-                    
-                    return features, labels
-                
                 # Create datasets
                 train_dataset = torch.utils.data.TensorDataset(
-                    torch.tensor(np.array(train_features), dtype=torch.float32),
+                    torch.tensor(train_features, dtype=torch.float32),
                     torch.tensor(train_labels, dtype=torch.long)
                 )
                 val_dataset = torch.utils.data.TensorDataset(
-                    torch.tensor(np.array(val_features), dtype=torch.float32),
+                    torch.tensor(val_features, dtype=torch.float32),
                     torch.tensor(val_labels, dtype=torch.long)
                 )
                 
                 # Create data loaders
-                train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, collate_fn=collate_fn)
-                val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False, collate_fn=collate_fn)
+                train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+                val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
                 
                 client_data.append((train_loader, val_loader))
                 logger.info(f"Created data loaders for client {client_id}")
