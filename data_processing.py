@@ -31,7 +31,8 @@ def simulate_overlapping_speech(
     speaker_labels: List[int],
     max_speakers: int = 4,
     duration: float = 10.0,
-    sr: int = 16000
+    sr: int = 16000,
+    batch_size: int = 100
 ) -> Tuple[np.ndarray, List[int]]:
     """Simulate overlapping speech segments.
     
@@ -41,59 +42,92 @@ def simulate_overlapping_speech(
         max_speakers: Maximum number of speakers
         duration: Target duration for each segment in seconds
         sr: Sample rate
+        batch_size: Number of segments to process at once
         
     Returns:
         Tuple of (overlapping_segments, power_set_labels)
     """
+    logger.info(f"Starting simulation with {len(audio_segments)} segments")
+    
+    # Ограничиваем количество сегментов для обработки
+    max_segments = min(len(audio_segments), 500)  # Максимум 500 сегментов
+    if len(audio_segments) > max_segments:
+        logger.info(f"Limiting segments from {len(audio_segments)} to {max_segments}")
+        indices = np.random.choice(len(audio_segments), max_segments, replace=False)
+        audio_segments = [audio_segments[i] for i in indices]
+        speaker_labels = [speaker_labels[i] for i in indices]
+    
     overlapping_segments = []
     power_set_labels = []
     
     # Convert duration to samples
     target_length = int(duration * sr)
     
-    for i in range(len(audio_segments)):
-        for j in range(i + 1, len(audio_segments)):
-            # Get segments
-            seg1 = audio_segments[i]
-            seg2 = audio_segments[j]
-            
-            # Ensure both segments have the same length
-            if len(seg1) > target_length:
-                # If segment is longer than target, take a random slice
-                start1 = np.random.randint(0, len(seg1) - target_length)
-                seg1 = seg1[start1:start1 + target_length]
-            elif len(seg1) < target_length:
-                # If segment is shorter, pad with zeros
-                pad_length = target_length - len(seg1)
-                seg1 = np.pad(seg1, (0, pad_length))
-            
-            if len(seg2) > target_length:
-                # If segment is longer than target, take a random slice
-                start2 = np.random.randint(0, len(seg2) - target_length)
-                seg2 = seg2[start2:start2 + target_length]
-            elif len(seg2) < target_length:
-                # If segment is shorter, pad with zeros
-                pad_length = target_length - len(seg2)
-                seg2 = np.pad(seg2, (0, pad_length))
-            
-            # Combine audio segments
-            combined_audio = seg1 + seg2
-            
-            # Normalize
-            if np.max(np.abs(combined_audio)) > 0:
-                combined_audio = combined_audio / np.max(np.abs(combined_audio))
-            
-            # Create power set encoded label
-            speaker_label = [0] * max_speakers
-            speaker_label[speaker_labels[i]] = 1
-            speaker_label[speaker_labels[j]] = 1
-            
-            # Encode label
-            encoded_label = sum(label * (2 ** i) for i, label in enumerate(speaker_label))
-            
-            overlapping_segments.append(combined_audio)
-            power_set_labels.append(encoded_label)
+    # Обработка пакетами
+    total_combinations = len(audio_segments) * (len(audio_segments) - 1) // 2
+    logger.info(f"Total possible combinations: {total_combinations}")
     
+    processed = 0
+    for i in range(0, len(audio_segments), batch_size):
+        batch_end = min(i + batch_size, len(audio_segments))
+        logger.info(f"Processing batch {i//batch_size + 1} of {(len(audio_segments) + batch_size - 1)//batch_size}")
+        
+        for j in range(i, batch_end):
+            for k in range(j + 1, len(audio_segments)):
+                try:
+                    # Get segments
+                    seg1 = audio_segments[j]
+                    seg2 = audio_segments[k]
+                    
+                    # Ensure both segments have the same length
+                    if len(seg1) > target_length:
+                        # If segment is longer than target, take a random slice
+                        start1 = np.random.randint(0, len(seg1) - target_length)
+                        seg1 = seg1[start1:start1 + target_length]
+                    elif len(seg1) < target_length:
+                        # If segment is shorter, pad with zeros
+                        pad_length = target_length - len(seg1)
+                        seg1 = np.pad(seg1, (0, pad_length))
+                    
+                    if len(seg2) > target_length:
+                        # If segment is longer than target, take a random slice
+                        start2 = np.random.randint(0, len(seg2) - target_length)
+                        seg2 = seg2[start2:start2 + target_length]
+                    elif len(seg2) < target_length:
+                        # If segment is shorter, pad with zeros
+                        pad_length = target_length - len(seg2)
+                        seg2 = np.pad(seg2, (0, pad_length))
+                    
+                    # Combine audio segments
+                    combined_audio = seg1 + seg2
+                    
+                    # Normalize
+                    if np.max(np.abs(combined_audio)) > 0:
+                        combined_audio = combined_audio / np.max(np.abs(combined_audio))
+                    
+                    # Create power set encoded label
+                    speaker_label = [0] * max_speakers
+                    speaker_label[speaker_labels[j]] = 1
+                    speaker_label[speaker_labels[k]] = 1
+                    
+                    # Encode label
+                    encoded_label = sum(label * (2 ** i) for i, label in enumerate(speaker_label))
+                    
+                    overlapping_segments.append(combined_audio)
+                    power_set_labels.append(encoded_label)
+                    
+                    processed += 1
+                    if processed % 1000 == 0:
+                        logger.info(f"Processed {processed} combinations")
+                
+                except KeyboardInterrupt:
+                    logger.info("\nInterrupted during segment processing. Saving progress...")
+                    return np.array(overlapping_segments), power_set_labels
+                except Exception as e:
+                    logger.error(f"Error processing segments {j} and {k}: {str(e)}")
+                    continue
+    
+    logger.info(f"Successfully created {len(overlapping_segments)} overlapping segments")
     return np.array(overlapping_segments), power_set_labels
 
 def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
@@ -121,9 +155,17 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
         all_samples = []
         logger.info("Processing meetings for overlapping segments...")
         
+        # Статистика по типам фрагментов
+        total_meetings = len(grouped_data)
+        total_original_segments = 0
+        total_natural_overlaps = 0
+        total_artificial_overlaps = 0
+        
         for meeting_id, samples in grouped_data.items():
             try:
                 logger.info(f"Processing meeting {meeting_id} with {len(samples)} samples")
+                meeting_original_segments = 0
+                meeting_natural_overlaps = 0
                 
                 # Sort samples by begin_time
                 samples = sorted(samples, key=lambda x: x["begin_time"])
@@ -143,8 +185,10 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
                         "speaker_id": encoded_label,
                         "begin_time": sample["begin_time"],
                         "end_time": sample["end_time"],
-                        "is_overlap": False
+                        "is_overlap": False,
+                        "is_artificial": False
                     })
+                    meeting_original_segments += 1
                 
                 # Then, find real overlapping segments
                 logger.info("Finding real overlapping segments...")
@@ -201,8 +245,10 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
                                 "speaker_id": encoded_label,
                                 "begin_time": overlap_begin,
                                 "end_time": overlap_end,
-                                "is_overlap": True
+                                "is_overlap": True,
+                                "is_artificial": False
                             })
+                            meeting_natural_overlaps += 1
                 
                 # If we don't have enough overlapping segments, create artificial ones
                 if len(overlapping_segments) < len(samples) * min_overlap_ratio:
@@ -238,12 +284,22 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
                             "speaker_id": label,
                             "begin_time": 0,  # Artificial segments don't have real timestamps
                             "end_time": 0,
-                            "is_overlap": True
+                            "is_overlap": True,
+                            "is_artificial": True
                         })
                 
                 # Add overlapping segments
                 all_samples.extend(overlapping_segments)
-                logger.info(f"Added {len(overlapping_segments)} overlapping segments for meeting {meeting_id}")
+                
+                # Обновляем статистику
+                total_original_segments += meeting_original_segments
+                total_natural_overlaps += meeting_natural_overlaps
+                total_artificial_overlaps += len(overlapping_segments) - meeting_natural_overlaps
+                
+                logger.info(f"Meeting {meeting_id} statistics:")
+                logger.info(f"  - Original segments: {meeting_original_segments}")
+                logger.info(f"  - Natural overlaps: {meeting_natural_overlaps}")
+                logger.info(f"  - Artificial overlaps: {len(overlapping_segments) - meeting_natural_overlaps}")
             
             except KeyboardInterrupt:
                 logger.info(f"\nInterrupted while processing meeting {meeting_id}. Saving progress...")
@@ -252,24 +308,37 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
                 logger.error(f"Error processing meeting {meeting_id}: {str(e)}")
                 continue
         
+        # Выводим общую статистику
+        logger.info("\nOverall Dataset Statistics:")
+        logger.info(f"Total meetings processed: {total_meetings}")
+        logger.info(f"Total original segments: {total_original_segments}")
+        logger.info(f"Total natural overlaps: {total_natural_overlaps}")
+        logger.info(f"Total artificial overlaps: {total_artificial_overlaps}")
+        logger.info(f"Total segments: {len(all_samples)}")
+        logger.info(f"Natural overlap ratio: {total_natural_overlaps/total_original_segments:.2%}")
+        logger.info(f"Artificial overlap ratio: {total_artificial_overlaps/total_original_segments:.2%}")
+        
         # Balance the dataset
-        logger.info("Balancing dataset...")
+        logger.info("\nBalancing dataset...")
         non_overlap_samples = [s for s in all_samples if not s["is_overlap"]]
-        overlap_samples = [s for s in all_samples if s["is_overlap"]]
+        natural_overlap_samples = [s for s in all_samples if s["is_overlap"] and not s["is_artificial"]]
+        artificial_overlap_samples = [s for s in all_samples if s["is_overlap"] and s["is_artificial"]]
         
         # Ensure we have a good balance between overlapping and non-overlapping samples
-        min_samples = min(len(non_overlap_samples), len(overlap_samples))
-        balanced_samples = non_overlap_samples[:min_samples] + overlap_samples[:min_samples]
+        min_samples = min(len(non_overlap_samples), len(natural_overlap_samples) + len(artificial_overlap_samples))
+        balanced_samples = non_overlap_samples[:min_samples] + natural_overlap_samples + artificial_overlap_samples[:min_samples - len(natural_overlap_samples)]
         
         # Shuffle samples
         np.random.shuffle(balanced_samples)
         
-        logger.info(f"Total samples: {len(balanced_samples)}")
+        logger.info("\nBalanced Dataset Statistics:")
         logger.info(f"Non-overlapping samples: {len(non_overlap_samples[:min_samples])}")
-        logger.info(f"Overlapping samples: {len(overlap_samples[:min_samples])}")
+        logger.info(f"Natural overlapping samples: {len(natural_overlap_samples)}")
+        logger.info(f"Artificial overlapping samples: {min(min_samples - len(natural_overlap_samples), len(artificial_overlap_samples))}")
+        logger.info(f"Total balanced samples: {len(balanced_samples)}")
         
         # Split samples among clients
-        logger.info(f"Splitting {len(balanced_samples)} samples among {num_clients} clients...")
+        logger.info(f"\nSplitting {len(balanced_samples)} samples among {num_clients} clients...")
         samples_per_client = len(balanced_samples) // num_clients
         client_samples = [balanced_samples[i:i + samples_per_client] for i in range(0, len(balanced_samples), samples_per_client)]
         
@@ -278,7 +347,17 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
         client_data = []
         for client_id, samples in enumerate(client_samples[:num_clients]):
             try:
-                logger.info(f"Processing client {client_id} with {len(samples)} samples")
+                logger.info(f"\nProcessing client {client_id} with {len(samples)} samples")
+                # Подсчет статистики для клиента
+                client_non_overlap = len([s for s in samples if not s["is_overlap"]])
+                client_natural_overlap = len([s for s in samples if s["is_overlap"] and not s["is_artificial"]])
+                client_artificial_overlap = len([s for s in samples if s["is_overlap"] and s["is_artificial"]])
+                
+                logger.info(f"Client {client_id} sample distribution:")
+                logger.info(f"  - Non-overlapping: {client_non_overlap}")
+                logger.info(f"  - Natural overlaps: {client_natural_overlap}")
+                logger.info(f"  - Artificial overlaps: {client_artificial_overlap}")
+                
                 # Create dataset for this client
                 features = []
                 labels = []
@@ -322,7 +401,7 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
                 logger.error(f"Error processing client {client_id}: {str(e)}")
                 continue
         
-        logger.info("Data processing completed successfully")
+        logger.info("\nData processing completed successfully")
         return client_data
     
     except KeyboardInterrupt:
