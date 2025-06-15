@@ -165,15 +165,16 @@ class SENDModel(nn.Module):
             score = torch.matmul(x, speaker_features[:, i].unsqueeze(-1)).squeeze(-1)  # (batch_size, sequence_length)
             ci_scores.append(score)
         ci_scores = torch.stack(ci_scores, dim=1)  # (batch_size, num_speakers, sequence_length)
+        ci_scores = ci_scores.transpose(1, 2)  # (batch_size, sequence_length, num_speakers)
         
         # CD Scoring
         cd_scores = self.cd_scorer(x)  # (batch_size, sequence_length, hidden_dim)
         
         # Combine CI and CD scores
         combined = torch.cat([
-            ci_scores.transpose(1, 2),  # (batch_size, sequence_length, num_speakers)
+            ci_scores,  # (batch_size, sequence_length, num_speakers)
             cd_scores  # (batch_size, sequence_length, hidden_dim)
-        ], dim=2)
+        ], dim=2)  # (batch_size, sequence_length, num_speakers + hidden_dim)
         
         # Process through Post-Net
         for fsmn in self.post_net:
@@ -251,6 +252,8 @@ class SENDClient(NumPyClient):
                     embedding = self.speaker_encoder.encode_batch(dummy_audio)
                     speaker_embeddings.append(embedding)
                 speaker_embeddings = torch.stack(speaker_embeddings, dim=1)  # (batch_size, num_speakers, 192)
+                # Expand speaker embeddings to match batch size
+                speaker_embeddings = speaker_embeddings.expand(features.size(0), -1, -1)
             
             self.optimizer.zero_grad()
             outputs = self.model(features, speaker_embeddings)
@@ -282,6 +285,8 @@ class SENDClient(NumPyClient):
                     embedding = self.speaker_encoder.encode_batch(dummy_audio)
                     speaker_embeddings.append(embedding)
                 speaker_embeddings = torch.stack(speaker_embeddings, dim=1)
+                # Expand speaker embeddings to match batch size
+                speaker_embeddings = speaker_embeddings.expand(features.size(0), -1, -1)
                 
                 outputs = self.model(features, speaker_embeddings)
                 loss = self.criterion(outputs.view(-1, outputs.size(-1)), labels.view(-1))
