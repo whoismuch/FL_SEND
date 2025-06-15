@@ -59,12 +59,105 @@ def simulate_overlapping_speech(
     
     return np.array(overlapping_segments), power_set_labels
 
-def split_data_for_clients(grouped_data, num_clients):
-    """Split grouped data among clients."""
+def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
+    """Split grouped data among clients.
+    
+    Args:
+        grouped_data: Dictionary of meeting_id to samples
+        num_clients: Number of clients to split data among
+        min_overlap_ratio: Minimum ratio of overlapping samples to total samples
+    """
+    # Create speaker ID to index mapping
+    speaker_to_idx = {}
+    for meeting_id, samples in grouped_data.items():
+        for sample in samples:
+            speaker_id = sample["speaker_id"]
+            if speaker_id not in speaker_to_idx:
+                speaker_to_idx[speaker_id] = len(speaker_to_idx)
+    
+    logger.info(f"Found {len(speaker_to_idx)} unique speakers: {speaker_to_idx}")
+    
     # Convert grouped data to list of samples
     all_samples = []
     for meeting_id, samples in grouped_data.items():
+        # Sort samples by begin_time
+        samples = sorted(samples, key=lambda x: x["begin_time"])
+        
+        # Find real overlapping segments
+        overlapping_segments = []
+        for i in range(len(samples)):
+            current = samples[i]
+            # Look for overlapping segments
+            for j in range(i + 1, len(samples)):
+                next_seg = samples[j]
+                # Check if segments overlap
+                if next_seg["begin_time"] < current["end_time"]:
+                    # Create overlapping segment
+                    overlap_begin = max(current["begin_time"], next_seg["begin_time"])
+                    overlap_end = min(current["end_time"], next_seg["end_time"])
+                    
+                    # Combine audio segments
+                    current_audio = current["audio"]["array"]
+                    next_audio = next_seg["audio"]["array"]
+                    
+                    # Normalize and combine
+                    combined_audio = current_audio + next_audio
+                    if np.max(np.abs(combined_audio)) > 0:
+                        combined_audio = combined_audio / np.max(np.abs(combined_audio))
+                    
+                    # Create power set encoded label
+                    max_speakers = len(speaker_to_idx)
+                    speaker_label = [0] * max_speakers
+                    current_speaker_idx = speaker_to_idx[current["speaker_id"]]
+                    next_speaker_idx = speaker_to_idx[next_seg["speaker_id"]]
+                    speaker_label[current_speaker_idx] = 1
+                    speaker_label[next_speaker_idx] = 1
+                    encoded_label = sum(label * (2 ** i) for i, label in enumerate(speaker_label))
+                    
+                    overlapping_segments.append({
+                        "audio": {"array": combined_audio},
+                        "speaker_id": encoded_label,
+                        "begin_time": overlap_begin,
+                        "end_time": overlap_end
+                    })
+        
+        # If we don't have enough overlapping segments, create artificial ones
+        if len(overlapping_segments) < len(samples) * min_overlap_ratio:
+            # Group samples by speaker
+            speaker_segments = {}
+            for sample in samples:
+                speaker_id = sample["speaker_id"]
+                if speaker_id not in speaker_segments:
+                    speaker_segments[speaker_id] = []
+                speaker_segments[speaker_id].append(sample["audio"]["array"])
+            
+            # Create artificial overlapping segments
+            audio_segments = []
+            speaker_labels = []
+            for speaker_id, segments in speaker_segments.items():
+                for segment in segments:
+                    audio_segments.append(segment)
+                    speaker_labels.append(speaker_to_idx[speaker_id])
+            
+            # Simulate overlapping speech
+            artificial_segments, power_set_labels = simulate_overlapping_speech(
+                audio_segments=audio_segments,
+                speaker_labels=speaker_labels,
+                max_speakers=len(speaker_to_idx)
+            )
+            
+            # Add artificial overlapping segments
+            for segment, label in zip(artificial_segments, power_set_labels):
+                overlapping_segments.append({
+                    "audio": {"array": segment},
+                    "speaker_id": label,
+                    "begin_time": 0,  # Artificial segments don't have real timestamps
+                    "end_time": 0
+                })
+        
+        # Add both original and overlapping segments
         all_samples.extend(samples)
+        all_samples.extend(overlapping_segments)
     
     # Shuffle samples
     np.random.shuffle(all_samples)
@@ -75,13 +168,13 @@ def split_data_for_clients(grouped_data, num_clients):
     
     # Create data loaders for each client
     client_data = []
-    for samples in client_samples[:num_clients]:  # Ensure we only use the requested number of clients
+    for samples in client_samples[:num_clients]:
         # Create dataset for this client
         features = []
         labels = []
         for sample in samples:
             feature = extract_features(sample["audio"]["array"])
-            label = power_set_encoding(sample["speaker_id"])
+            label = sample["speaker_id"]
             features.append(feature)
             labels.append(label)
         
@@ -225,12 +318,55 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
     return train_loader, val_loader, test_loader
 
 def power_set_encoding(label):
-    """Encodes speaker label into a single integer using power-set encoding."""
+    """Encodes speaker label into a single integer using power-set encoding.
+    
+    Args:
+        label: Either a single speaker ID or a list of speaker IDs
+        
+    Returns:
+        int: Encoded value representing the combination of speakers
+        
+    Example:
+        For 4 speakers:
+        - Single speaker: power_set_encoding(2) -> 4 (0100 in binary)
+        - Multiple speakers: power_set_encoding([0, 2]) -> 5 (0101 in binary)
+    """
     if isinstance(label, (list, tuple)):
-        return sum([l * (2 ** i) for i, l in enumerate(label) if l in [0, 1]])
+        # For multiple speakers, set bits for each speaker
+        return sum(2 ** i for i in label)
     else:
-        # If single label, create a list with one element
-        return 2 ** label if label > 0 else 0
+        # For single speaker, set bit for that speaker
+        return 2 ** label
+
+def demonstrate_power_set_encoding():
+    """Demonstrates how power set encoding works for overlapping speech."""
+    # Example with 4 speakers
+    max_speakers = 4
+    num_classes = 2 ** max_speakers
+    
+    print(f"Power Set Encoding for {max_speakers} speakers:")
+    print(f"Total possible combinations: {num_classes}")
+    print("\nExamples:")
+    
+    # Single speaker cases
+    for i in range(max_speakers):
+        encoded = power_set_encoding(i)
+        binary = format(encoded, f'0{max_speakers}b')
+        print(f"Speaker {i} only: {encoded} (binary: {binary})")
+    
+    # Multiple speaker cases
+    examples = [
+        [0, 1],  # Speakers 0 and 1
+        [1, 2],  # Speakers 1 and 2
+        [0, 2],  # Speakers 0 and 2
+        [0, 1, 2]  # Speakers 0, 1, and 2
+    ]
+    
+    print("\nOverlapping speech examples:")
+    for speakers in examples:
+        encoded = power_set_encoding(speakers)
+        binary = format(encoded, f'0{max_speakers}b')
+        print(f"Speakers {speakers}: {encoded} (binary: {binary})")
 
 class OverlappingSpeechDataset(Dataset):
     """Dataset for overlapping speech diarization."""
