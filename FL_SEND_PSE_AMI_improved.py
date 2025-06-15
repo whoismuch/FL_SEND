@@ -305,6 +305,10 @@ def start_client(client: SENDClient, server_address: str):
 
 def main():
     try:
+        # Check GPU availability
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        logger.info(f"Using device: {device}")
+        
         # Initialize speaker encoder
         logger.info("Initializing speaker encoder...")
         speaker_encoder = EncoderClassifier.from_hparams(
@@ -351,8 +355,10 @@ def main():
         def client_fn(cid: str):
             """Create a client for the simulation."""
             train_loader, val_loader = client_data[int(cid)]
+            # Create new model instance for each client
+            client_model = SENDModel().to(device)
             return SENDClient(
-                model=model,
+                model=client_model,
                 train_loader=train_loader,
                 val_loader=val_loader,
                 device=device,
@@ -372,6 +378,11 @@ def main():
             ),
         )
         
+        # Calculate GPU resources
+        num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 0
+        gpus_per_client = max(1, num_gpus // num_clients) if num_gpus > 0 else 0
+        logger.info(f"Available GPUs: {num_gpus}, GPUs per client: {gpus_per_client}")
+        
         # Start simulation
         fl.simulation.start_simulation(
             client_fn=client_fn,
@@ -379,11 +390,15 @@ def main():
             config=fl.server.ServerConfig(num_rounds=3),
             strategy=strategy,
             ray_init_args={
-                "num_cpus": num_clients,  # Use one CPU per client
+                "num_cpus": num_clients,
+                "num_gpus": num_gpus,
                 "include_dashboard": False,
                 "ignore_reinit_error": True,
             },
-            client_resources={"num_cpus": 1}  # Each client uses one CPU
+            client_resources={
+                "num_cpus": 1,
+                "num_gpus": gpus_per_client
+            }
         )
         
         # Final evaluation on test set
