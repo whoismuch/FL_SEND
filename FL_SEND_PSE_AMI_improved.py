@@ -302,7 +302,13 @@ class SENDClient(NumPyClient):
             
             self.optimizer.zero_grad()
             outputs = self.model(features, speaker_embeddings)
-            loss = self.criterion(outputs.view(-1, outputs.size(-1)), labels.view(-1))
+            
+            # Reshape outputs and labels for loss calculation
+            batch_size, seq_len, num_classes = outputs.shape
+            outputs = outputs.reshape(-1, num_classes)  # (batch_size * seq_len, num_classes)
+            labels = labels.reshape(-1)  # (batch_size * seq_len)
+            
+            loss = self.criterion(outputs, labels)
             loss.backward()
             self.optimizer.step()
             
@@ -327,12 +333,18 @@ class SENDClient(NumPyClient):
                 speaker_embeddings = self._prepare_speaker_embeddings(features.size(0))
                 
                 outputs = self.model(features, speaker_embeddings)
-                loss = self.criterion(outputs.view(-1, outputs.size(-1)), labels.view(-1))
+                
+                # Reshape outputs and labels for loss calculation
+                batch_size, seq_len, num_classes = outputs.shape
+                outputs = outputs.reshape(-1, num_classes)  # (batch_size * seq_len, num_classes)
+                labels = labels.reshape(-1)  # (batch_size * seq_len)
+                
+                loss = self.criterion(outputs, labels)
                 val_loss += loss.item()
                 
                 predictions = torch.argmax(outputs, dim=-1)
-                all_predictions.extend(predictions.cpu().numpy().flatten())
-                all_labels.extend(labels.cpu().numpy().flatten())
+                all_predictions.extend(predictions.cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
         
         # Calculate DER
         der = self.calculate_der(all_predictions, all_labels)
