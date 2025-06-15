@@ -349,21 +349,34 @@ def main():
         logger.info("Splitting data for federated learning...")
         num_clients = 2  # reduce number of clients for testing
         client_data = split_data_for_clients(grouped_train, num_clients)
-        logger.info(f"Split data among {num_clients} clients")
+        
+        # Validate client data
+        if not client_data or len(client_data) < num_clients:
+            raise ValueError(f"Not enough data for {num_clients} clients. Only {len(client_data) if client_data else 0} clients can be created.")
+        
+        logger.info(f"Split data among {len(client_data)} clients")
         
         # Define client function for simulation
         def client_fn(cid: str):
             """Create a client for the simulation."""
-            train_loader, val_loader = client_data[int(cid)]
-            # Create new model instance for each client
-            client_model = SENDModel().to(device)
-            return SENDClient(
-                model=client_model,
-                train_loader=train_loader,
-                val_loader=val_loader,
-                device=device,
-                power_set_encoder=power_set_encoder
-            )
+            try:
+                client_idx = int(cid)
+                if client_idx >= len(client_data):
+                    raise ValueError(f"Client ID {client_idx} is out of range. Only {len(client_data)} clients available.")
+                
+                train_loader, val_loader = client_data[client_idx]
+                # Create new model instance for each client
+                client_model = SENDModel().to(device)
+                return SENDClient(
+                    model=client_model,
+                    train_loader=train_loader,
+                    val_loader=val_loader,
+                    device=device,
+                    power_set_encoder=power_set_encoder
+                )
+            except Exception as e:
+                logger.error(f"Error creating client {cid}: {str(e)}")
+                raise
         
         # Start federated learning with simulation
         logger.info("Starting federated learning simulation...")
