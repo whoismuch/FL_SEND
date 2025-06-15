@@ -256,6 +256,28 @@ class SENDClient(NumPyClient):
         
         return der
 
+def find_available_port(start_port: int = 8080, max_attempts: int = 10) -> int:
+    """Find an available port starting from start_port.
+    
+    Args:
+        start_port: The port to start checking from
+        max_attempts: Maximum number of ports to check
+        
+    Returns:
+        An available port number
+    """
+    import socket
+    
+    for port in range(start_port, start_port + max_attempts):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(('', port))
+                return port
+        except OSError:
+            continue
+    
+    raise RuntimeError(f"Could not find an available port after {max_attempts} attempts")
+
 def main():
     try:
         # Initialize speaker encoder
@@ -327,13 +349,21 @@ def main():
             ),
         )
         
-        # Start Flower server with more rounds
-        logger.info("Starting Flower server...")
-        fl.server.start_server(
-            server_address="[::]:8080",
-            config=fl.server.ServerConfig(num_rounds=3),  # increase to 3 rounds
-            strategy=strategy
-        )
+        # Find available port
+        try:
+            port = find_available_port()
+            logger.info(f"Using port {port} for Flower server")
+            
+            # Start Flower server with more rounds
+            logger.info("Starting Flower server...")
+            fl.server.start_server(
+                server_address=f"[::]:{port}",
+                config=fl.server.ServerConfig(num_rounds=3),  # increase to 3 rounds
+                strategy=strategy
+            )
+        except RuntimeError as e:
+            logger.error(f"Failed to start server: {str(e)}")
+            return
         
         # Final evaluation on test set
         logger.info("Performing final evaluation on test set...")
