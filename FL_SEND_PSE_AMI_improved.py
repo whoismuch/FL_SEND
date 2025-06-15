@@ -317,14 +317,11 @@ def main():
         # Start federated learning with fewer rounds
         logger.info("Starting federated learning...")
         strategy = fl.server.strategy.FedAvg(
-            fraction_fit=1.0,  # use all clients
-            fraction_eval=1.0,  # use all clients
-            min_fit_clients=2,
-            min_eval_clients=2,
             min_available_clients=2,
-            eval_fn=None,
+            min_fit_clients=2,
+            min_evaluate_clients=2,
             on_fit_config_fn=lambda _: {"epochs": 3},  # increase to 3 epochs
-            on_eval_config_fn=lambda _: {"epochs": 3},  # increase to 3 epochs
+            on_evaluate_config_fn=lambda _: {"epochs": 3},  # increase to 3 epochs
             initial_parameters=fl.common.ndarrays_to_parameters(
                 [val.cpu().numpy() for _, val in model.state_dict().items()]
             ),

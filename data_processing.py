@@ -72,7 +72,9 @@ def simulate_overlapping_speech(
     # Ограничиваем количество комбинаций
     if len(combinations) > max_combinations:
         logger.info(f"Limiting combinations from {len(combinations)} to {max_combinations}")
-        combinations = np.random.choice(combinations, max_combinations, replace=False)
+        # Преобразуем список комбинаций в массив индексов
+        combination_indices = np.random.choice(len(combinations), max_combinations, replace=False)
+        combinations = [combinations[i] for i in combination_indices]
     
     logger.info(f"Processing {len(combinations)} combinations")
     processed = 0
