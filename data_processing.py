@@ -166,7 +166,7 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
         all_samples = []
         logger.info("Processing meetings for overlapping segments...")
         
-        # Статистика по типам фрагментов
+        # Statistics by segment types
         total_meetings = len(grouped_data)
         total_original_segments = 0
         total_natural_overlaps = 0
@@ -302,7 +302,7 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
                 # Add overlapping segments
                 all_samples.extend(overlapping_segments)
                 
-                # Обновляем статистику
+                # Update statistics
                 total_original_segments += meeting_original_segments
                 total_natural_overlaps += meeting_natural_overlaps
                 total_artificial_overlaps += len(overlapping_segments) - meeting_natural_overlaps
@@ -319,7 +319,7 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
                 logger.error(f"Error processing meeting {meeting_id}: {str(e)}")
                 continue
         
-        # Выводим общую статистику
+        # Print overall statistics
         logger.info("\nOverall Dataset Statistics:")
         logger.info(f"Total meetings processed: {total_meetings}")
         logger.info(f"Total original segments: {total_original_segments}")
@@ -350,6 +350,8 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
         
         # Split samples among clients
         logger.info(f"\nSplitting {len(balanced_samples)} samples among {num_clients} clients...")
+        
+        # Calculate samples per client and create client data
         samples_per_client = len(balanced_samples) // num_clients
         client_samples = [balanced_samples[i:i + samples_per_client] for i in range(0, len(balanced_samples), samples_per_client)]
         
@@ -359,7 +361,7 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
         for client_id, samples in enumerate(client_samples[:num_clients]):
             try:
                 logger.info(f"\nProcessing client {client_id} with {len(samples)} samples")
-                # Подсчет статистики для клиента
+                # Count statistics for this client
                 client_non_overlap = len([s for s in samples if not s["is_overlap"]])
                 client_natural_overlap = len([s for s in samples if s["is_overlap"] and not s["is_artificial"]])
                 client_artificial_overlap = len([s for s in samples if s["is_overlap"] and s["is_artificial"]])
@@ -492,7 +494,15 @@ def group_by_meeting(dataset_split):
     return grouped
 
 def create_dataset_from_grouped(grouped_data, speaker_encoder):
-    """Create dataset from grouped data."""
+    """Create dataset from grouped data with proper padding.
+    
+    Args:
+        grouped_data: Dictionary of meeting_id to samples
+        speaker_encoder: Speaker encoder model
+        
+    Returns:
+        OverlappingSpeechDataset: Dataset with padded features
+    """
     features = []
     labels = []
     
@@ -506,19 +516,38 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder):
     
     logger.info(f"Created speaker ID mapping: {speaker_to_idx}")
     
+    # First pass: extract features and find max length
+    raw_features = []
     for meeting_id, samples in grouped_data.items():
         for sample in samples:
-            # Extract features and labels
+            # Extract features
             feature = extract_features(sample["audio"]["array"])
+            raw_features.append(feature)
             # Convert string speaker ID to numeric index
             speaker_idx = speaker_to_idx[sample["speaker_id"]]
             label = power_set_encoding(speaker_idx)
-            features.append(feature)
             labels.append(label)
     
+    # Find max sequence length
+    max_len = max(f.shape[0] for f in raw_features)
+    logger.info(f"Max sequence length: {max_len}")
+    
+    # Second pass: pad all features to max length
+    for feature in raw_features:
+        if feature.shape[0] < max_len:
+            pad_len = max_len - feature.shape[0]
+            feature = np.pad(feature, ((0, pad_len), (0, 0)), mode='constant')
+        features.append(feature)
+    
+    # Convert to numpy arrays
+    features = np.array(features)
+    labels = np.array(labels)
+    
+    logger.info(f"Created dataset with shape: {features.shape}")
+    
     return OverlappingSpeechDataset(
-        features=np.array(features),
-        labels=np.array(labels),
+        features=features,
+        labels=labels,
         speaker_encoder=speaker_encoder
     )
 

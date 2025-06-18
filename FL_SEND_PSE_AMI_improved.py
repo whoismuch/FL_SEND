@@ -340,6 +340,15 @@ class SENDClient(NumPyClient):
         return self.get_parameters({}), len(self.train_loader), {"train_loss": train_loss / len(self.train_loader)}
     
     def evaluate(self, parameters, config):
+        """Evaluate the model on validation data.
+        
+        Args:
+            parameters: Model parameters
+            config: Configuration dictionary
+            
+        Returns:
+            Tuple of (loss, num_examples, metrics)
+        """
         self.set_parameters(parameters)
         
         # Evaluate the model
@@ -355,6 +364,7 @@ class SENDClient(NumPyClient):
                 # Get speaker embeddings for all speakers
                 speaker_embeddings = self._prepare_speaker_embeddings(features.size(0))
                 
+                # Forward pass
                 outputs = self.model(features, speaker_embeddings)
                 
                 # Reshape outputs and labels for loss calculation
@@ -362,9 +372,11 @@ class SENDClient(NumPyClient):
                 outputs = outputs.reshape(-1, num_classes)  # (batch_size * seq_len, num_classes)
                 labels = labels.reshape(-1)  # (batch_size * seq_len)
                 
+                # Calculate loss
                 loss = self.criterion(outputs, labels)
                 val_loss += loss.item()
                 
+                # Get predictions
                 predictions = torch.argmax(outputs, dim=-1)
                 all_predictions.extend(predictions.cpu().numpy())
                 all_labels.extend(labels.cpu().numpy())
