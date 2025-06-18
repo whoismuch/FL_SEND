@@ -296,6 +296,10 @@ class SENDClient(NumPyClient):
         for batch_idx, (features, labels) in enumerate(self.train_loader):
             features, labels = features.to(self.device), labels.to(self.device)
             
+            # Log input shapes
+            logger.debug(f"Input features shape: {features.shape}")
+            logger.debug(f"Input labels shape: {labels.shape}")
+            
             # Get speaker embeddings for all speakers
             with torch.no_grad():
                 speaker_embeddings = self._prepare_speaker_embeddings(features.size(0))
@@ -303,16 +307,35 @@ class SENDClient(NumPyClient):
             self.optimizer.zero_grad()
             outputs = self.model(features, speaker_embeddings)
             
+            # Log model output shape
+            logger.debug(f"Model output shape: {outputs.shape}")
+            
+            # Ensure labels match the sequence length
+            if labels.size(1) != outputs.size(1):
+                # If labels don't match sequence length, repeat them
+                labels = labels.repeat(1, outputs.size(1) // labels.size(1))
+                # Trim if necessary
+                if labels.size(1) > outputs.size(1):
+                    labels = labels[:, :outputs.size(1)]
+            
             # Reshape outputs and labels for loss calculation
             batch_size, seq_len, num_classes = outputs.shape
-            outputs = outputs.reshape(-1, num_classes)  # (batch_size * seq_len, num_classes)
-            labels = labels.reshape(-1)  # (batch_size * seq_len)
+            outputs = outputs.reshape(batch_size * seq_len, num_classes)
+            labels = labels.reshape(batch_size * seq_len)
+            
+            # Log reshaped tensors
+            logger.debug(f"Reshaped outputs shape: {outputs.shape}")
+            logger.debug(f"Reshaped labels shape: {labels.shape}")
             
             loss = self.criterion(outputs, labels)
             loss.backward()
             self.optimizer.step()
             
             train_loss += loss.item()
+            
+            # Log loss for debugging
+            if batch_idx % 10 == 0:
+                logger.info(f"Batch {batch_idx}, Loss: {loss.item():.4f}")
         
         return self.get_parameters({}), len(self.train_loader), {"train_loss": train_loss / len(self.train_loader)}
     
