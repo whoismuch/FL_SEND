@@ -1,7 +1,10 @@
 # FL-SEND-PSE: Federated Learning for Speaker Embedding-aware Neural Diarization with Power-Set Encoding
-import sys
-
-# Удаляю Tee и перенаправление stdout/stderr
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(process)d %(thread)d %(name)s: %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 import os
 import pickle
@@ -26,7 +29,6 @@ from speechbrain.pretrained import EncoderClassifier
 from datasets import load_dataset
 import seaborn as sns
 from tqdm import tqdm
-import logging
 from sklearn.metrics import confusion_matrix
 import json
 from datetime import datetime
@@ -41,13 +43,6 @@ from data_processing import (
     compute_speaker_embeddings
 )
 import time
-
-# Стандартная настройка logging
-logging.basicConfig(
-    level=logging.INFO,  # Можно заменить на DEBUG для подробного вывода
-    format="%(asctime)s %(levelname)s %(process)d %(thread)d %(name)s: %(message)s"
-)
-logger = logging.getLogger(__name__)
 
 # Set random seeds for reproducibility
 def set_seed(seed: int = 42):
