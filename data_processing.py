@@ -568,10 +568,16 @@ def calculate_der(predictions, labels, power_set_encoder):
     hypothesis = Annotation()
     
     for i, (pred, label) in enumerate(zip(predictions, labels)):
+        # Skip padding and non-integer labels
+        if isinstance(label, str):
+            if label == '-' or not label.isdigit():
+                continue
+            label = int(label)
+        if label == -100:
+            continue
         # Convert power set encoded values back to speaker labels
         pred_speakers = power_set_encoder.decode(pred)
         true_speakers = power_set_encoder.decode(label)
-        
         # Add segments to reference and hypothesis
         for speaker in true_speakers:
             if speaker == 1:
