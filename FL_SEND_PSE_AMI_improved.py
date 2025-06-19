@@ -1,20 +1,7 @@
 # FL-SEND-PSE: Federated Learning for Speaker Embedding-aware Neural Diarization with Power-Set Encoding
 import sys
 
-class Tee(object):
-    def __init__(self, *files):
-        self.files = files
-    def write(self, obj):
-        for f in self.files:
-            f.write(obj)
-            f.flush()
-    def flush(self):
-        for f in self.files:
-            f.flush()
-
-logfile = open("fl_send_full.log", "w")
-sys.stdout = Tee(sys.__stdout__, logfile)
-sys.stderr = Tee(sys.__stderr__, logfile)
+# Удаляю Tee и перенаправление stdout/stderr
 
 import os
 import pickle
@@ -55,7 +42,7 @@ from data_processing import (
 )
 import time
 
-# Set up logging (не удаляем хендлеры, чтобы не терять системные логи)
+# Стандартная настройка logging
 logging.basicConfig(
     level=logging.INFO,  # Можно заменить на DEBUG для подробного вывода
     format="%(asctime)s %(levelname)s %(process)d %(thread)d %(name)s: %(message)s"
