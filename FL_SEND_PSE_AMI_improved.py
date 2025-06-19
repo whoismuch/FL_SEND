@@ -260,6 +260,7 @@ class SENDClient(NumPyClient):
         self.speaker_to_embedding = speaker_to_embedding
         self.optimizer = optim.Adam(model.parameters())
         self.criterion = nn.CrossEntropyLoss()
+        self.log_suffix = log_suffix  # Store log_suffix for metrics file naming
         print(f"[{datetime.now()}] SENDClient: Initialization complete for client {id(self)}")
         print(f"[DEBUG] SENDClient: train_loader size: {len(self.train_loader)}")
         print(f"[DEBUG] SENDClient: val_loader size: {len(self.val_loader)}")
@@ -267,7 +268,22 @@ class SENDClient(NumPyClient):
             print(f"[WARNING] SENDClient: train_loader is EMPTY for client {id(self)}!")
         if len(self.val_loader) == 0:
             print(f"[WARNING] SENDClient: val_loader is EMPTY for client {id(self)}!")
-        self.log_suffix = log_suffix  # Store log_suffix for metrics file naming
+        # === Add per-client FileHandler for logging (do not remove existing handlers) ===
+        client_log_file = os.path.join(log_dir, f"client_{id(self)}_log{log_suffix}.log")
+        client_file_handler = logging.FileHandler(client_log_file, mode='a')
+        client_file_handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+        client_file_handler.setFormatter(formatter)
+        if not any(isinstance(h, logging.FileHandler) and getattr(h, 'baseFilename', None) == client_log_file for h in logger.handlers):
+            logger.addHandler(client_file_handler)
+        # === Add StreamHandler to also log to console (if not present) ===
+        if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
+            stream_handler = logging.StreamHandler()
+            stream_handler.setLevel(logging.INFO)
+            stream_handler.setFormatter(formatter)
+            logger.addHandler(stream_handler)
+        # Prevent log propagation to avoid duplicate logs in root logger
+        logger.propagate = False
         
     def get_parameters(self, config):
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
