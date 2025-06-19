@@ -258,6 +258,8 @@ class SENDClient(NumPyClient):
     
     def fit(self, parameters, config):
         print("=== CLIENT LOG: fit started ===")
+        print("=== aaa ===")
+        logger.info("=== bbb ===")
         logger.info("=== CLIENT LOG: fit started ===")
         logger.info(f"[{datetime.now()}] SENDClient: Starting fit for client {id(self)}")
         self.set_parameters(parameters)
@@ -305,6 +307,7 @@ class SENDClient(NumPyClient):
         elapsed = time.time() - start_time
         logger.info(f"[{datetime.now()}] SENDClient: Finished fit for client {id(self)}, total time: {elapsed:.2f} sec")
         print("=== CLIENT LOG: fit finished ===")
+
         logger.info("=== CLIENT LOG: fit finished ===")
         return self.get_parameters({}), len(self.train_loader), {"train_loss": mean_loss}
     
