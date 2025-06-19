@@ -378,9 +378,9 @@ class SENDClient(NumPyClient):
             pred_bits = self.power_set_encoder.decode(pred)
             if speaker_id_list is None:
                 speaker_id_list = list(range(len(true_bits)))
-            # Собираем всех активных спикеров
-            ref_speakers = set(f"speaker_{speaker_id_list[idx]}" for idx, bit in enumerate(true_bits) if bit == 1)
-            hyp_speakers = set(f"speaker_{speaker_id_list[idx]}" for idx, bit in enumerate(pred_bits) if bit == 1)
+            # Используем frozenset для корректной работы pyannote
+            ref_speakers = frozenset(f"speaker_{speaker_id_list[idx]}" for idx, bit in enumerate(true_bits) if bit == 1)
+            hyp_speakers = frozenset(f"speaker_{speaker_id_list[idx]}" for idx, bit in enumerate(pred_bits) if bit == 1)
             reference[Segment(i, i+1)] = ref_speakers
             hypothesis[Segment(i, i+1)] = hyp_speakers
             unique_label_values.add(label)
