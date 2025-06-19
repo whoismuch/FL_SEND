@@ -257,6 +257,8 @@ class SENDClient(NumPyClient):
         self.model.load_state_dict(state_dict, strict=True)
     
     def fit(self, parameters, config):
+        print("=== CLIENT LOG: fit started ===")
+        logger.info("=== CLIENT LOG: fit started ===")
         logger.info(f"[{datetime.now()}] SENDClient: Starting fit for client {id(self)}")
         self.set_parameters(parameters)
         self.model.train()
@@ -302,9 +304,13 @@ class SENDClient(NumPyClient):
             logger.info(f"[{datetime.now()}] SENDClient: Epoch {epoch+1}/{epochs} summary for client {id(self)}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={mean_loss:.4f}, acc={acc:.4f}, DER={der:.4f}")
         elapsed = time.time() - start_time
         logger.info(f"[{datetime.now()}] SENDClient: Finished fit for client {id(self)}, total time: {elapsed:.2f} sec")
+        print("=== CLIENT LOG: fit finished ===")
+        logger.info("=== CLIENT LOG: fit finished ===")
         return self.get_parameters({}), len(self.train_loader), {"train_loss": mean_loss}
     
     def evaluate(self, parameters, config):
+        print("=== CLIENT LOG: evaluate started ===")
+        logger.info("=== CLIENT LOG: evaluate started ===")
         logger.info(f"[{datetime.now()}] SENDClient: Starting evaluate for client {id(self)}")
         self.set_parameters(parameters)
         self.model.eval()
@@ -336,6 +342,8 @@ class SENDClient(NumPyClient):
         elapsed = time.time() - start_time
         logger.info(f"[{datetime.now()}] SENDClient: Finished evaluate for client {id(self)}, total time: {elapsed:.2f} sec")
         der = self.calculate_der(all_predictions, all_labels)
+        print("=== CLIENT LOG: evaluate finished ===")
+        logger.info("=== CLIENT LOG: evaluate finished ===")
         return (
             float(val_loss / len(self.val_loader)),
             len(self.val_loader),
