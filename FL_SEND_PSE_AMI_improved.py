@@ -157,6 +157,8 @@ class SENDModel(nn.Module):
         self.combine_adapter = None
         
     def forward(self, x: torch.Tensor, speaker_embeddings: torch.Tensor) -> torch.Tensor:
+        print('DEBUG: x.shape:', x.shape)
+        print('DEBUG: speaker_embeddings.shape:', speaker_embeddings.shape)
         # x shape: (batch_size, sequence_length, input_dim)
         # speaker_embeddings shape: (batch_size, num_speakers, 192)
         batch_size, seq_len, _ = x.shape
