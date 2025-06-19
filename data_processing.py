@@ -689,7 +689,7 @@ def compute_speaker_embeddings(grouped_data, speaker_encoder):
         audio_tensor = torch.tensor(audio, dtype=torch.float32).unsqueeze(0)  # [1, time]
         with torch.no_grad():
             emb = speaker_encoder.encode_batch(audio_tensor)
-            emb = emb.squeeze(0).cpu()
+            emb = emb.squeeze().cpu()
         speaker_to_embedding[sid] = emb
     return speaker_to_embedding
 
