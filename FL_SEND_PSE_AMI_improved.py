@@ -1,11 +1,4 @@
 # FL-SEND-PSE: Federated Learning for Speaker Embedding-aware Neural Diarization with Power-Set Encoding
-import logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(process)d %(thread)d %(name)s: %(message)s"
-)
-logger = logging.getLogger(__name__)
-
 import os
 import pickle
 import random
@@ -29,6 +22,7 @@ from speechbrain.pretrained import EncoderClassifier
 from datasets import load_dataset
 import seaborn as sns
 from tqdm import tqdm
+import logging
 from sklearn.metrics import confusion_matrix
 import json
 from datetime import datetime
@@ -43,6 +37,13 @@ from data_processing import (
     compute_speaker_embeddings
 )
 import time
+
+
+
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Set random seeds for reproducibility
 def set_seed(seed: int = 42):
@@ -299,8 +300,6 @@ class SENDClient(NumPyClient):
             mean_loss = np.mean(batch_losses)
             acc = (np.array(all_predictions) == np.array(all_labels)).mean()
             der = self.calculate_der(all_predictions, all_labels)
-            logger.info(f"[DEBUG] Epoch {epoch+1}/{epochs} unique labels: {np.unique(all_labels)}")
-            logger.info(f"[DEBUG] Epoch {epoch+1}/{epochs} unique predictions: {np.unique(all_predictions)}")
             logger.info(f"[{datetime.now()}] SENDClient: Epoch {epoch+1}/{epochs} summary for client {id(self)}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={mean_loss:.4f}, acc={acc:.4f}, DER={der:.4f}")
         elapsed = time.time() - start_time
         logger.info(f"[{datetime.now()}] SENDClient: Finished fit for client {id(self)}, total time: {elapsed:.2f} sec")
@@ -348,15 +347,9 @@ class SENDClient(NumPyClient):
         """Calculate Diarization Error Rate."""
         reference = Annotation()
         hypothesis = Annotation()
-        valid_frames = 0
         for i, (pred, label) in enumerate(zip(predictions, labels)):
-            if isinstance(label, str):
-                if label == '-' or not label.isdigit():
-                    continue
-                label = int(label)
             if label == -100:
                 continue  # skip padded frames
-            valid_frames += 1
             # Convert power set encoded values back to speaker labels
             pred_speakers = self.power_set_encoder.decode(pred)
             true_speakers = self.power_set_encoder.decode(label)
@@ -370,7 +363,6 @@ class SENDClient(NumPyClient):
         # Calculate DER
         metric = DiarizationErrorRate()
         der = metric(reference, hypothesis)
-        logger.info(f"[DEBUG] DER calculation: valid frames used = {valid_frames}")
         return der
 
 def find_available_port(start_port: int = 8080, max_attempts: int = 10) -> int:
@@ -489,29 +481,72 @@ def main():
         logger.info(f"[{datetime.now()}] MAIN: Computing speaker embeddings for train set...")
         speaker_to_embedding = compute_speaker_embeddings(grouped_train, speaker_encoder)
         
-        # После подготовки датасетов логируем уникальные классы
+        # Define client function for simulation
+        def client_fn(context: Context):
+            cid = context.node_config['partition-id']
+            logger.info(f"[client_fn] Got cid from context.node_config['partition-id']: {cid}")
+            logger.info(f"[{datetime.now()}] MAIN: Creating client {cid}")
+            try:
+                client_idx = int(cid)
+                if client_idx >= len(client_data):
+                    raise ValueError(f"Client ID {client_idx} is out of range. Only {len(client_data)} clients available.")
+                train_loader, val_loader = client_data[client_idx]
+                # Create new model instance for each client
+                client_model = SENDModel(num_classes=num_classes).to(device)
+                logger.info(f"[{datetime.now()}] MAIN: Client {cid} created and ready")
+                return SENDClient(
+                    model=client_model,
+                    train_loader=train_loader,
+                    val_loader=val_loader,
+                    device=device,
+                    power_set_encoder=power_set_encoder,
+                    speaker_encoder=speaker_encoder,
+                    speaker_to_embedding=speaker_to_embedding
+                ).to_client()
+            except Exception as e:
+                logger.error(f"Error creating client {cid}: {str(e)}")
+                raise
+        
+        # Start federated learning with simulation
+        logger.info("Starting federated learning simulation...")
+        strategy = fl.server.strategy.FedAvg(
+            min_available_clients=2,
+            min_fit_clients=2,
+            min_evaluate_clients=2,
+            on_fit_config_fn=lambda _: {"epochs": 3},
+            on_evaluate_config_fn=lambda _: {"epochs": 3},
+            initial_parameters=fl.common.ndarrays_to_parameters(
+                [val.cpu().numpy() for _, val in model.state_dict().items()]
+            ),
+        )
+        
+        # Calculate GPU resources
+        num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 0
+        gpus_per_client = max(1, num_gpus // num_clients) if num_gpus > 0 else 0
+        logger.info(f"Available GPUs: {num_gpus}, GPUs per client: {gpus_per_client}")
+        
+        # Start simulation
+        fl.simulation.start_simulation(
+            client_fn=client_fn,
+            num_clients=num_clients,
+            config=fl.server.ServerConfig(num_rounds=3),
+            strategy=strategy,
+            ray_init_args={
+                "num_cpus": num_clients,
+                "num_gpus": num_gpus,
+                "include_dashboard": False,
+                "ignore_reinit_error": True,
+            },
+            client_resources={
+                "num_cpus": 1,
+                "num_gpus": gpus_per_client
+            }
+        )
+        
+        # Final evaluation on test set
+        logger.info("Performing final evaluation on test set...")
         train_loader, val_loader, test_loader = prepare_data_loaders(
             grouped_train, grouped_validation, grouped_test, speaker_encoder, batch_size=4, speaker_to_embedding=speaker_to_embedding)
-        # Логируем уникальные классы в train, val, test
-        train_labels = []
-        for batch in train_loader:
-            _, _, labels = batch
-            train_labels.extend(labels.cpu().numpy().flatten())
-        val_labels = []
-        for batch in val_loader:
-            _, _, labels = batch
-            val_labels.extend(labels.cpu().numpy().flatten())
-        test_labels = []
-        for batch in test_loader:
-            _, _, labels = batch
-            test_labels.extend(labels.cpu().numpy().flatten())
-        logger.info(f"[DEBUG] Unique train labels: {np.unique(train_labels)}")
-        logger.info(f"[DEBUG] Unique val labels: {np.unique(val_labels)}")
-        logger.info(f"[DEBUG] Unique test labels: {np.unique(test_labels)}")
-        # Проверяем, что классы train и test пересекаются
-        train_set = set(np.unique(train_labels))
-        test_set = set(np.unique(test_labels))
-        logger.info(f"[DEBUG] Train/Test label intersection: {train_set & test_set}")
         
         model.eval()
         test_loss = 0.0
