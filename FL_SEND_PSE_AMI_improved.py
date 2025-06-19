@@ -522,8 +522,8 @@ def main():
             min_available_clients=2,
             min_fit_clients=2,
             min_evaluate_clients=2,
-            on_fit_config_fn=lambda _: {"epochs": 3},
-            on_evaluate_config_fn=lambda _: {"epochs": 3},
+            on_fit_config_fn=lambda _: {"epochs": 2},
+            on_evaluate_config_fn=lambda _: {"epochs": 1},
             initial_parameters=fl.common.ndarrays_to_parameters(
                 [val.cpu().numpy() for _, val in model.state_dict().items()]
             ),
@@ -553,15 +553,11 @@ def main():
         )
         
         # Final evaluation on test set
-        logger.info("Performing final evaluation on test set...")
-        train_loader, val_loader, test_loader = prepare_data_loaders(
-            grouped_train, grouped_validation, grouped_test, speaker_encoder, batch_size=4, speaker_to_embedding=speaker_to_embedding)
-        
+        print("\n==================== TESTING STARTED ====================\n")
         model.eval()
         test_loss = 0.0
         all_predictions = []
         all_labels = []
-        
         with torch.no_grad():
             for features, speaker_embeddings, labels in test_loader:
                 features, speaker_embeddings, labels = (
@@ -577,13 +573,14 @@ def main():
                 predictions = torch.argmax(outputs, dim=-1)
                 all_predictions.extend(predictions.cpu().numpy().flatten())
                 all_labels.extend(labels.cpu().numpy().flatten())
-        logger.info(f"Test predictions shape: {np.array(all_predictions).shape}, unique: {np.unique(all_predictions)}")
-        logger.info(f"Test labels shape: {np.array(all_labels).shape}, unique: {np.unique(all_labels)}")
-        
+        print(f"Test predictions shape: {np.array(all_predictions).shape}, unique: {np.unique(all_predictions)}")
+        print(f"Test labels shape: {np.array(all_labels).shape}, unique: {np.unique(all_labels)}")
         # Calculate final metrics
         test_loss = test_loss / len(test_loader)
         der = calculate_der(all_predictions, all_labels, power_set_encoder)
-        
+        print(f"\n==================== TESTING FINISHED ====================\n")
+        print(f"Final Test Loss: {test_loss:.4f}")
+        print(f"Final DER: {der:.4f}")
         logger.info(f"Final Test Loss: {test_loss:.4f}")
         logger.info(f"Final DER: {der:.4f}")
         
