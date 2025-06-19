@@ -55,7 +55,7 @@ set_seed(42)
 
 # Set device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-logger.info(f"Using device: {device}")
+print(f"Using device: {device}")
 
 class PowerSetEncoder:
     """Power Set Encoding for overlapping speech diarization."""
@@ -236,7 +236,7 @@ class SENDClient(NumPyClient):
         speaker_encoder: EncoderClassifier,
         speaker_to_embedding: Dict[int, np.ndarray]
     ):
-        logger.info(f"[{datetime.now()}] SENDClient: Initializing client {id(self)}")
+        print(f"[{datetime.now()}] SENDClient: Initializing client {id(self)}")
         self.model = model
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -246,7 +246,7 @@ class SENDClient(NumPyClient):
         self.speaker_to_embedding = speaker_to_embedding
         self.optimizer = optim.Adam(model.parameters())
         self.criterion = nn.CrossEntropyLoss()
-        logger.info(f"[{datetime.now()}] SENDClient: Initialization complete for client {id(self)}")
+        print(f"[{datetime.now()}] SENDClient: Initialization complete for client {id(self)}")
         
     def get_parameters(self, config):
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
@@ -259,9 +259,9 @@ class SENDClient(NumPyClient):
     def fit(self, parameters, config):
         print("=== CLIENT LOG: fit started ===")
         print("=== aaa ===")
-        logger.info("=== bbb ===")
-        logger.info("=== CLIENT LOG: fit started ===")
-        logger.info(f"[{datetime.now()}] SENDClient: Starting fit for client {id(self)}")
+        print("=== bbb ===")
+        print("=== CLIENT LOG: fit started ===")
+        print(f"[{datetime.now()}] SENDClient: Starting fit for client {id(self)}")
         self.set_parameters(parameters)
         self.model.train()
         epochs = config.get("epochs", 1)
@@ -273,7 +273,7 @@ class SENDClient(NumPyClient):
             all_labels = []
             for batch_idx, (features, speaker_embeddings, labels) in enumerate(self.train_loader):
                 if batch_idx == 0:
-                    logger.info(f"[{datetime.now()}] SENDClient: First batch in fit for client {id(self)} (epoch {epoch+1}/{epochs})")
+                    print(f"[{datetime.now()}] SENDClient: First batch in fit for client {id(self)} (epoch {epoch+1}/{epochs})")
                 features, speaker_embeddings, labels = features.to(self.device), speaker_embeddings.to(self.device), labels.to(self.device)
                 speaker_embeddings = speaker_embeddings.float()
                 self.optimizer.zero_grad()
@@ -293,28 +293,28 @@ class SENDClient(NumPyClient):
                 all_predictions.extend(predictions.cpu().numpy())
                 all_labels.extend(labels.cpu().numpy())
                 if batch_idx % 10 == 0:
-                    logger.info(f"Batch {batch_idx}, Loss: {loss.item():.4f}")
+                    print(f"Batch {batch_idx}, Loss: {loss.item():.4f}")
                 if batch_idx == 0:
-                    logger.info(f"Batch {batch_idx}, labels shape: {labels.shape}, unique labels: {torch.unique(labels)}")
-                    logger.info(f"Batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(predictions)}")
+                    print(f"Batch {batch_idx}, labels shape: {labels.shape}, unique labels: {torch.unique(labels)}")
+                    print(f"Batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(predictions)}")
             # Metrics per epoch
             mean_loss = np.mean(batch_losses)
             acc = (np.array(all_predictions) == np.array(all_labels)).mean()
             der = self.calculate_der(all_predictions, all_labels)
-            logger.info(f"[DEBUG] Epoch {epoch+1}/{epochs} unique labels: {np.unique(all_labels)}")
-            logger.info(f"[DEBUG] Epoch {epoch+1}/{epochs} unique predictions: {np.unique(all_predictions)}")
-            logger.info(f"[{datetime.now()}] SENDClient: Epoch {epoch+1}/{epochs} summary for client {id(self)}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={mean_loss:.4f}, acc={acc:.4f}, DER={der:.4f}")
+            print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique labels: {np.unique(all_labels)}")
+            print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique predictions: {np.unique(all_predictions)}")
+            print(f"[{datetime.now()}] SENDClient: Epoch {epoch+1}/{epochs} summary for client {id(self)}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={mean_loss:.4f}, acc={acc:.4f}, DER={der:.4f}")
         elapsed = time.time() - start_time
-        logger.info(f"[{datetime.now()}] SENDClient: Finished fit for client {id(self)}, total time: {elapsed:.2f} sec")
+        print(f"[{datetime.now()}] SENDClient: Finished fit for client {id(self)}, total time: {elapsed:.2f} sec")
         print("=== CLIENT LOG: fit finished ===")
 
-        logger.info("=== CLIENT LOG: fit finished ===")
+        print("=== CLIENT LOG: fit finished ===")
         return self.get_parameters({}), len(self.train_loader), {"train_loss": mean_loss}
     
     def evaluate(self, parameters, config):
         print("=== CLIENT LOG: evaluate started ===")
-        logger.info("=== CLIENT LOG: evaluate started ===")
-        logger.info(f"[{datetime.now()}] SENDClient: Starting evaluate for client {id(self)}")
+        print("=== CLIENT LOG: evaluate started ===")
+        print(f"[{datetime.now()}] SENDClient: Starting evaluate for client {id(self)}")
         self.set_parameters(parameters)
         self.model.eval()
         val_loss = 0.0
@@ -325,7 +325,7 @@ class SENDClient(NumPyClient):
         with torch.no_grad():
             for batch_idx, (features, speaker_embeddings, labels) in enumerate(self.val_loader):
                 if batch_idx == 0:
-                    logger.info(f"[{datetime.now()}] SENDClient: First batch in evaluate for client {id(self)}")
+                    print(f"[{datetime.now()}] SENDClient: First batch in evaluate for client {id(self)}")
                 features, speaker_embeddings, labels = features.to(self.device), speaker_embeddings.to(self.device), labels.to(self.device)
                 speaker_embeddings = speaker_embeddings.float()
                 outputs = self.model(features, speaker_embeddings)
@@ -339,14 +339,14 @@ class SENDClient(NumPyClient):
                 all_predictions.extend(predictions.cpu().numpy())
                 all_labels.extend(labels.cpu().numpy())
                 if batch_idx == 0:
-                    logger.info(f"Eval batch {batch_idx}, labels shape: {labels.shape}, unique labels: {np.unique(labels.cpu().numpy())}")
-                    logger.info(f"Eval batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {np.unique(predictions.cpu().numpy())}")
-        logger.info(f"[{datetime.now()}] SENDClient: Eval summary for client {id(self)}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={np.mean(batch_losses):.4f}")
+                    print(f"Eval batch {batch_idx}, labels shape: {labels.shape}, unique labels: {np.unique(labels.cpu().numpy())}")
+                    print(f"Eval batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {np.unique(predictions.cpu().numpy())}")
+        print(f"[{datetime.now()}] SENDClient: Eval summary for client {id(self)}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={np.mean(batch_losses):.4f}")
         elapsed = time.time() - start_time
-        logger.info(f"[{datetime.now()}] SENDClient: Finished evaluate for client {id(self)}, total time: {elapsed:.2f} sec")
+        print(f"[{datetime.now()}] SENDClient: Finished evaluate for client {id(self)}, total time: {elapsed:.2f} sec")
         der = self.calculate_der(all_predictions, all_labels)
         print("=== CLIENT LOG: evaluate finished ===")
-        logger.info("=== CLIENT LOG: evaluate finished ===")
+        print("=== CLIENT LOG: evaluate finished ===")
         return (
             float(val_loss / len(self.val_loader)),
             len(self.val_loader),
@@ -379,7 +379,7 @@ class SENDClient(NumPyClient):
         # Calculate DER
         metric = DiarizationErrorRate()
         der = metric(reference, hypothesis)
-        logger.info(f"[DEBUG] DER calculation: valid frames used = {valid_frames}")
+        print(f"[DEBUG] DER calculation: valid frames used = {valid_frames}")
         return der
 
 def find_available_port(start_port: int = 8080, max_attempts: int = 10) -> int:
@@ -420,50 +420,50 @@ def start_client(client: SENDClient, server_address: str):
         server_address: The address of the server
     """
     try:
-        logger.info(f"Client attempting to connect to {server_address}")
+        print(f"Client attempting to connect to {server_address}")
         fl.client.start_numpy_client(
             server_address=server_address,
             client=client
         )
-        logger.info("Client finished successfully")
+        print("Client finished successfully")
     except Exception as e:
         logger.error(f"Client error: {str(e)}")
 
 def main():
     print("MAIN STARTED")
-    logger.info(f"[{datetime.now()}] MAIN: Starting main()")
+    print(f"[{datetime.now()}] MAIN: Starting main()")
     try:
         # Check GPU availability
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        logger.info(f"[{datetime.now()}] MAIN: Using device: {device}")
+        print(f"[{datetime.now()}] MAIN: Using device: {device}")
         
         # Initialize speaker encoder
-        logger.info(f"[{datetime.now()}] MAIN: Initializing speaker encoder...")
+        print(f"[{datetime.now()}] MAIN: Initializing speaker encoder...")
         speaker_encoder = EncoderClassifier.from_hparams(
             source="speechbrain/spkrec-ecapa-voxceleb",
             savedir="pretrained_models/spkrec-ecapa",
             run_opts={"device": device}
         ).to(device)
-        logger.info(f"[{datetime.now()}] MAIN: Speaker encoder initialized successfully")
+        print(f"[{datetime.now()}] MAIN: Speaker encoder initialized successfully")
         
         # Load and preprocess data
-        logger.info(f"[{datetime.now()}] MAIN: Loading AMI dataset...")
+        print(f"[{datetime.now()}] MAIN: Loading AMI dataset...")
         dataset = load_dataset("edinburghcstr/ami", "ihm", trust_remote_code=True)
-        logger.info(f"[{datetime.now()}] MAIN: Dataset loaded successfully")
+        print(f"[{datetime.now()}] MAIN: Dataset loaded successfully")
         
         # Take a small subset for testing
         test_size = 6
-        logger.info(f"[{datetime.now()}] MAIN: Using subset of {test_size} samples for testing")
+        print(f"[{datetime.now()}] MAIN: Using subset of {test_size} samples for testing")
         
         # Group data by meeting ID for all splits
-        logger.info(f"[{datetime.now()}] MAIN: Grouping data by meeting ID...")
+        print(f"[{datetime.now()}] MAIN: Grouping data by meeting ID...")
         grouped_train = group_by_meeting(dataset["train"].select(range(test_size)))
         grouped_validation = group_by_meeting(dataset["validation"].select(range(test_size)))
         grouped_test = group_by_meeting(dataset["test"].select(range(test_size)))
         
-        logger.info(f"[{datetime.now()}] MAIN: Grouped {len(grouped_train)} meetings from training set")
-        logger.info(f"[{datetime.now()}] MAIN: Grouped {len(grouped_validation)} meetings from validation set")
-        logger.info(f"[{datetime.now()}] MAIN: Grouped {len(grouped_test)} meetings from test set")
+        print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_train)} meetings from training set")
+        print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_validation)} meetings from validation set")
+        print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_test)} meetings from test set")
         
         # Prepare test_loader for final evaluation
         _, _, test_loader = prepare_data_loaders(
@@ -478,18 +478,18 @@ def main():
                     speaker_ids.add(sample["speaker_id"])
         num_speakers = len(speaker_ids)
         num_classes = 2 ** num_speakers
-        logger.info(f"[{datetime.now()}] MAIN: Detected {num_speakers} unique speakers, num_classes={num_classes}")
+        print(f"[{datetime.now()}] MAIN: Detected {num_speakers} unique speakers, num_classes={num_classes}")
         
         # Initialize Power Set Encoder
-        logger.info(f"[{datetime.now()}] MAIN: Initializing Power Set Encoder...")
+        print(f"[{datetime.now()}] MAIN: Initializing Power Set Encoder...")
         power_set_encoder = PowerSetEncoder(max_speakers=num_speakers)
         
         # Create and train model
-        logger.info(f"[{datetime.now()}] MAIN: Creating SEND model...")
+        print(f"[{datetime.now()}] MAIN: Creating SEND model...")
         model = SENDModel(num_classes=num_classes).to(device)
         
         # Split data for federated learning with fewer clients
-        logger.info(f"[{datetime.now()}] MAIN: Splitting data for federated learning...")
+        print(f"[{datetime.now()}] MAIN: Splitting data for federated learning...")
         num_clients = 2  # reduce number of clients for testing
         client_data = split_data_for_clients(grouped_train, num_clients, speaker_encoder)
         
@@ -497,17 +497,17 @@ def main():
         if not client_data or len(client_data) < num_clients:
             raise ValueError(f"Not enough data for {num_clients} clients. Only {len(client_data) if client_data else 0} clients can be created.")
         
-        logger.info(f"[{datetime.now()}] MAIN: Split data among {len(client_data)} clients")
+        print(f"[{datetime.now()}] MAIN: Split data among {len(client_data)} clients")
         
         # Compute speaker embeddings for train set
-        logger.info(f"[{datetime.now()}] MAIN: Computing speaker embeddings for train set...")
+        print(f"[{datetime.now()}] MAIN: Computing speaker embeddings for train set...")
         speaker_to_embedding = compute_speaker_embeddings(grouped_train, speaker_encoder)
         
         # Define client function for simulation
         def client_fn(context: Context):
             cid = context.node_config['partition-id']
-            logger.info(f"[client_fn] Got cid from context.node_config['partition-id']: {cid}")
-            logger.info(f"[{datetime.now()}] MAIN: Creating client {cid}")
+            print(f"[client_fn] Got cid from context.node_config['partition-id']: {cid}")
+            print(f"[{datetime.now()}] MAIN: Creating client {cid}")
             try:
                 client_idx = int(cid)
                 if client_idx >= len(client_data):
@@ -515,7 +515,7 @@ def main():
                 train_loader, val_loader = client_data[client_idx]
                 # Create new model instance for each client
                 client_model = SENDModel(num_classes=num_classes).to(device)
-                logger.info(f"[{datetime.now()}] MAIN: Client {cid} created and ready")
+                print(f"[{datetime.now()}] MAIN: Client {cid} created and ready")
                 return SENDClient(
                     model=client_model,
                     train_loader=train_loader,
@@ -530,7 +530,7 @@ def main():
                 raise
         
         # Start federated learning with simulation
-        logger.info("Starting federated learning simulation...")
+        print("Starting federated learning simulation...")
         strategy = fl.server.strategy.FedAvg(
             min_available_clients=2,
             min_fit_clients=2,
@@ -545,7 +545,7 @@ def main():
         # Calculate GPU resources
         num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 0
         gpus_per_client = max(1, num_gpus // num_clients) if num_gpus > 0 else 0
-        logger.info(f"Available GPUs: {num_gpus}, GPUs per client: {gpus_per_client}")
+        print(f"Available GPUs: {num_gpus}, GPUs per client: {gpus_per_client}")
         
         # Start simulation
         fl.simulation.start_simulation(
@@ -594,8 +594,8 @@ def main():
         print(f"\n==================== TESTING FINISHED ====================\n")
         print(f"Final Test Loss: {test_loss:.4f}")
         print(f"Final DER: {der:.4f}")
-        logger.info(f"Final Test Loss: {test_loss:.4f}")
-        logger.info(f"Final DER: {der:.4f}")
+        print(f"Final Test Loss: {test_loss:.4f}")
+        print(f"Final DER: {der:.4f}")
 
         # Print Ray/Flower client logs after simulation
         import glob
@@ -621,14 +621,14 @@ def main():
         print_ray_logs()
         
     except KeyboardInterrupt:
-        logger.info("\nProcess interrupted by user. Cleaning up...")
+        print("\nProcess interrupted by user. Cleaning up...")
         # Add any necessary cleanup code here
         raise
     except Exception as e:
         logger.error(f"An error occurred: {str(e)}")
         raise
     finally:
-        logger.info("Process completed.")
+        print("Process completed.")
 
 if __name__ == "__main__":
     main() 
