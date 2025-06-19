@@ -1,6 +1,6 @@
-# FL-SEND-PSE: Federated Learning for Speaker Embedding-aware Neural Diarization with Power-Set Encoding
 import logging
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 import os
 import pickle
