@@ -260,36 +260,47 @@ class SENDClient(NumPyClient):
         logger.info(f"[{datetime.now()}] SENDClient: Starting fit for client {id(self)}")
         self.set_parameters(parameters)
         self.model.train()
-        train_loss = 0.0
-        batch_losses = []
+        epochs = config.get("epochs", 1)
         start_time = time.time()
-        for batch_idx, (features, speaker_embeddings, labels) in enumerate(self.train_loader):
-            if batch_idx == 0:
-                logger.info(f"[{datetime.now()}] SENDClient: First batch in fit for client {id(self)}")
-            features, speaker_embeddings, labels = features.to(self.device), speaker_embeddings.to(self.device), labels.to(self.device)
-            speaker_embeddings = speaker_embeddings.float()
-            self.optimizer.zero_grad()
-            outputs = self.model(features, speaker_embeddings)
-            batch_size, seq_len, num_classes = outputs.shape
-            outputs = outputs.reshape(-1, num_classes)
-            labels = labels.reshape(-1)
-            if (labels >= num_classes).any() or ((labels < 0) & (labels != -100)).any():
-                logger.error(f"Found label out of range! min={labels.min()}, max={labels.max()}, num_classes={num_classes}")
-                raise ValueError("Label out of range for CrossEntropyLoss")
-            loss = self.criterion(outputs, labels)
-            loss.backward()
-            self.optimizer.step()
-            train_loss += loss.item()
-            batch_losses.append(loss.item())
-            if batch_idx % 10 == 0:
-                logger.info(f"Batch {batch_idx}, Loss: {loss.item():.4f}")
-            if batch_idx == 0:
-                logger.info(f"Batch {batch_idx}, labels shape: {labels.shape}, unique labels: {torch.unique(labels)}")
-                logger.info(f"Batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(torch.argmax(outputs, dim=-1))}")
-        logger.info(f"[{datetime.now()}] SENDClient: Epoch summary for client {id(self)}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={np.mean(batch_losses):.4f}")
+        for epoch in range(epochs):
+            train_loss = 0.0
+            batch_losses = []
+            all_predictions = []
+            all_labels = []
+            for batch_idx, (features, speaker_embeddings, labels) in enumerate(self.train_loader):
+                if batch_idx == 0:
+                    logger.info(f"[{datetime.now()}] SENDClient: First batch in fit for client {id(self)} (epoch {epoch+1}/{epochs})")
+                features, speaker_embeddings, labels = features.to(self.device), speaker_embeddings.to(self.device), labels.to(self.device)
+                speaker_embeddings = speaker_embeddings.float()
+                self.optimizer.zero_grad()
+                outputs = self.model(features, speaker_embeddings)
+                batch_size, seq_len, num_classes = outputs.shape
+                outputs = outputs.reshape(-1, num_classes)
+                labels = labels.reshape(-1)
+                if (labels >= num_classes).any() or ((labels < 0) & (labels != -100)).any():
+                    logger.error(f"Found label out of range! min={labels.min()}, max={labels.max()}, num_classes={num_classes}")
+                    raise ValueError("Label out of range for CrossEntropyLoss")
+                loss = self.criterion(outputs, labels)
+                loss.backward()
+                self.optimizer.step()
+                train_loss += loss.item()
+                batch_losses.append(loss.item())
+                predictions = torch.argmax(outputs, dim=-1)
+                all_predictions.extend(predictions.cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
+                if batch_idx % 10 == 0:
+                    logger.info(f"Batch {batch_idx}, Loss: {loss.item():.4f}")
+                if batch_idx == 0:
+                    logger.info(f"Batch {batch_idx}, labels shape: {labels.shape}, unique labels: {torch.unique(labels)}")
+                    logger.info(f"Batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(predictions)}")
+            # Метрики по эпохе
+            mean_loss = np.mean(batch_losses)
+            acc = (np.array(all_predictions) == np.array(all_labels)).mean()
+            der = self.calculate_der(all_predictions, all_labels)
+            logger.info(f"[{datetime.now()}] SENDClient: Epoch {epoch+1}/{epochs} summary for client {id(self)}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={mean_loss:.4f}, acc={acc:.4f}, DER={der:.4f}")
         elapsed = time.time() - start_time
         logger.info(f"[{datetime.now()}] SENDClient: Finished fit for client {id(self)}, total time: {elapsed:.2f} sec")
-        return self.get_parameters({}), len(self.train_loader), {"train_loss": train_loss / len(self.train_loader)}
+        return self.get_parameters({}), len(self.train_loader), {"train_loss": mean_loss}
     
     def evaluate(self, parameters, config):
         logger.info(f"[{datetime.now()}] SENDClient: Starting evaluate for client {id(self)}")
