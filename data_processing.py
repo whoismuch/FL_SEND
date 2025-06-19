@@ -380,17 +380,21 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
                 for sample in samples:
                     feature = extract_features(sample["audio"]["array"])
                     raw_features.append(feature)
-                    labels.append(sample["speaker_id"])
+                    # frame-wise labels
+                    label = np.full(feature.shape[0], sample["speaker_id"], dtype=np.int64)
+                    labels.append(label)
                 
                 # Find max sequence length
                 max_len = max(f.shape[0] for f in raw_features)
                 
                 # Pad all features to max length
-                for feature in raw_features:
+                for feature, label in zip(raw_features, labels):
                     if feature.shape[0] < max_len:
                         pad_len = max_len - feature.shape[0]
                         feature = np.pad(feature, ((0, pad_len), (0, 0)), mode='constant')
+                        label = np.pad(label, (0, pad_len), mode='constant', constant_values=-100)
                     features.append(feature)
+                    labels.append(label)
                 
                 # Convert to numpy arrays
                 features = np.array(features)
@@ -526,18 +530,21 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder):
             # Convert string speaker ID to numeric index
             speaker_idx = speaker_to_idx[sample["speaker_id"]]
             label = power_set_encoding(speaker_idx)
-            labels.append(label)
+            # frame-wise labels
+            raw_labels.append(np.full(feature.shape[0], label, dtype=np.int64))
     
     # Find max sequence length
     max_len = max(f.shape[0] for f in raw_features)
     logger.info(f"Max sequence length: {max_len}")
     
     # Second pass: pad all features to max length
-    for feature in raw_features:
+    for feature, label in zip(raw_features, raw_labels):
         if feature.shape[0] < max_len:
             pad_len = max_len - feature.shape[0]
             feature = np.pad(feature, ((0, pad_len), (0, 0)), mode='constant')
+            label = np.pad(label, (0, pad_len), mode='constant', constant_values=-100)
         features.append(feature)
+        labels.append(label)
     
     # Convert to numpy arrays
     features = np.array(features)
