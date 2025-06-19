@@ -288,6 +288,15 @@ class SENDClient(NumPyClient):
         return speaker_embeddings
     
     def fit(self, parameters, config):
+        """Train the model on local data.
+        
+        Args:
+            parameters: Model parameters
+            config: Configuration dictionary
+            
+        Returns:
+            Tuple of (parameters, num_examples, metrics)
+        """
         self.set_parameters(parameters)
         
         # Train the model
@@ -310,18 +319,10 @@ class SENDClient(NumPyClient):
             # Log model output shape
             logger.debug(f"Model output shape: {outputs.shape}")
             
-            # Ensure labels match the sequence length
-            if labels.size(1) != outputs.size(1):
-                # If labels don't match sequence length, repeat them
-                labels = labels.repeat(1, outputs.size(1) // labels.size(1))
-                # Trim if necessary
-                if labels.size(1) > outputs.size(1):
-                    labels = labels[:, :outputs.size(1)]
-            
             # Reshape outputs and labels for loss calculation
             batch_size, seq_len, num_classes = outputs.shape
-            outputs = outputs.reshape(batch_size * seq_len, num_classes)
-            labels = labels.reshape(batch_size * seq_len)
+            outputs = outputs.reshape(-1, num_classes)  # (batch_size * seq_len, num_classes)
+            labels = labels.reshape(-1)  # (batch_size * seq_len)
             
             # Log reshaped tensors
             logger.debug(f"Reshaped outputs shape: {outputs.shape}")
