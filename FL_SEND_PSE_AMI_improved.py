@@ -557,15 +557,40 @@ def main():
     
         # Start federated learning with simulation
         print("Starting federated learning simulation...")
+        # Prepare to collect metrics per client and per round
+        client_epoch_metrics = defaultdict(lambda: defaultdict(list))  # client_epoch_metrics[client_id][round] = list of epoch dicts
+        round_metrics = []  # list of dicts: {'round': r, 'mean_loss': ..., 'mean_der': ..., 'client_metrics': {cid: {...}}}
+
+        # Custom aggregation function for fit metrics
+        def fit_metrics_aggregation_fn(metrics):
+            # metrics: List[Tuple[int, dict]]
+            round_info = {'client_metrics': {}}
+            for cid, (num_examples, m) in enumerate(metrics):
+                if 'epoch_metrics' in m:
+                    client_epoch_metrics[cid][len(round_metrics)].extend(m['epoch_metrics'])
+                    # Для раундовой агрегации возьмём последний loss/der за эпоху
+                    last = m['epoch_metrics'][-1] if m['epoch_metrics'] else {}
+                    round_info['client_metrics'][cid] = last
+            # Compute mean loss/der for this round
+            losses = [v.get('train_loss') for v in round_info['client_metrics'].values() if 'train_loss' in v]
+            ders = [v.get('der') for v in round_info['client_metrics'].values() if 'der' in v]
+            round_info['mean_loss'] = sum(losses)/len(losses) if losses else None
+            round_info['mean_der'] = sum(ders)/len(ders) if ders else None
+            round_info['round'] = len(round_metrics)
+            round_metrics.append(round_info)
+            return {}
+
+        # Use this aggregation function in strategy
         strategy = fl.server.strategy.FedAvg(
-            min_available_clients=2,
-            min_fit_clients=2,
-            min_evaluate_clients=2,
+            min_available_clients=num_clients,
+            min_fit_clients=num_clients,
+            min_evaluate_clients=num_clients,
             on_fit_config_fn=lambda _: {"epochs": epochs},
             on_evaluate_config_fn=lambda _: {"epochs": 1},
             initial_parameters=fl.common.ndarrays_to_parameters(
                 [val.cpu().numpy() for _, val in model.state_dict().items()]
             ),
+            fit_metrics_aggregation_fn=fit_metrics_aggregation_fn,
         )
         
         # Calculate GPU resources
@@ -628,6 +653,7 @@ def main():
         dt_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         exp_filename = f"experiment_{test_size}recs_{num_clients}clients_{epochs}epochs_{num_rounds}rounds_{dt_str}"
         exp_filepath = exp_filename + ".txt"
+        metrics_prefix = f"metrics_{test_size}recs_{num_clients}clients_{epochs}epochs_{num_rounds}rounds_{dt_str}"
         # Prepare lines for logging
         result_lines = [
             f"Experiment: {exp_filename}",
@@ -671,6 +697,82 @@ def main():
                         print(f"Could not read {f}: {e}")
             else:
                 print("Ray log directory not found.")
+
+        # After simulation and final evaluation, plot and save metrics
+        def plot_client_epoch_metrics(client_epoch_metrics, metrics_prefix):
+            for cid, rounds in client_epoch_metrics.items():
+                # For each client, concatenate all epochs from all rounds
+                all_train_loss = []
+                all_der = []
+                epoch_labels = []
+                for rnd, epoch_list in rounds.items():
+                    for eidx, em in enumerate(epoch_list):
+                        all_train_loss.append(em.get('train_loss'))
+                        all_der.append(em.get('der'))
+                        epoch_labels.append(f"r{rnd+1}e{eidx+1}")
+                # Plot loss
+                plt.figure(figsize=(12, 5))
+                plt.plot(epoch_labels, all_train_loss, marker='o', label='Train Loss')
+                plt.xlabel('Epoch (round+epoch)')
+                plt.ylabel('Loss')
+                plt.title(f'Client {cid} Loss per Epoch')
+                plt.xticks(rotation=45)
+                plt.tight_layout()
+                plt.savefig(f"{metrics_prefix}_client{cid}_loss.png")
+                plt.close()
+                # Plot DER
+                plt.figure(figsize=(12, 5))
+                plt.plot(epoch_labels, all_der, marker='o', label='DER')
+                plt.xlabel('Epoch (round+epoch)')
+                plt.ylabel('DER')
+                plt.title(f'Client {cid} DER per Epoch')
+                plt.xticks(rotation=45)
+                plt.tight_layout()
+                plt.savefig(f"{metrics_prefix}_client{cid}_der.png")
+                plt.close()
+
+        def plot_round_metrics(round_metrics, metrics_prefix):
+            rounds = [rm['round']+1 for rm in round_metrics]
+            mean_loss = [rm['mean_loss'] for rm in round_metrics]
+            mean_der = [rm['mean_der'] for rm in round_metrics]
+            # Plot mean loss per round
+            plt.figure(figsize=(8, 5))
+            plt.plot(rounds, mean_loss, marker='o', label='Mean Train Loss')
+            plt.xlabel('Round')
+            plt.ylabel('Loss')
+            plt.title('Mean Train Loss per Round (all clients)')
+            plt.tight_layout()
+            plt.savefig(f"{metrics_prefix}_mean_loss_per_round.png")
+            plt.close()
+            # Plot mean DER per round
+            plt.figure(figsize=(8, 5))
+            plt.plot(rounds, mean_der, marker='o', label='Mean DER')
+            plt.xlabel('Round')
+            plt.ylabel('DER')
+            plt.title('Mean DER per Round (all clients)')
+            plt.tight_layout()
+            plt.savefig(f"{metrics_prefix}_mean_der_per_round.png")
+            plt.close()
+            # Optionally: plot per-client loss/der per round
+            for metric_name in ['train_loss', 'der']:
+                plt.figure(figsize=(10, 6))
+                for cid in range(num_clients):
+                    vals = []
+                    for rm in round_metrics:
+                        cm = rm['client_metrics'].get(cid, {})
+                        vals.append(cm.get(metric_name))
+                    plt.plot(rounds, vals, marker='o', label=f'Client {cid}')
+                plt.xlabel('Round')
+                plt.ylabel(metric_name.replace('_', ' ').title())
+                plt.title(f'{metric_name.replace("_", " ").title()} per Round (per client)')
+                plt.legend()
+                plt.tight_layout()
+                plt.savefig(f"{metrics_prefix}_{metric_name}_per_round_per_client.png")
+                plt.close()
+
+        # Call plotting after experiment
+        plot_client_epoch_metrics(client_epoch_metrics, metrics_prefix)
+        plot_round_metrics(round_metrics, metrics_prefix)
 
     except KeyboardInterrupt:
         print("\nProcess interrupted by user. Cleaning up...")
