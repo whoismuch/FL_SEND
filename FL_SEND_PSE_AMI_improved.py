@@ -1,3 +1,4 @@
+# Always import os only at the top-level to avoid shadowing.
 import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
