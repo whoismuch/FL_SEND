@@ -447,7 +447,7 @@ def main():
         logger.info(f"[{datetime.now()}] MAIN: Dataset loaded successfully")
         
         # Take a small subset for testing
-        test_size = 2  # minimal number for quick testing
+        test_size = 10
         logger.info(f"[{datetime.now()}] MAIN: Using subset of {test_size} samples for testing")
         
         # Group data by meeting ID for all splits
