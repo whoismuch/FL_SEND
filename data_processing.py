@@ -563,7 +563,7 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder):
     )
 
 def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, debug=True):
-    """Calculate Diarization Error Rate with detailed logging."""
+    """Calculate Diarization Error Rate with detailed logging and correct multi-speaker segments."""
     from pyannote.core import Segment, Annotation
     from pyannote.metrics.diarization import DiarizationErrorRate
     reference = Annotation()
@@ -584,13 +584,11 @@ def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, 
         pred_bits = power_set_encoder.decode(pred)
         if speaker_id_list is None:
             speaker_id_list = list(range(len(true_bits)))
-        # Add segments
-        for idx, bit in enumerate(true_bits):
-            if bit == 1:
-                reference[Segment(i, i+1)] = f"speaker_{speaker_id_list[idx]}"
-        for idx, bit in enumerate(pred_bits):
-            if bit == 1:
-                hypothesis[Segment(i, i+1)] = f"speaker_{speaker_id_list[idx]}"
+        # Собираем всех активных спикеров
+        ref_speakers = set(f"speaker_{speaker_id_list[idx]}" for idx, bit in enumerate(true_bits) if bit == 1)
+        hyp_speakers = set(f"speaker_{speaker_id_list[idx]}" for idx, bit in enumerate(pred_bits) if bit == 1)
+        reference[Segment(i, i+1)] = ref_speakers
+        hypothesis[Segment(i, i+1)] = hyp_speakers
         unique_label_values.add(label)
         unique_pred_values.add(pred)
         active_speakers_labels.append(sum(true_bits))
