@@ -580,6 +580,29 @@ def main():
         print(f"Final DER: {der:.4f}")
         logger.info(f"Final Test Loss: {test_loss:.4f}")
         logger.info(f"Final DER: {der:.4f}")
+
+        # Print Ray/Flower client logs after simulation
+        import glob
+        import os
+        def print_ray_logs():
+            ray_log_dir = "/tmp/ray/session_latest/logs/"
+            if os.path.exists(ray_log_dir):
+                log_files = glob.glob(os.path.join(ray_log_dir, "*.out"))
+                if not log_files:
+                    print("No Ray log files found.")
+                for f in log_files:
+                    print(f"\n===== {f} =====")
+                    try:
+                        with open(f, "r") as logf:
+                            content = logf.read()[-5000:]
+                            print(content)
+                    except Exception as e:
+                        print(f"Could not read {f}: {e}")
+            else:
+                print("Ray log directory not found.")
+
+        print('\n==================== RAY/CLIENT LOGS ====================\n')
+        print_ray_logs()
         
     except KeyboardInterrupt:
         logger.info("\nProcess interrupted by user. Cleaning up...")
