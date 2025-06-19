@@ -609,7 +609,7 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
             labels.append(label)
         features = torch.tensor(np.array(features), dtype=torch.float32)
         speaker_embeddings = torch.stack(speaker_embeddings).float()  # [batch, num_speakers, 192]
-        labels = torch.tensor(labels, dtype=torch.long)
+        labels = torch.tensor(np.array(labels), dtype=torch.long)
         return features, speaker_embeddings, labels
     
     train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True, collate_fn=collate_fn)
