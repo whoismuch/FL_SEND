@@ -488,8 +488,8 @@ def main():
         print(f"[{datetime.now()}] MAIN: Dataset loaded successfully")
         
         # Take a small subset for testing
-        test_size = 10
-        epochs = 2
+        test_size = 300
+        epochs = 5
         num_rounds = 3
         print(f"[{datetime.now()}] MAIN: Using subset of {test_size} samples for testing")
         
