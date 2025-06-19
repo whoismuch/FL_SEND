@@ -425,6 +425,7 @@ def start_client(client: SENDClient, server_address: str):
         logger.error(f"Client error: {str(e)}")
 
 def main():
+    print("MAIN STARTED")
     logger.info(f"[{datetime.now()}] MAIN: Starting main()")
     try:
         # Check GPU availability
@@ -446,7 +447,7 @@ def main():
         logger.info(f"[{datetime.now()}] MAIN: Dataset loaded successfully")
         
         # Take a small subset for testing
-        test_size = 1000  # small number for quick testing
+        test_size = 2  # minimal number for quick testing
         logger.info(f"[{datetime.now()}] MAIN: Using subset of {test_size} samples for testing")
         
         # Group data by meeting ID for all splits
@@ -489,7 +490,8 @@ def main():
         logger.info(f"[{datetime.now()}] MAIN: Split data among {len(client_data)} clients")
         
         # Define client function for simulation
-        def client_fn(cid: str):
+        def client_fn(context: Context):
+            cid = context.client_id
             logger.info(f"[{datetime.now()}] MAIN: Creating client {cid}")
             try:
                 client_idx = int(cid)
@@ -506,7 +508,7 @@ def main():
                     device=device,
                     power_set_encoder=power_set_encoder,
                     speaker_encoder=speaker_encoder
-                )
+                ).to_client()
             except Exception as e:
                 logger.error(f"Error creating client {cid}: {str(e)}")
                 raise
