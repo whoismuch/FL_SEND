@@ -360,41 +360,49 @@ class SENDClient(NumPyClient):
             {"val_loss": val_loss / len(self.val_loader), "der": der}
         )
     
-    def calculate_der(self, predictions: List[int], labels: List[int]) -> float:
-        """Calculate Diarization Error Rate."""
+    def calculate_der(self, predictions: List[int], labels: List[int], speaker_id_list: list = None, debug: bool = True) -> float:
+        """Calculate Diarization Error Rate with detailed logging."""
+        from pyannote.core import Segment, Annotation
+        from pyannote.metrics.diarization import DiarizationErrorRate
         reference = Annotation()
         hypothesis = Annotation()
-        valid_frames = 0
-        debug_printed = 0
+        mismatches = 0
+        unique_label_values = set()
+        unique_pred_values = set()
+        active_speakers_labels = []
+        active_speakers_preds = []
         for i, (pred, label) in enumerate(zip(predictions, labels)):
-            if isinstance(label, str):
-                if label == '-' or not label.isdigit():
-                    continue
-                label = int(label)
             if label == -100:
-                continue  # skip padded frames
-            valid_frames += 1
-            # Convert power set encoded values back to speaker labels
-            pred_speakers = self.power_set_encoder.decode(pred)
-            true_speakers = self.power_set_encoder.decode(label)
-            # Debug: print decoded speakers for first 5 frames
-            if debug_printed < 5:
-                print(f"[DER DEBUG] Frame {i}: label={label}, pred={pred}, true_speakers={true_speakers}, pred_speakers={pred_speakers}")
-                debug_printed += 1
-            # Add segments to reference and hypothesis (use index, not value!)
-            for idx, speaker in enumerate(true_speakers):
-                if speaker == 1:
-                    reference[Segment(i, i+1)] = f"speaker_{idx}"
-            for idx, speaker in enumerate(pred_speakers):
-                if speaker == 1:
-                    hypothesis[Segment(i, i+1)] = f"speaker_{idx}"
-        # Debug: print first 10 segments of reference/hypothesis
-        print(f"[DER DEBUG] Reference segments (first 10): {list(reference.itertracks(yield_label=True))[:10]}")
-        print(f"[DER DEBUG] Hypothesis segments (first 10): {list(hypothesis.itertracks(yield_label=True))[:10]}")
-        # Calculate DER
+                continue
+            true_bits = self.power_set_encoder.decode(label)
+            pred_bits = self.power_set_encoder.decode(pred)
+            if speaker_id_list is None:
+                speaker_id_list = list(range(len(true_bits)))
+            # Add segments
+            for idx, bit in enumerate(true_bits):
+                if bit == 1:
+                    reference[Segment(i, i+1)] = f"speaker_{speaker_id_list[idx]}"
+            for idx, bit in enumerate(pred_bits):
+                if bit == 1:
+                    hypothesis[Segment(i, i+1)] = f"speaker_{speaker_id_list[idx]}"
+            unique_label_values.add(label)
+            unique_pred_values.add(pred)
+            active_speakers_labels.append(sum(true_bits))
+            active_speakers_preds.append(sum(pred_bits))
+            if debug and mismatches < 10 and true_bits != pred_bits:
+                print(f"[DER DEBUG] Frame {i}: label={label}, pred={pred}, true_bits={true_bits}, pred_bits={pred_bits}")
+                mismatches += 1
+        if debug:
+            print(f"[DER DEBUG] speaker_id_list (bit mapping): {speaker_id_list}")
+            print(f"[DER DEBUG] Unique label values: {unique_label_values}")
+            print(f"[DER DEBUG] Unique pred values: {unique_pred_values}")
+            print(f"[DER DEBUG] Active speakers per frame (labels): min={min(active_speakers_labels)}, max={max(active_speakers_labels)}, mean={np.mean(active_speakers_labels):.2f}")
+            print(f"[DER DEBUG] Active speakers per frame (preds): min={min(active_speakers_preds)}, max={max(active_speakers_preds)}, mean={np.mean(active_speakers_preds):.2f}")
+            print(f"[DER DEBUG] Reference segments (first 10): {list(reference.itertracks(yield_label=True))[:10]}")
+            print(f"[DER DEBUG] Hypothesis segments (first 10): {list(hypothesis.itertracks(yield_label=True))[:10]}")
         metric = DiarizationErrorRate()
         der = metric(reference, hypothesis)
-        print(f"[DEBUG] DER calculation: valid frames used = {valid_frames}, DER = {der}")
+        print(f"[DER DEBUG] DER calculation: valid frames used = {len(predictions)}, DER = {der}")
         return der
 
 def find_available_port(start_port: int = 8080, max_attempts: int = 10) -> int:
@@ -491,10 +499,11 @@ def main():
             for samples in grouped.values():
                 for sample in samples:
                     speaker_ids.add(sample["speaker_id"])
-        num_speakers = len(speaker_ids)
+        speaker_id_list = sorted(list(speaker_ids))
+        num_speakers = len(speaker_id_list)
         num_classes = 2 ** num_speakers
         print(f"[{datetime.now()}] MAIN: Detected {num_speakers} unique speakers, num_classes={num_classes}")
-        print(f"[{datetime.now()}] MAIN: speaker_ids: {speaker_ids}")
+        print(f"[{datetime.now()}] MAIN: speaker_ids: {speaker_id_list}")
         
         # Initialize Power Set Encoder
         print(f"[{datetime.now()}] MAIN: Initializing Power Set Encoder with max_speakers={num_speakers}")
@@ -606,7 +615,7 @@ def main():
         print(f"Test labels shape: {np.array(all_labels).shape}, unique: {np.unique(all_labels)}")
         # Calculate final metrics
         test_loss = test_loss / len(test_loader)
-        der = calculate_der(all_predictions, all_labels, power_set_encoder)
+        der = calculate_der(all_predictions, all_labels, power_set_encoder, speaker_id_list=speaker_id_list, debug=True)
         print(f"\n==================== TESTING FINISHED ====================\n")
         print(f"Final Test Loss: {test_loss:.4f}")
         print(f"Final DER: {der:.4f}")
