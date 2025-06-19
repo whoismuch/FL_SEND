@@ -323,8 +323,8 @@ class SENDClient(NumPyClient):
         print(f"[{datetime.now()}] SENDClient: Finished fit for client {id(self)}, total time: {elapsed:.2f} sec")
         print("=== CLIENT LOG: fit finished ===")
         print(f"=== CLIENT LOG: train_loader length: {len(self.train_loader)} ===")
-        # Return epoch_metrics for aggregation and plotting
-        return self.get_parameters({}), len(self.train_loader), {"train_loss": mean_loss, "epoch_metrics": epoch_metrics}
+        # Return epoch_metrics for aggregation and plotting (as JSON string)
+        return self.get_parameters({}), len(self.train_loader), {"train_loss": mean_loss, "epoch_metrics": json.dumps(epoch_metrics)}
     
     def evaluate(self, parameters, config):
         print("=== CLIENT LOG: evaluate started ===")
@@ -363,7 +363,7 @@ class SENDClient(NumPyClient):
         der = self.calculate_der(all_predictions, all_labels)
         print("=== CLIENT LOG: evaluate finished ===")
         print("=== CLIENT LOG: evaluate finished ===")
-        # For compatibility, return epoch_metrics (single epoch for val)
+        # For compatibility, return epoch_metrics (single epoch for val) as JSON string
         mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
         epoch_metrics.append({
             "val_loss": float(mean_loss),
@@ -372,7 +372,7 @@ class SENDClient(NumPyClient):
         return (
             float(val_loss / len(self.val_loader)),
             len(self.val_loader),
-            {"val_loss": val_loss / len(self.val_loader), "der": der, "epoch_metrics": epoch_metrics}
+            {"val_loss": val_loss / len(self.val_loader), "der": der, "epoch_metrics": json.dumps(epoch_metrics)}
         )
     
     def calculate_der(self, predictions: List[int], labels: List[int], speaker_id_list: list = None, debug: bool = True) -> float:
@@ -582,9 +582,9 @@ def main():
             round_info = {'client_metrics': {}}
             for cid, (num_examples, m) in enumerate(metrics):
                 if 'epoch_metrics' in m:
-                    client_epoch_metrics[cid][len(round_metrics)].extend(m['epoch_metrics'])
-                    # Для раундовой агрегации возьмём последний loss/der за эпоху
-                    last = m['epoch_metrics'][-1] if m['epoch_metrics'] else {}
+                    epoch_metrics = json.loads(m['epoch_metrics'])
+                    client_epoch_metrics[cid][len(round_metrics)].extend(epoch_metrics)
+                    last = epoch_metrics[-1] if epoch_metrics else {}
                     round_info['client_metrics'][cid] = last
             # Compute mean loss/der for this round
             losses = [v.get('train_loss') for v in round_info['client_metrics'].values() if 'train_loss' in v]
