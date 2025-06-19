@@ -1,4 +1,3 @@
-# Always import os only at the top-level to avoid shadowing.
 import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -39,21 +38,9 @@ from data_processing import (
     compute_speaker_embeddings
 )
 import time
-import csv
 
-# === FileHandler for logging ===
-log_dir = "logs"
-os.makedirs(log_dir, exist_ok=True)
 
-# === Helper for metrics logging ===
-def log_metrics_to_csv(filename, round_num, epoch, client_id, loss, der):
-    header = ['round', 'epoch', 'client_id', 'loss', 'der']
-    file_exists = os.path.isfile(filename)
-    with open(filename, 'a', newline='') as f:
-        writer = csv.writer(f)
-        if not file_exists:
-            writer.writerow(header)
-        writer.writerow([round_num, epoch, client_id, loss, der])
+
 
 # Set random seeds for reproducibility
 def set_seed(seed: int = 42):
@@ -247,8 +234,7 @@ class SENDClient(NumPyClient):
         device: torch.device,
         power_set_encoder: PowerSetEncoder,
         speaker_encoder: EncoderClassifier,
-        speaker_to_embedding: Dict[int, np.ndarray],
-        log_suffix: str = ""
+        speaker_to_embedding: Dict[int, np.ndarray]
     ):
         print(f"[{datetime.now()}] SENDClient: Initializing client {id(self)}")
         self.model = model
@@ -260,7 +246,6 @@ class SENDClient(NumPyClient):
         self.speaker_to_embedding = speaker_to_embedding
         self.optimizer = optim.Adam(model.parameters())
         self.criterion = nn.CrossEntropyLoss()
-        self.log_suffix = log_suffix  # Store log_suffix for metrics file naming
         print(f"[{datetime.now()}] SENDClient: Initialization complete for client {id(self)}")
         print(f"[DEBUG] SENDClient: train_loader size: {len(self.train_loader)}")
         print(f"[DEBUG] SENDClient: val_loader size: {len(self.val_loader)}")
@@ -268,22 +253,6 @@ class SENDClient(NumPyClient):
             print(f"[WARNING] SENDClient: train_loader is EMPTY for client {id(self)}!")
         if len(self.val_loader) == 0:
             print(f"[WARNING] SENDClient: val_loader is EMPTY for client {id(self)}!")
-        # === Add per-client FileHandler for logging (do not remove existing handlers) ===
-        client_log_file = os.path.join(log_dir, f"client_{id(self)}_log{log_suffix}.log")
-        client_file_handler = logging.FileHandler(client_log_file, mode='a')
-        client_file_handler.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-        client_file_handler.setFormatter(formatter)
-        if not any(isinstance(h, logging.FileHandler) and getattr(h, 'baseFilename', None) == client_log_file for h in logger.handlers):
-            logger.addHandler(client_file_handler)
-        # === Add StreamHandler to also log to console (if not present) ===
-        if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
-            stream_handler = logging.StreamHandler()
-            stream_handler.setLevel(logging.INFO)
-            stream_handler.setFormatter(formatter)
-            logger.addHandler(stream_handler)
-        # Prevent log propagation to avoid duplicate logs in root logger
-        logger.propagate = False
         
     def get_parameters(self, config):
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
@@ -304,8 +273,6 @@ class SENDClient(NumPyClient):
         self.set_parameters(parameters)
         self.model.train()
         epochs = config.get("epochs", 1)
-        round_num = config.get("round", 0)  # Передавайте round в config через on_fit_config_fn
-        client_id = config.get("cid", id(self))
         start_time = time.time()
         for epoch in range(epochs):
             train_loss = 0.0
@@ -345,9 +312,6 @@ class SENDClient(NumPyClient):
             print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique labels: {np.unique(all_labels) if all_labels else 'EMPTY'}")
             print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique predictions: {np.unique(all_predictions) if all_predictions else 'EMPTY'}")
             print(f"[{datetime.now()}] SENDClient: Epoch {epoch+1}/{epochs} summary for client {id(self)}: min_loss={min(batch_losses) if batch_losses else 'nan'}, max_loss={max(batch_losses) if batch_losses else 'nan'}, mean_loss={mean_loss}, acc={acc}, DER={der}")
-            # === Log metrics to CSV ===
-            metrics_file = os.path.join(log_dir, f"client_metrics_{client_id}{self.log_suffix}.csv")
-            log_metrics_to_csv(metrics_file, round_num, epoch+1, client_id, mean_loss, der)
         elapsed = time.time() - start_time
         print(f"[{datetime.now()}] SENDClient: Finished fit for client {id(self)}, total time: {elapsed:.2f} sec")
         print("=== CLIENT LOG: fit finished ===")
@@ -490,26 +454,9 @@ def main():
     print("MAIN STARTED")
     print(f"[{datetime.now()}] MAIN: Starting main()")
     try:
-        # === Set experiment parameters here ===
-        test_size = 10
-        num_clients = 2
-        num_rounds = 3
-        num_epochs = 2
-        run_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_dir = "logs"
-        os.makedirs(log_dir, exist_ok=True)
-        # === Create log_suffix with all experiment parameters ===
-        log_suffix = f"_{test_size}recs_{num_clients}clients_{num_epochs}epochs_{num_rounds}rounds_{run_datetime}"
-        # === Create FileHandler for logging with correct log_suffix ===
-        log_file = os.path.join(log_dir, f"experiment{log_suffix}.log")
-        file_handler = logging.FileHandler(log_file, mode='a')
-        file_handler.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-        file_handler.setFormatter(formatter)
-        # Remove old handlers to avoid duplicate logs
-        for h in logger.handlers[:]:
-            logger.removeHandler(h)
-        logger.addHandler(file_handler)
+        # Check GPU availability
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"[{datetime.now()}] MAIN: Using device: {device}")
         
         # Initialize speaker encoder
         print(f"[{datetime.now()}] MAIN: Initializing speaker encoder...")
@@ -526,6 +473,7 @@ def main():
         print(f"[{datetime.now()}] MAIN: Dataset loaded successfully")
         
         # Take a small subset for testing
+        test_size = 10
         print(f"[{datetime.now()}] MAIN: Using subset of {test_size} samples for testing")
         
         # Group data by meeting ID for all splits
@@ -588,6 +536,7 @@ def main():
                 if client_idx >= len(client_data):
                     raise ValueError(f"Client ID {client_idx} is out of range. Only {len(client_data)} clients available.")
                 train_loader, val_loader = client_data[client_idx]
+                # Create new model instance for each client
                 client_model = SENDModel(num_classes=num_classes).to(device)
                 print(f"[{datetime.now()}] MAIN: Client {cid} created and ready")
                 return SENDClient(
@@ -597,8 +546,7 @@ def main():
                     device=device,
                     power_set_encoder=power_set_encoder,
                     speaker_encoder=speaker_encoder,
-                    speaker_to_embedding=speaker_to_embedding,
-                    log_suffix=log_suffix
+                    speaker_to_embedding=speaker_to_embedding
                 ).to_client()
             except Exception as e:
                 logger.error(f"Error creating client {cid}: {str(e)}")
@@ -610,8 +558,8 @@ def main():
             min_available_clients=2,
             min_fit_clients=2,
             min_evaluate_clients=2,
-            on_fit_config_fn=lambda server_round: {"epochs": num_epochs, "round": server_round, "cid": None},
-            on_evaluate_config_fn=lambda server_round: {"epochs": 1, "round": server_round, "cid": None},
+            on_fit_config_fn=lambda _: {"epochs": 2},
+            on_evaluate_config_fn=lambda _: {"epochs": 1},
             initial_parameters=fl.common.ndarrays_to_parameters(
                 [val.cpu().numpy() for _, val in model.state_dict().items()]
             ),
@@ -626,7 +574,7 @@ def main():
         fl.simulation.start_simulation(
             client_fn=client_fn,
             num_clients=num_clients,
-            config=fl.server.ServerConfig(num_rounds=num_rounds),
+            config=fl.server.ServerConfig(num_rounds=3),
             strategy=strategy,
             ray_init_args={
                 "num_cpus": num_clients,
@@ -674,8 +622,8 @@ def main():
 
         # Print Ray/Flower client logs after simulation
         import glob
+        import os
         def print_ray_logs():
-            # Use global os module, do not import locally.
             ray_log_dir = "/tmp/ray/session_latest/logs/"
             if os.path.exists(ray_log_dir):
                 log_files = glob.glob(os.path.join(ray_log_dir, "*.out"))
@@ -691,30 +639,6 @@ def main():
                         print(f"Could not read {f}: {e}")
             else:
                 print("Ray log directory not found.")
-
-        # === Plotting function for metrics with log_suffix ===
-        def plot_client_metrics(log_dir="logs", log_suffix=""):
-            import pandas as pd
-            import matplotlib.pyplot as plt
-            import glob
-            metric_files = glob.glob(os.path.join(log_dir, f"client_metrics_*{log_suffix}.csv"))
-            for file in metric_files:
-                df = pd.read_csv(file)
-                client_id = df['client_id'].iloc[0]
-                plt.figure(figsize=(10,5))
-                plt.plot(df['epoch'], df['loss'], label='Loss')
-                plt.plot(df['epoch'], df['der'], label='DER')
-                plt.xlabel('Epoch')
-                plt.title(f'Client {client_id}: Loss and DER per Epoch')
-                plt.legend()
-                plt.grid()
-                plot_file = os.path.join(log_dir, f"client_{client_id}_metrics{log_suffix}.png")
-                plt.savefig(plot_file)
-                plt.close()
-            print(f"Saved metrics plots for {len(metric_files)} clients in {log_dir}")
-
-        # === Вызовите plot_client_metrics() после обучения, если хотите построить графики ===
-        plot_client_metrics(log_dir, log_suffix)
 
     except KeyboardInterrupt:
         print("\nProcess interrupted by user. Cleaning up...")
