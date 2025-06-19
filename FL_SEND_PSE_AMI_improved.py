@@ -266,6 +266,7 @@ class SENDClient(NumPyClient):
             if batch_idx == 0:
                 logger.info(f"[{datetime.now()}] SENDClient: First batch in fit for client {id(self)}")
             features, speaker_embeddings, labels = features.to(self.device), speaker_embeddings.to(self.device), labels.to(self.device)
+            speaker_embeddings = speaker_embeddings.float()
             self.optimizer.zero_grad()
             outputs = self.model(features, speaker_embeddings)
             batch_size, seq_len, num_classes = outputs.shape
@@ -297,6 +298,7 @@ class SENDClient(NumPyClient):
                 if batch_idx == 0:
                     logger.info(f"[{datetime.now()}] SENDClient: First batch in evaluate for client {id(self)}")
                 features, speaker_embeddings, labels = features.to(self.device), speaker_embeddings.to(self.device), labels.to(self.device)
+                speaker_embeddings = speaker_embeddings.float()
                 outputs = self.model(features, speaker_embeddings)
                 batch_size, seq_len, num_classes = outputs.shape
                 outputs = outputs.reshape(-1, num_classes)
