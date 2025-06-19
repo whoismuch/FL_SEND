@@ -1,8 +1,8 @@
+import os
 import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-import os
 import pickle
 import random
 import numpy as np
@@ -683,7 +683,6 @@ def main():
 
         # Print Ray/Flower client logs after simulation
         import glob
-        import os
         def print_ray_logs():
             ray_log_dir = "/tmp/ray/session_latest/logs/"
             if os.path.exists(ray_log_dir):
