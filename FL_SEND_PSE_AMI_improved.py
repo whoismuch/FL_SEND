@@ -43,13 +43,6 @@ import csv
 # === FileHandler for logging ===
 log_dir = "logs"
 os.makedirs(log_dir, exist_ok=True)
-log_file = os.path.join(log_dir, "experiment.log")
-file_handler = logging.FileHandler(log_file, mode='a')
-file_handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-file_handler.setFormatter(formatter)
-if not any(isinstance(h, logging.FileHandler) for h in logger.handlers):
-    logger.addHandler(file_handler)
 
 # === Helper for metrics logging ===
 def log_metrics_to_csv(filename, round_num, epoch, client_id, loss, der):
@@ -253,7 +246,8 @@ class SENDClient(NumPyClient):
         device: torch.device,
         power_set_encoder: PowerSetEncoder,
         speaker_encoder: EncoderClassifier,
-        speaker_to_embedding: Dict[int, np.ndarray]
+        speaker_to_embedding: Dict[int, np.ndarray],
+        log_suffix: str = ""
     ):
         print(f"[{datetime.now()}] SENDClient: Initializing client {id(self)}")
         self.model = model
@@ -272,6 +266,7 @@ class SENDClient(NumPyClient):
             print(f"[WARNING] SENDClient: train_loader is EMPTY for client {id(self)}!")
         if len(self.val_loader) == 0:
             print(f"[WARNING] SENDClient: val_loader is EMPTY for client {id(self)}!")
+        self.log_suffix = log_suffix  # Store log_suffix for metrics file naming
         
     def get_parameters(self, config):
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
@@ -334,7 +329,7 @@ class SENDClient(NumPyClient):
             print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique predictions: {np.unique(all_predictions) if all_predictions else 'EMPTY'}")
             print(f"[{datetime.now()}] SENDClient: Epoch {epoch+1}/{epochs} summary for client {id(self)}: min_loss={min(batch_losses) if batch_losses else 'nan'}, max_loss={max(batch_losses) if batch_losses else 'nan'}, mean_loss={mean_loss}, acc={acc}, DER={der}")
             # === Log metrics to CSV ===
-            metrics_file = os.path.join(log_dir, f"client_metrics_{client_id}.csv")
+            metrics_file = os.path.join(log_dir, f"client_metrics_{client_id}{self.log_suffix}.csv")
             log_metrics_to_csv(metrics_file, round_num, epoch+1, client_id, mean_loss, der)
         elapsed = time.time() - start_time
         print(f"[{datetime.now()}] SENDClient: Finished fit for client {id(self)}, total time: {elapsed:.2f} sec")
@@ -478,9 +473,26 @@ def main():
     print("MAIN STARTED")
     print(f"[{datetime.now()}] MAIN: Starting main()")
     try:
-        # Check GPU availability
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"[{datetime.now()}] MAIN: Using device: {device}")
+        # === Set experiment parameters here ===
+        test_size = 10
+        num_clients = 2
+        num_rounds = 3
+        num_epochs = 2
+        run_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_dir = "logs"
+        os.makedirs(log_dir, exist_ok=True)
+        # === Create log_suffix with all experiment parameters ===
+        log_suffix = f"_{test_size}recs_{num_clients}clients_{num_epochs}epochs_{num_rounds}rounds_{run_datetime}"
+        # === Create FileHandler for logging with correct log_suffix ===
+        log_file = os.path.join(log_dir, f"experiment{log_suffix}.log")
+        file_handler = logging.FileHandler(log_file, mode='a')
+        file_handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+        file_handler.setFormatter(formatter)
+        # Remove old handlers to avoid duplicate logs
+        for h in logger.handlers[:]:
+            logger.removeHandler(h)
+        logger.addHandler(file_handler)
         
         # Initialize speaker encoder
         print(f"[{datetime.now()}] MAIN: Initializing speaker encoder...")
@@ -497,7 +509,6 @@ def main():
         print(f"[{datetime.now()}] MAIN: Dataset loaded successfully")
         
         # Take a small subset for testing
-        test_size = 10
         print(f"[{datetime.now()}] MAIN: Using subset of {test_size} samples for testing")
         
         # Group data by meeting ID for all splits
@@ -560,7 +571,6 @@ def main():
                 if client_idx >= len(client_data):
                     raise ValueError(f"Client ID {client_idx} is out of range. Only {len(client_data)} clients available.")
                 train_loader, val_loader = client_data[client_idx]
-                # Create new model instance for each client
                 client_model = SENDModel(num_classes=num_classes).to(device)
                 print(f"[{datetime.now()}] MAIN: Client {cid} created and ready")
                 return SENDClient(
@@ -570,7 +580,8 @@ def main():
                     device=device,
                     power_set_encoder=power_set_encoder,
                     speaker_encoder=speaker_encoder,
-                    speaker_to_embedding=speaker_to_embedding
+                    speaker_to_embedding=speaker_to_embedding,
+                    log_suffix=log_suffix
                 ).to_client()
             except Exception as e:
                 logger.error(f"Error creating client {cid}: {str(e)}")
@@ -582,8 +593,8 @@ def main():
             min_available_clients=2,
             min_fit_clients=2,
             min_evaluate_clients=2,
-            on_fit_config_fn=lambda _: {"epochs": 2},
-            on_evaluate_config_fn=lambda _: {"epochs": 1},
+            on_fit_config_fn=lambda server_round: {"epochs": num_epochs, "round": server_round, "cid": None},
+            on_evaluate_config_fn=lambda server_round: {"epochs": 1, "round": server_round, "cid": None},
             initial_parameters=fl.common.ndarrays_to_parameters(
                 [val.cpu().numpy() for _, val in model.state_dict().items()]
             ),
@@ -598,7 +609,7 @@ def main():
         fl.simulation.start_simulation(
             client_fn=client_fn,
             num_clients=num_clients,
-            config=fl.server.ServerConfig(num_rounds=3),
+            config=fl.server.ServerConfig(num_rounds=num_rounds),
             strategy=strategy,
             ray_init_args={
                 "num_cpus": num_clients,
@@ -664,12 +675,12 @@ def main():
             else:
                 print("Ray log directory not found.")
 
-        # === Plotting function for metrics ===
-        def plot_client_metrics(log_dir="logs"):
+        # === Plotting function for metrics with log_suffix ===
+        def plot_client_metrics(log_dir="logs", log_suffix=""):
             import pandas as pd
             import matplotlib.pyplot as plt
             import glob
-            metric_files = glob.glob(os.path.join(log_dir, "client_metrics_*.csv"))
+            metric_files = glob.glob(os.path.join(log_dir, f"client_metrics_*{log_suffix}.csv"))
             for file in metric_files:
                 df = pd.read_csv(file)
                 client_id = df['client_id'].iloc[0]
@@ -680,12 +691,13 @@ def main():
                 plt.title(f'Client {client_id}: Loss and DER per Epoch')
                 plt.legend()
                 plt.grid()
-                plt.savefig(os.path.join(log_dir, f"client_{client_id}_metrics.png"))
+                plot_file = os.path.join(log_dir, f"client_{client_id}_metrics{log_suffix}.png")
+                plt.savefig(plot_file)
                 plt.close()
             print(f"Saved metrics plots for {len(metric_files)} clients in {log_dir}")
 
         # === Вызовите plot_client_metrics() после обучения, если хотите построить графики ===
-        plot_client_metrics()
+        plot_client_metrics(log_dir, log_suffix)
 
     except KeyboardInterrupt:
         print("\nProcess interrupted by user. Cleaning up...")
