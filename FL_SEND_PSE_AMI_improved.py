@@ -474,6 +474,8 @@ def main():
         
         # Take a small subset for testing
         test_size = 10
+        epochs = 2
+        num_rounds = 3
         print(f"[{datetime.now()}] MAIN: Using subset of {test_size} samples for testing")
         
         # Group data by meeting ID for all splits
@@ -552,13 +554,14 @@ def main():
                 logger.error(f"Error creating client {cid}: {str(e)}")
                 raise
         
+    
         # Start federated learning with simulation
         print("Starting federated learning simulation...")
         strategy = fl.server.strategy.FedAvg(
             min_available_clients=2,
             min_fit_clients=2,
             min_evaluate_clients=2,
-            on_fit_config_fn=lambda _: {"epochs": 2},
+            on_fit_config_fn=lambda _: {"epochs": epochs},
             on_evaluate_config_fn=lambda _: {"epochs": 1},
             initial_parameters=fl.common.ndarrays_to_parameters(
                 [val.cpu().numpy() for _, val in model.state_dict().items()]
@@ -574,7 +577,7 @@ def main():
         fl.simulation.start_simulation(
             client_fn=client_fn,
             num_clients=num_clients,
-            config=fl.server.ServerConfig(num_rounds=3),
+            config=fl.server.ServerConfig(num_rounds=num_rounds),
             strategy=strategy,
             ray_init_args={
                 "num_cpus": num_clients,
@@ -619,6 +622,35 @@ def main():
         print(f"Final DER: {der:.4f}")
         print(f"Final Test Loss: {test_loss:.4f}")
         print(f"Final DER: {der:.4f}")
+
+        # === LOG FINAL RESULTS TO FILE ===
+        # Use actual experiment parameters, not hardcoded values
+        dt_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        exp_filename = f"experiment_{test_size}recs_{num_clients}clients_{epochs}epochs_{num_rounds}rounds_{dt_str}"
+        exp_filepath = exp_filename + ".txt"
+        # Prepare lines for logging
+        result_lines = [
+            f"Experiment: {exp_filename}",
+            f"Num records: {test_size}",
+            f"Num clients: {num_clients}",
+            f"Num epochs: {epochs}",
+            f"Num rounds: {num_rounds}",
+            f"Datetime: {dt_str}",
+            f"Final Test Loss: {test_loss:.4f}",
+            f"Final DER: {der:.4f}",
+        ]
+        # Save to file and print to console
+        print("\n===== SAVING FINAL RESULTS TO FILE =====")
+        print(f"Results will be saved to: {exp_filepath}")
+        for line in result_lines:
+            print(line)
+        try:
+            with open(exp_filepath, "w") as f:
+                for line in result_lines:
+                    f.write(line + "\n")
+            print(f"Results saved to {exp_filepath}")
+        except Exception as e:
+            print(f"[ERROR] Could not save results to file: {e}")
 
         # Print Ray/Flower client logs after simulation
         import glob
