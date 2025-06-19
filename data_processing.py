@@ -416,8 +416,8 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
                     torch.tensor(val_features, dtype=torch.float32),
                     torch.tensor(val_labels, dtype=torch.long)
                 )
-                train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-                val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+                train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
+                val_loader = DataLoader(val_dataset, batch_size=4, shuffle=False)
                 client_data.append((train_loader, val_loader))
                 logger.info(f"Created data loaders for client {client_id}")
             except KeyboardInterrupt:
@@ -576,7 +576,7 @@ def calculate_der(predictions, labels, power_set_encoder):
     
     return der
 
-def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speaker_encoder, batch_size=32):
+def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speaker_encoder, batch_size=4):
     """Prepare data loaders for training, validation and testing."""
     # Create datasets
     train_dataset = create_dataset_from_grouped(grouped_train, speaker_encoder)
@@ -609,9 +609,9 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
         
         return features, speaker_embeddings, labels
     
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+    train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True, collate_fn=collate_fn)
+    val_loader = DataLoader(val_dataset, batch_size=4, shuffle=False, collate_fn=collate_fn)
+    test_loader = DataLoader(test_dataset, batch_size=4, shuffle=False, collate_fn=collate_fn)
     
     logger.info(f"Created data loaders with batch size {batch_size}")
     logger.info(f"Training samples: {len(train_dataset)}")
