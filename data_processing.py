@@ -37,7 +37,7 @@ def simulate_overlapping_speech(
     max_speakers: int = 4,
     duration: float = 10.0,
     sr: int = 16000,
-    max_combinations: int = 1000  # Максимальное количество комбинаций
+    max_combinations: int = 1000  # Maximum number of combinations
 ) -> Tuple[np.ndarray, List[int]]:
     """Simulate overlapping speech segments.
     
@@ -54,8 +54,8 @@ def simulate_overlapping_speech(
     """
     logger.info(f"Starting simulation with {len(audio_segments)} segments")
     
-    # Ограничиваем количество сегментов для обработки
-    max_segments = min(len(audio_segments), 100)  # Уменьшаем до 100 сегментов
+    # Limit segments for processing
+    max_segments = min(len(audio_segments), 100)  # Reduce to 100 segments
     if len(audio_segments) > max_segments:
         logger.info(f"Limiting segments from {len(audio_segments)} to {max_segments}")
         indices = np.random.choice(len(audio_segments), max_segments, replace=False)
@@ -68,16 +68,16 @@ def simulate_overlapping_speech(
     # Convert duration to samples
     target_length = int(duration * sr)
     
-    # Создаем список возможных комбинаций
+    # Create list of possible combinations
     combinations = []
     for i in range(len(audio_segments)):
         for j in range(i + 1, len(audio_segments)):
             combinations.append((i, j))
     
-    # Ограничиваем количество комбинаций
+    # Limit combinations
     if len(combinations) > max_combinations:
         logger.info(f"Limiting combinations from {len(combinations)} to {max_combinations}")
-        # Преобразуем список комбинаций в массив индексов
+        # Convert combinations list to array of indices
         combination_indices = np.random.choice(len(combinations), max_combinations, replace=False)
         combinations = [combinations[i] for i in combination_indices]
     
@@ -361,56 +361,53 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
         for client_id, samples in enumerate(client_samples[:num_clients]):
             try:
                 logger.info(f"\nProcessing client {client_id} with {len(samples)} samples")
-                # Count statistics for this client
                 client_non_overlap = len([s for s in samples if not s["is_overlap"]])
                 client_natural_overlap = len([s for s in samples if s["is_overlap"] and not s["is_artificial"]])
                 client_artificial_overlap = len([s for s in samples if s["is_overlap"] and s["is_artificial"]])
-                
                 logger.info(f"Client {client_id} sample distribution:")
                 logger.info(f"  - Non-overlapping: {client_non_overlap}")
                 logger.info(f"  - Natural overlaps: {client_natural_overlap}")
                 logger.info(f"  - Artificial overlaps: {client_artificial_overlap}")
-                
-                # Create dataset for this client
                 features = []
                 labels = []
-                
-                # First, extract all features to find max length
                 raw_features = []
+                raw_labels = []
                 for sample in samples:
                     feature = extract_features(sample["audio"]["array"])
+                    if feature.shape[0] == 0:
+                        logger.warning(f"Sample with empty feature sequence detected, skipping.")
+                        continue
                     raw_features.append(feature)
                     # frame-wise labels
                     label = np.full(feature.shape[0], sample["speaker_id"], dtype=np.int64)
-                    labels.append(label)
-                
-                # Find max sequence length
+                    raw_labels.append(label)
+                if not raw_features:
+                    logger.error(f"No valid features for client {client_id}, skipping client.")
+                    continue
                 max_len = max(f.shape[0] for f in raw_features)
-                
-                # Pad all features to max length
-                for feature, label in zip(raw_features, labels):
+                features_padded = []
+                labels_padded = []
+                for feature, label in zip(raw_features, raw_labels):
                     if feature.shape[0] < max_len:
                         pad_len = max_len - feature.shape[0]
                         feature = np.pad(feature, ((0, pad_len), (0, 0)), mode='constant')
                         label = np.pad(label, (0, pad_len), mode='constant', constant_values=-100)
-                    features.append(feature)
-                    labels.append(label)
-                
-                # Convert to numpy arrays
-                features = np.array(features)
-                labels = np.array(labels)
-                
-                # Split into train and validation
+                    features_padded.append(feature)
+                    labels_padded.append(label)
+                # Diagnostics: check that all sequence lengths are the same
+                lengths = [f.shape[0] for f in features_padded]
+                logger.info(f"All sequence lengths for client {client_id}: {set(lengths)}")
+                if len(set(lengths)) != 1:
+                    logger.error(f"Inhomogeneous sequence lengths for client {client_id}, skipping client.")
+                    continue
+                features = np.array(features_padded)
+                labels = np.array(labels_padded)
                 train_size = int(0.8 * len(features))
                 val_size = len(features) - train_size
-                
-                # Split features and labels
                 train_features = features[:train_size]
                 train_labels = labels[:train_size]
                 val_features = features[train_size:]
                 val_labels = labels[train_size:]
-                
-                # Create datasets
                 train_dataset = torch.utils.data.TensorDataset(
                     torch.tensor(train_features, dtype=torch.float32),
                     torch.tensor(train_labels, dtype=torch.long)
@@ -419,14 +416,10 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
                     torch.tensor(val_features, dtype=torch.float32),
                     torch.tensor(val_labels, dtype=torch.long)
                 )
-                
-                # Create data loaders
                 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
                 val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
-                
                 client_data.append((train_loader, val_loader))
                 logger.info(f"Created data loaders for client {client_id}")
-            
             except KeyboardInterrupt:
                 logger.info(f"\nInterrupted while processing client {client_id}. Saving progress...")
                 break
