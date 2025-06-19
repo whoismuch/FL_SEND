@@ -703,5 +703,5 @@ class OverlappingSpeechDataset(Dataset):
         label = torch.tensor(self.labels[idx], dtype=torch.long)
         sid = self.speaker_ids[idx]
         # Для SEND-style: возвращаем embedding всех спикеров (матрицу)
-        all_embeddings = torch.stack([self.speaker_to_embedding[s] for s in sorted(self.speaker_to_embedding.keys())])
+        all_embeddings = torch.stack([self.speaker_to_embedding[s] for s in sorted(self.speaker_to_embedding.keys())]).float()
         return feature, all_embeddings, label 
