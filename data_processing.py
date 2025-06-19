@@ -604,7 +604,7 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
             speaker_embeddings.append(all_embeddings)  # [num_speakers, 192]
             labels.append(label)
         features = torch.tensor(np.array(features), dtype=torch.float32)
-        speaker_embeddings = torch.stack(speaker_embeddings)  # [batch, num_speakers, 192]
+        speaker_embeddings = torch.stack(speaker_embeddings).float()  # [batch, num_speakers, 192]
         labels = torch.tensor(labels, dtype=torch.long)
         return features, speaker_embeddings, labels
     
