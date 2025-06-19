@@ -368,8 +368,9 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
                 logger.info(f"  - Non-overlapping: {client_non_overlap}")
                 logger.info(f"  - Natural overlaps: {client_natural_overlap}")
                 logger.info(f"  - Artificial overlaps: {client_artificial_overlap}")
-                features = []
-                labels = []
+                # Инициализация списков для хранения признаков и меток
+                raw_features = []
+                raw_labels = []
                 speaker_ids = []
                 for sample in samples:
                     feature = extract_features(sample["audio"]["array"])
