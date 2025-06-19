@@ -38,9 +38,28 @@ from data_processing import (
     compute_speaker_embeddings
 )
 import time
+import csv
 
+# === FileHandler for logging ===
+log_dir = "logs"
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, "experiment.log")
+file_handler = logging.FileHandler(log_file, mode='a')
+file_handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+file_handler.setFormatter(formatter)
+if not any(isinstance(h, logging.FileHandler) for h in logger.handlers):
+    logger.addHandler(file_handler)
 
-
+# === Helper for metrics logging ===
+def log_metrics_to_csv(filename, round_num, epoch, client_id, loss, der):
+    header = ['round', 'epoch', 'client_id', 'loss', 'der']
+    file_exists = os.path.isfile(filename)
+    with open(filename, 'a', newline='') as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            writer.writerow(header)
+        writer.writerow([round_num, epoch, client_id, loss, der])
 
 # Set random seeds for reproducibility
 def set_seed(seed: int = 42):
@@ -273,6 +292,8 @@ class SENDClient(NumPyClient):
         self.set_parameters(parameters)
         self.model.train()
         epochs = config.get("epochs", 1)
+        round_num = config.get("round", 0)  # Передавайте round в config через on_fit_config_fn
+        client_id = config.get("cid", id(self))
         start_time = time.time()
         for epoch in range(epochs):
             train_loss = 0.0
@@ -312,6 +333,9 @@ class SENDClient(NumPyClient):
             print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique labels: {np.unique(all_labels) if all_labels else 'EMPTY'}")
             print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique predictions: {np.unique(all_predictions) if all_predictions else 'EMPTY'}")
             print(f"[{datetime.now()}] SENDClient: Epoch {epoch+1}/{epochs} summary for client {id(self)}: min_loss={min(batch_losses) if batch_losses else 'nan'}, max_loss={max(batch_losses) if batch_losses else 'nan'}, mean_loss={mean_loss}, acc={acc}, DER={der}")
+            # === Log metrics to CSV ===
+            metrics_file = os.path.join(log_dir, f"client_metrics_{client_id}.csv")
+            log_metrics_to_csv(metrics_file, round_num, epoch+1, client_id, mean_loss, der)
         elapsed = time.time() - start_time
         print(f"[{datetime.now()}] SENDClient: Finished fit for client {id(self)}, total time: {elapsed:.2f} sec")
         print("=== CLIENT LOG: fit finished ===")
@@ -639,6 +663,29 @@ def main():
                         print(f"Could not read {f}: {e}")
             else:
                 print("Ray log directory not found.")
+
+        # === Plotting function for metrics ===
+        def plot_client_metrics(log_dir="logs"):
+            import pandas as pd
+            import matplotlib.pyplot as plt
+            import glob
+            metric_files = glob.glob(os.path.join(log_dir, "client_metrics_*.csv"))
+            for file in metric_files:
+                df = pd.read_csv(file)
+                client_id = df['client_id'].iloc[0]
+                plt.figure(figsize=(10,5))
+                plt.plot(df['epoch'], df['loss'], label='Loss')
+                plt.plot(df['epoch'], df['der'], label='DER')
+                plt.xlabel('Epoch')
+                plt.title(f'Client {client_id}: Loss and DER per Epoch')
+                plt.legend()
+                plt.grid()
+                plt.savefig(os.path.join(log_dir, f"client_{client_id}_metrics.png"))
+                plt.close()
+            print(f"Saved metrics plots for {len(metric_files)} clients in {log_dir}")
+
+        # === Вызовите plot_client_metrics() после обучения, если хотите построить графики ===
+        plot_client_metrics()
 
     except KeyboardInterrupt:
         print("\nProcess interrupted by user. Cleaning up...")
