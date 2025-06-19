@@ -649,8 +649,8 @@ def main():
         print(f"Final DER: {der:.4f}")
 
         # === LOG FINAL RESULTS TO FILE ===
-        # Ensure logs directory exists
-        logs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'logs')
+        # Ensure logs directory exists (Colab compatible, no __file__)
+        logs_dir = os.path.abspath(os.path.join(os.getcwd(), '../logs'))
         os.makedirs(logs_dir, exist_ok=True)
         # Use actual experiment parameters, not hardcoded values
         dt_str = datetime.now().strftime("%Y%m%d_%H%M%S")
