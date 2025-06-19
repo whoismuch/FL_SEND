@@ -261,6 +261,7 @@ class SENDClient(NumPyClient):
         self.set_parameters(parameters)
         self.model.train()
         train_loss = 0.0
+        batch_losses = []
         start_time = time.time()
         for batch_idx, (features, speaker_embeddings, labels) in enumerate(self.train_loader):
             if batch_idx == 0:
@@ -279,8 +280,13 @@ class SENDClient(NumPyClient):
             loss.backward()
             self.optimizer.step()
             train_loss += loss.item()
+            batch_losses.append(loss.item())
             if batch_idx % 10 == 0:
                 logger.info(f"Batch {batch_idx}, Loss: {loss.item():.4f}")
+            if batch_idx == 0:
+                logger.info(f"Batch {batch_idx}, labels shape: {labels.shape}, unique labels: {torch.unique(labels)}")
+                logger.info(f"Batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(torch.argmax(outputs, dim=-1))}")
+        logger.info(f"[{datetime.now()}] SENDClient: Epoch summary for client {id(self)}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={np.mean(batch_losses):.4f}")
         elapsed = time.time() - start_time
         logger.info(f"[{datetime.now()}] SENDClient: Finished fit for client {id(self)}, total time: {elapsed:.2f} sec")
         return self.get_parameters({}), len(self.train_loader), {"train_loss": train_loss / len(self.train_loader)}
@@ -290,6 +296,7 @@ class SENDClient(NumPyClient):
         self.set_parameters(parameters)
         self.model.eval()
         val_loss = 0.0
+        batch_losses = []
         all_predictions = []
         all_labels = []
         start_time = time.time()
@@ -305,9 +312,14 @@ class SENDClient(NumPyClient):
                 labels = labels.reshape(-1)
                 loss = self.criterion(outputs, labels)
                 val_loss += loss.item()
+                batch_losses.append(loss.item())
                 predictions = torch.argmax(outputs, dim=-1)
                 all_predictions.extend(predictions.cpu().numpy())
                 all_labels.extend(labels.cpu().numpy())
+                if batch_idx == 0:
+                    logger.info(f"Eval batch {batch_idx}, labels shape: {labels.shape}, unique labels: {np.unique(labels.cpu().numpy())}")
+                    logger.info(f"Eval batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {np.unique(predictions.cpu().numpy())}")
+        logger.info(f"[{datetime.now()}] SENDClient: Eval summary for client {id(self)}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={np.mean(batch_losses):.4f}")
         elapsed = time.time() - start_time
         logger.info(f"[{datetime.now()}] SENDClient: Finished evaluate for client {id(self)}, total time: {elapsed:.2f} sec")
         der = self.calculate_der(all_predictions, all_labels)
@@ -539,10 +551,11 @@ def main():
                 labels = labels.reshape(-1)
                 loss = nn.CrossEntropyLoss()(outputs, labels)
                 test_loss += loss.item()
-                
                 predictions = torch.argmax(outputs, dim=-1)
                 all_predictions.extend(predictions.cpu().numpy().flatten())
                 all_labels.extend(labels.cpu().numpy().flatten())
+        logger.info(f"Test predictions shape: {np.array(all_predictions).shape}, unique: {np.unique(all_predictions)}")
+        logger.info(f"Test labels shape: {np.array(all_labels).shape}, unique: {np.unique(all_labels)}")
         
         # Calculate final metrics
         test_loss = test_loss / len(test_loader)
