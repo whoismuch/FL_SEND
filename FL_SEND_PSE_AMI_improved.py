@@ -324,6 +324,11 @@ class SENDClient(NumPyClient):
             outputs = outputs.reshape(-1, num_classes)  # (batch_size * seq_len, num_classes)
             labels = labels.reshape(-1)  # (batch_size * seq_len)
             
+            # Проверка диапазона меток
+            if (labels >= num_classes).any() or ((labels < 0) & (labels != -100)).any():
+                logger.error(f"Found label out of range! min={labels.min()}, max={labels.max()}, num_classes={num_classes}")
+                raise ValueError("Label out of range for CrossEntropyLoss")
+            
             # Log reshaped tensors
             logger.debug(f"Reshaped outputs shape: {outputs.shape}")
             logger.debug(f"Reshaped labels shape: {labels.shape}")
@@ -497,13 +502,23 @@ def main():
         logger.info(f"Grouped {len(grouped_validation)} meetings from validation set")
         logger.info(f"Grouped {len(grouped_test)} meetings from test set")
         
+        # Determine number of unique speakers across all splits
+        speaker_ids = set()
+        for grouped in [grouped_train, grouped_validation, grouped_test]:
+            for samples in grouped.values():
+                for sample in samples:
+                    speaker_ids.add(sample["speaker_id"])
+        num_speakers = len(speaker_ids)
+        num_classes = 2 ** num_speakers
+        logger.info(f"Detected {num_speakers} unique speakers, num_classes={num_classes}")
+        
         # Initialize Power Set Encoder
         logger.info("Initializing Power Set Encoder...")
-        power_set_encoder = PowerSetEncoder(max_speakers=4)
+        power_set_encoder = PowerSetEncoder(max_speakers=num_speakers)
         
         # Create and train model
         logger.info("Creating SEND model...")
-        model = SENDModel().to(device)
+        model = SENDModel(num_classes=num_classes).to(device)
         
         # Split data for federated learning with fewer clients
         logger.info("Splitting data for federated learning...")
@@ -523,10 +538,9 @@ def main():
                 client_idx = int(cid)
                 if client_idx >= len(client_data):
                     raise ValueError(f"Client ID {client_idx} is out of range. Only {len(client_data)} clients available.")
-                
                 train_loader, val_loader = client_data[client_idx]
                 # Create new model instance for each client
-                client_model = SENDModel().to(device)
+                client_model = SENDModel(num_classes=num_classes).to(device)
                 return SENDClient(
                     model=client_model,
                     train_loader=train_loader,
