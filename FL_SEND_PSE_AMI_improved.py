@@ -441,7 +441,7 @@ def main():
         logger.info(f"[{datetime.now()}] MAIN: Dataset loaded successfully")
         
         # Take a small subset for testing
-        test_size = 10
+        test_size = 6
         logger.info(f"[{datetime.now()}] MAIN: Using subset of {test_size} samples for testing")
         
         # Group data by meeting ID for all splits
@@ -453,6 +453,11 @@ def main():
         logger.info(f"[{datetime.now()}] MAIN: Grouped {len(grouped_train)} meetings from training set")
         logger.info(f"[{datetime.now()}] MAIN: Grouped {len(grouped_validation)} meetings from validation set")
         logger.info(f"[{datetime.now()}] MAIN: Grouped {len(grouped_test)} meetings from test set")
+        
+        # Prepare test_loader for final evaluation
+        _, _, test_loader = prepare_data_loaders(
+            grouped_train, grouped_validation, grouped_test, speaker_encoder
+        )
         
         # Determine number of unique speakers across all splits
         speaker_ids = set()
