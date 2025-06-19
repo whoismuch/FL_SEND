@@ -365,6 +365,7 @@ class SENDClient(NumPyClient):
         reference = Annotation()
         hypothesis = Annotation()
         valid_frames = 0
+        debug_printed = 0
         for i, (pred, label) in enumerate(zip(predictions, labels)):
             if isinstance(label, str):
                 if label == '-' or not label.isdigit():
@@ -376,17 +377,24 @@ class SENDClient(NumPyClient):
             # Convert power set encoded values back to speaker labels
             pred_speakers = self.power_set_encoder.decode(pred)
             true_speakers = self.power_set_encoder.decode(label)
-            # Add segments to reference and hypothesis
-            for speaker in true_speakers:
+            # Debug: print decoded speakers for first 5 frames
+            if debug_printed < 5:
+                print(f"[DER DEBUG] Frame {i}: label={label}, pred={pred}, true_speakers={true_speakers}, pred_speakers={pred_speakers}")
+                debug_printed += 1
+            # Add segments to reference and hypothesis (use index, not value!)
+            for idx, speaker in enumerate(true_speakers):
                 if speaker == 1:
-                    reference[Segment(i, i+1)] = f"speaker_{speaker}"
-            for speaker in pred_speakers:
+                    reference[Segment(i, i+1)] = f"speaker_{idx}"
+            for idx, speaker in enumerate(pred_speakers):
                 if speaker == 1:
-                    hypothesis[Segment(i, i+1)] = f"speaker_{speaker}"
+                    hypothesis[Segment(i, i+1)] = f"speaker_{idx}"
+        # Debug: print first 10 segments of reference/hypothesis
+        print(f"[DER DEBUG] Reference segments (first 10): {list(reference.itertracks(yield_label=True))[:10]}")
+        print(f"[DER DEBUG] Hypothesis segments (first 10): {list(hypothesis.itertracks(yield_label=True))[:10]}")
         # Calculate DER
         metric = DiarizationErrorRate()
         der = metric(reference, hypothesis)
-        print(f"[DEBUG] DER calculation: valid frames used = {valid_frames}")
+        print(f"[DEBUG] DER calculation: valid frames used = {valid_frames}, DER = {der}")
         return der
 
 def find_available_port(start_port: int = 8080, max_attempts: int = 10) -> int:
@@ -486,9 +494,10 @@ def main():
         num_speakers = len(speaker_ids)
         num_classes = 2 ** num_speakers
         print(f"[{datetime.now()}] MAIN: Detected {num_speakers} unique speakers, num_classes={num_classes}")
+        print(f"[{datetime.now()}] MAIN: speaker_ids: {speaker_ids}")
         
         # Initialize Power Set Encoder
-        print(f"[{datetime.now()}] MAIN: Initializing Power Set Encoder...")
+        print(f"[{datetime.now()}] MAIN: Initializing Power Set Encoder with max_speakers={num_speakers}")
         power_set_encoder = PowerSetEncoder(max_speakers=num_speakers)
         
         # Create and train model
