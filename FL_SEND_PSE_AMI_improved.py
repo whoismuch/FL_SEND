@@ -649,11 +649,14 @@ def main():
         print(f"Final DER: {der:.4f}")
 
         # === LOG FINAL RESULTS TO FILE ===
+        # Ensure logs directory exists
+        logs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'logs')
+        os.makedirs(logs_dir, exist_ok=True)
         # Use actual experiment parameters, not hardcoded values
         dt_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         exp_filename = f"experiment_{test_size}recs_{num_clients}clients_{epochs}epochs_{num_rounds}rounds_{dt_str}"
-        exp_filepath = exp_filename + ".txt"
-        metrics_prefix = f"metrics_{test_size}recs_{num_clients}clients_{epochs}epochs_{num_rounds}rounds_{dt_str}"
+        exp_filepath = os.path.join(logs_dir, exp_filename + ".txt")
+        metrics_prefix = os.path.join(logs_dir, f"metrics_{test_size}recs_{num_clients}clients_{epochs}epochs_{num_rounds}rounds_{dt_str}")
         # Prepare lines for logging
         result_lines = [
             f"Experiment: {exp_filename}",
