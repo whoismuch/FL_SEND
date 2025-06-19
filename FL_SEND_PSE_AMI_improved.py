@@ -253,7 +253,7 @@ class SENDClient(NumPyClient):
             print(f"[WARNING] SENDClient: train_loader is EMPTY for client {id(self)}!")
         if len(self.val_loader) == 0:
             print(f"[WARNING] SENDClient: val_loader is EMPTY for client {id(self)}!")
-        
+    
     def get_parameters(self, config):
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
     
@@ -274,6 +274,7 @@ class SENDClient(NumPyClient):
         self.model.train()
         epochs = config.get("epochs", 1)
         start_time = time.time()
+        epoch_metrics = []  # Collect metrics for each epoch
         for epoch in range(epochs):
             train_loss = 0.0
             batch_losses = []
@@ -312,11 +313,18 @@ class SENDClient(NumPyClient):
             print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique labels: {np.unique(all_labels) if all_labels else 'EMPTY'}")
             print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique predictions: {np.unique(all_predictions) if all_predictions else 'EMPTY'}")
             print(f"[{datetime.now()}] SENDClient: Epoch {epoch+1}/{epochs} summary for client {id(self)}: min_loss={min(batch_losses) if batch_losses else 'nan'}, max_loss={max(batch_losses) if batch_losses else 'nan'}, mean_loss={mean_loss}, acc={acc}, DER={der}")
+            # Collect metrics for this epoch
+            epoch_metrics.append({
+                "train_loss": float(mean_loss),
+                "acc": float(acc) if not np.isnan(acc) else None,
+                "der": float(der) if not np.isnan(der) else None,
+            })
         elapsed = time.time() - start_time
         print(f"[{datetime.now()}] SENDClient: Finished fit for client {id(self)}, total time: {elapsed:.2f} sec")
         print("=== CLIENT LOG: fit finished ===")
         print(f"=== CLIENT LOG: train_loader length: {len(self.train_loader)} ===")
-        return self.get_parameters({}), len(self.train_loader), {"train_loss": mean_loss}
+        # Return epoch_metrics for aggregation and plotting
+        return self.get_parameters({}), len(self.train_loader), {"train_loss": mean_loss, "epoch_metrics": epoch_metrics}
     
     def evaluate(self, parameters, config):
         print("=== CLIENT LOG: evaluate started ===")
@@ -329,6 +337,7 @@ class SENDClient(NumPyClient):
         all_predictions = []
         all_labels = []
         start_time = time.time()
+        epoch_metrics = []  # Collect metrics for each epoch (for compatibility)
         with torch.no_grad():
             for batch_idx, (features, speaker_embeddings, labels) in enumerate(self.val_loader):
                 if batch_idx == 0:
@@ -354,10 +363,16 @@ class SENDClient(NumPyClient):
         der = self.calculate_der(all_predictions, all_labels)
         print("=== CLIENT LOG: evaluate finished ===")
         print("=== CLIENT LOG: evaluate finished ===")
+        # For compatibility, return epoch_metrics (single epoch for val)
+        mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
+        epoch_metrics.append({
+            "val_loss": float(mean_loss),
+            "der": float(der) if not np.isnan(der) else None,
+        })
         return (
             float(val_loss / len(self.val_loader)),
             len(self.val_loader),
-            {"val_loss": val_loss / len(self.val_loader), "der": der}
+            {"val_loss": val_loss / len(self.val_loader), "der": der, "epoch_metrics": epoch_metrics}
         )
     
     def calculate_der(self, predictions: List[int], labels: List[int], speaker_id_list: list = None, debug: bool = True) -> float:
