@@ -658,8 +658,8 @@ def main():
 
         # Print Ray/Flower client logs after simulation
         import glob
-        import os
         def print_ray_logs():
+            # Use global os module, do not import locally.
             ray_log_dir = "/tmp/ray/session_latest/logs/"
             if os.path.exists(ray_log_dir):
                 log_files = glob.glob(os.path.join(ray_log_dir, "*.out"))
