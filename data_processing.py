@@ -141,12 +141,13 @@ def simulate_overlapping_speech(
     logger.info(f"Successfully created {len(overlapping_segments)} overlapping segments")
     return np.array(overlapping_segments), power_set_labels
 
-def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
+def split_data_for_clients(grouped_data, num_clients, speaker_encoder, min_overlap_ratio=0.3):
     """Split grouped data among clients.
     
     Args:
         grouped_data: Dictionary of meeting_id to samples
         num_clients: Number of clients to split data among
+        speaker_encoder: Speaker encoder model
         min_overlap_ratio: Minimum ratio of overlapping samples to total samples
     """
     try:

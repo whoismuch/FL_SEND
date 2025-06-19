@@ -445,7 +445,7 @@ def main():
         # Split data for federated learning with fewer clients
         logger.info(f"[{datetime.now()}] MAIN: Splitting data for federated learning...")
         num_clients = 2  # reduce number of clients for testing
-        client_data = split_data_for_clients(grouped_train, num_clients)
+        client_data = split_data_for_clients(grouped_train, num_clients, speaker_encoder)
         
         # Validate client data
         if not client_data or len(client_data) < num_clients:
