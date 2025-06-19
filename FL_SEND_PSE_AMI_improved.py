@@ -239,7 +239,7 @@ class SENDClient(NumPyClient):
         speaker_encoder: EncoderClassifier,
         speaker_to_embedding: Dict[int, np.ndarray]
     ):
-        logger.info(f"[{datetime.now()}] SENDClient: Initializing client {id(self)}")
+        print(f"[{datetime.now()}] SENDClient: Initializing client {id(self)}")
         self.model = model
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -249,7 +249,7 @@ class SENDClient(NumPyClient):
         self.speaker_to_embedding = speaker_to_embedding
         self.optimizer = optim.Adam(model.parameters())
         self.criterion = nn.CrossEntropyLoss()
-        logger.info(f"[{datetime.now()}] SENDClient: Initialization complete for client {id(self)}")
+        print(f"[{datetime.now()}] SENDClient: Initialization complete for client {id(self)}")
         
     def get_parameters(self, config):
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
@@ -260,7 +260,7 @@ class SENDClient(NumPyClient):
         self.model.load_state_dict(state_dict, strict=True)
     
     def fit(self, parameters, config):
-        logger.info(f"[{datetime.now()}] SENDClient: Starting fit for client {id(self)}")
+        print(f"[{datetime.now()}] SENDClient: Starting fit for client {id(self)}")
         self.set_parameters(parameters)
         self.model.train()
         epochs = config.get("epochs", 1)
@@ -272,7 +272,7 @@ class SENDClient(NumPyClient):
             all_labels = []
             for batch_idx, (features, speaker_embeddings, labels) in enumerate(self.train_loader):
                 if batch_idx == 0:
-                    logger.info(f"[{datetime.now()}] SENDClient: First batch in fit for client {id(self)} (epoch {epoch+1}/{epochs})")
+                    print(f"[{datetime.now()}] SENDClient: First batch in fit for client {id(self)} (epoch {epoch+1}/{epochs})")
                 features, speaker_embeddings, labels = features.to(self.device), speaker_embeddings.to(self.device), labels.to(self.device)
                 speaker_embeddings = speaker_embeddings.float()
                 self.optimizer.zero_grad()
@@ -281,7 +281,7 @@ class SENDClient(NumPyClient):
                 outputs = outputs.reshape(-1, num_classes)
                 labels = labels.reshape(-1)
                 if (labels >= num_classes).any() or ((labels < 0) & (labels != -100)).any():
-                    logger.error(f"Found label out of range! min={labels.min()}, max={labels.max()}, num_classes={num_classes}")
+                    print(f"ERROR: Found label out of range! min={labels.min()}, max={labels.max()}, num_classes={num_classes}")
                     raise ValueError("Label out of range for CrossEntropyLoss")
                 loss = self.criterion(outputs, labels)
                 loss.backward()
@@ -292,21 +292,23 @@ class SENDClient(NumPyClient):
                 all_predictions.extend(predictions.cpu().numpy())
                 all_labels.extend(labels.cpu().numpy())
                 if batch_idx % 10 == 0:
-                    logger.info(f"Batch {batch_idx}, Loss: {loss.item():.4f}")
+                    print(f"Batch {batch_idx}, Loss: {loss.item():.4f}")
                 if batch_idx == 0:
-                    logger.info(f"Batch {batch_idx}, labels shape: {labels.shape}, unique labels: {torch.unique(labels)}")
-                    logger.info(f"Batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(predictions)}")
-            # Метрики по эпохе
+                    print(f"Batch {batch_idx}, labels shape: {labels.shape}, unique labels: {torch.unique(labels)}")
+                    print(f"Batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(predictions)}")
+            # Metrics per epoch
             mean_loss = np.mean(batch_losses)
             acc = (np.array(all_predictions) == np.array(all_labels)).mean()
             der = self.calculate_der(all_predictions, all_labels)
-            logger.info(f"[{datetime.now()}] SENDClient: Epoch {epoch+1}/{epochs} summary for client {id(self)}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={mean_loss:.4f}, acc={acc:.4f}, DER={der:.4f}")
+            print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique labels: {np.unique(all_labels)}")
+            print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique predictions: {np.unique(all_predictions)}")
+            print(f"[{datetime.now()}] SENDClient: Epoch {epoch+1}/{epochs} summary for client {id(self)}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={mean_loss:.4f}, acc={acc:.4f}, DER={der:.4f}")
         elapsed = time.time() - start_time
-        logger.info(f"[{datetime.now()}] SENDClient: Finished fit for client {id(self)}, total time: {elapsed:.2f} sec")
+        print(f"[{datetime.now()}] SENDClient: Finished fit for client {id(self)}, total time: {elapsed:.2f} sec")
         return self.get_parameters({}), len(self.train_loader), {"train_loss": mean_loss}
     
     def evaluate(self, parameters, config):
-        logger.info(f"[{datetime.now()}] SENDClient: Starting evaluate for client {id(self)}")
+        print(f"[{datetime.now()}] SENDClient: Starting evaluate for client {id(self)}")
         self.set_parameters(parameters)
         self.model.eval()
         val_loss = 0.0
@@ -317,7 +319,7 @@ class SENDClient(NumPyClient):
         with torch.no_grad():
             for batch_idx, (features, speaker_embeddings, labels) in enumerate(self.val_loader):
                 if batch_idx == 0:
-                    logger.info(f"[{datetime.now()}] SENDClient: First batch in evaluate for client {id(self)}")
+                    print(f"[{datetime.now()}] SENDClient: First batch in evaluate for client {id(self)}")
                 features, speaker_embeddings, labels = features.to(self.device), speaker_embeddings.to(self.device), labels.to(self.device)
                 speaker_embeddings = speaker_embeddings.float()
                 outputs = self.model(features, speaker_embeddings)
@@ -331,11 +333,11 @@ class SENDClient(NumPyClient):
                 all_predictions.extend(predictions.cpu().numpy())
                 all_labels.extend(labels.cpu().numpy())
                 if batch_idx == 0:
-                    logger.info(f"Eval batch {batch_idx}, labels shape: {labels.shape}, unique labels: {np.unique(labels.cpu().numpy())}")
-                    logger.info(f"Eval batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {np.unique(predictions.cpu().numpy())}")
-        logger.info(f"[{datetime.now()}] SENDClient: Eval summary for client {id(self)}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={np.mean(batch_losses):.4f}")
+                    print(f"Eval batch {batch_idx}, labels shape: {labels.shape}, unique labels: {np.unique(labels.cpu().numpy())}")
+                    print(f"Eval batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {np.unique(predictions.cpu().numpy())}")
+        print(f"[{datetime.now()}] SENDClient: Eval summary for client {id(self)}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={np.mean(batch_losses):.4f}")
         elapsed = time.time() - start_time
-        logger.info(f"[{datetime.now()}] SENDClient: Finished evaluate for client {id(self)}, total time: {elapsed:.2f} sec")
+        print(f"[{datetime.now()}] SENDClient: Finished evaluate for client {id(self)}, total time: {elapsed:.2f} sec")
         der = self.calculate_der(all_predictions, all_labels)
         return (
             float(val_loss / len(self.val_loader)),
@@ -347,9 +349,15 @@ class SENDClient(NumPyClient):
         """Calculate Diarization Error Rate."""
         reference = Annotation()
         hypothesis = Annotation()
+        valid_frames = 0
         for i, (pred, label) in enumerate(zip(predictions, labels)):
+            if isinstance(label, str):
+                if label == '-' or not label.isdigit():
+                    continue
+                label = int(label)
             if label == -100:
                 continue  # skip padded frames
+            valid_frames += 1
             # Convert power set encoded values back to speaker labels
             pred_speakers = self.power_set_encoder.decode(pred)
             true_speakers = self.power_set_encoder.decode(label)
@@ -363,6 +371,7 @@ class SENDClient(NumPyClient):
         # Calculate DER
         metric = DiarizationErrorRate()
         der = metric(reference, hypothesis)
+        print(f"[DEBUG] DER calculation: valid frames used = {valid_frames}")
         return der
 
 def find_available_port(start_port: int = 8080, max_attempts: int = 10) -> int:
