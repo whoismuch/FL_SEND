@@ -247,6 +247,12 @@ class SENDClient(NumPyClient):
         self.optimizer = optim.Adam(model.parameters())
         self.criterion = nn.CrossEntropyLoss()
         print(f"[{datetime.now()}] SENDClient: Initialization complete for client {id(self)}")
+        print(f"[DEBUG] SENDClient: train_loader size: {len(self.train_loader)}")
+        print(f"[DEBUG] SENDClient: val_loader size: {len(self.val_loader)}")
+        if len(self.train_loader) == 0:
+            print(f"[WARNING] SENDClient: train_loader is EMPTY for client {id(self)}!")
+        if len(self.val_loader) == 0:
+            print(f"[WARNING] SENDClient: val_loader is EMPTY for client {id(self)}!")
         
     def get_parameters(self, config):
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
@@ -258,8 +264,10 @@ class SENDClient(NumPyClient):
     
     def fit(self, parameters, config):
         print("=== CLIENT LOG: fit started ===")
-        print("=== aaa ===")
-        print("=== bbb ===")
+        print(f"[DEBUG] fit: train_loader size: {len(self.train_loader)}")
+        print(f"[DEBUG] fit: number of batches: {len(list(self.train_loader))}")
+        print(f"=== aaa ===")
+        print(f"=== bbb ===")
         print("=== CLIENT LOG: fit started ===")
         print(f"[{datetime.now()}] SENDClient: Starting fit for client {id(self)}")
         self.set_parameters(parameters)
@@ -298,17 +306,16 @@ class SENDClient(NumPyClient):
                     print(f"Batch {batch_idx}, labels shape: {labels.shape}, unique labels: {torch.unique(labels)}")
                     print(f"Batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(predictions)}")
             # Metrics per epoch
-            mean_loss = np.mean(batch_losses)
-            acc = (np.array(all_predictions) == np.array(all_labels)).mean()
-            der = self.calculate_der(all_predictions, all_labels)
-            print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique labels: {np.unique(all_labels)}")
-            print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique predictions: {np.unique(all_predictions)}")
-            print(f"[{datetime.now()}] SENDClient: Epoch {epoch+1}/{epochs} summary for client {id(self)}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={mean_loss:.4f}, acc={acc:.4f}, DER={der:.4f}")
+            mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
+            acc = (np.array(all_predictions) == np.array(all_labels)).mean() if all_labels else float('nan')
+            der = self.calculate_der(all_predictions, all_labels) if all_labels else float('nan')
+            print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique labels: {np.unique(all_labels) if all_labels else 'EMPTY'}")
+            print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique predictions: {np.unique(all_predictions) if all_predictions else 'EMPTY'}")
+            print(f"[{datetime.now()}] SENDClient: Epoch {epoch+1}/{epochs} summary for client {id(self)}: min_loss={min(batch_losses) if batch_losses else 'nan'}, max_loss={max(batch_losses) if batch_losses else 'nan'}, mean_loss={mean_loss}, acc={acc}, DER={der}")
         elapsed = time.time() - start_time
         print(f"[{datetime.now()}] SENDClient: Finished fit for client {id(self)}, total time: {elapsed:.2f} sec")
         print("=== CLIENT LOG: fit finished ===")
-
-        print("=== CLIENT LOG: fit finished ===")
+        print(f"=== CLIENT LOG: train_loader length: {len(self.train_loader)} ===")
         return self.get_parameters({}), len(self.train_loader), {"train_loss": mean_loss}
     
     def evaluate(self, parameters, config):
@@ -452,7 +459,7 @@ def main():
         print(f"[{datetime.now()}] MAIN: Dataset loaded successfully")
         
         # Take a small subset for testing
-        test_size = 6
+        test_size = 10
         print(f"[{datetime.now()}] MAIN: Using subset of {test_size} samples for testing")
         
         # Group data by meeting ID for all splits
