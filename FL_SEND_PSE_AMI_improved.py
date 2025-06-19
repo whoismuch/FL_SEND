@@ -297,6 +297,8 @@ class SENDClient(NumPyClient):
             mean_loss = np.mean(batch_losses)
             acc = (np.array(all_predictions) == np.array(all_labels)).mean()
             der = self.calculate_der(all_predictions, all_labels)
+            logger.info(f"[DEBUG] Epoch {epoch+1}/{epochs} unique labels: {np.unique(all_labels)}")
+            logger.info(f"[DEBUG] Epoch {epoch+1}/{epochs} unique predictions: {np.unique(all_predictions)}")
             logger.info(f"[{datetime.now()}] SENDClient: Epoch {epoch+1}/{epochs} summary for client {id(self)}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={mean_loss:.4f}, acc={acc:.4f}, DER={der:.4f}")
         elapsed = time.time() - start_time
         logger.info(f"[{datetime.now()}] SENDClient: Finished fit for client {id(self)}, total time: {elapsed:.2f} sec")
@@ -344,9 +346,15 @@ class SENDClient(NumPyClient):
         """Calculate Diarization Error Rate."""
         reference = Annotation()
         hypothesis = Annotation()
+        valid_frames = 0
         for i, (pred, label) in enumerate(zip(predictions, labels)):
+            if isinstance(label, str):
+                if label == '-' or not label.isdigit():
+                    continue
+                label = int(label)
             if label == -100:
                 continue  # skip padded frames
+            valid_frames += 1
             # Convert power set encoded values back to speaker labels
             pred_speakers = self.power_set_encoder.decode(pred)
             true_speakers = self.power_set_encoder.decode(label)
@@ -360,6 +368,7 @@ class SENDClient(NumPyClient):
         # Calculate DER
         metric = DiarizationErrorRate()
         der = metric(reference, hypothesis)
+        logger.info(f"[DEBUG] DER calculation: valid frames used = {valid_frames}")
         return der
 
 def find_available_port(start_port: int = 8080, max_attempts: int = 10) -> int:
@@ -544,6 +553,27 @@ def main():
         logger.info("Performing final evaluation on test set...")
         train_loader, val_loader, test_loader = prepare_data_loaders(
             grouped_train, grouped_validation, grouped_test, speaker_encoder, batch_size=4, speaker_to_embedding=speaker_to_embedding)
+        
+        # Логируем уникальные классы в train, val, test
+        train_labels = []
+        for batch in train_loader:
+            _, _, labels = batch
+            train_labels.extend(labels.cpu().numpy().flatten())
+        val_labels = []
+        for batch in val_loader:
+            _, _, labels = batch
+            val_labels.extend(labels.cpu().numpy().flatten())
+        test_labels = []
+        for batch in test_loader:
+            _, _, labels = batch
+            test_labels.extend(labels.cpu().numpy().flatten())
+        logger.info(f"[DEBUG] Unique train labels: {np.unique(train_labels)}")
+        logger.info(f"[DEBUG] Unique val labels: {np.unique(val_labels)}")
+        logger.info(f"[DEBUG] Unique test labels: {np.unique(test_labels)}")
+        # Проверяем, что классы train и test пересекаются
+        train_set = set(np.unique(train_labels))
+        test_set = set(np.unique(test_labels))
+        logger.info(f"[DEBUG] Train/Test label intersection: {train_set & test_set}")
         
         model.eval()
         test_loss = 0.0
