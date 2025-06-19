@@ -491,7 +491,7 @@ def main():
         
         # Define client function for simulation
         def client_fn(context: Context):
-            cid = context.client_id
+            cid = context.properties["cid"]
             logger.info(f"[{datetime.now()}] MAIN: Creating client {cid}")
             try:
                 client_idx = int(cid)
