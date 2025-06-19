@@ -409,15 +409,18 @@ def split_data_for_clients(grouped_data, num_clients, min_overlap_ratio=0.3):
                 train_labels = labels[:train_size]
                 val_features = features[train_size:]
                 val_labels = labels[train_size:]
-                train_dataset = torch.utils.data.TensorDataset(
-                    torch.tensor(train_features, dtype=torch.float32),
-                    torch.tensor(train_labels, dtype=torch.long),
-                    torch.tensor(speaker_ids[:train_size], dtype=torch.long)
+                speaker_to_embedding = compute_speaker_embeddings(grouped_data, speaker_encoder)
+                train_dataset = OverlappingSpeechDataset(
+                    features=train_features,
+                    labels=train_labels,
+                    speaker_ids=speaker_ids[:train_size],
+                    speaker_to_embedding=speaker_to_embedding
                 )
-                val_dataset = torch.utils.data.TensorDataset(
-                    torch.tensor(val_features, dtype=torch.float32),
-                    torch.tensor(val_labels, dtype=torch.long),
-                    torch.tensor(speaker_ids[train_size:], dtype=torch.long)
+                val_dataset = OverlappingSpeechDataset(
+                    features=val_features,
+                    labels=val_labels,
+                    speaker_ids=speaker_ids[train_size:],
+                    speaker_to_embedding=speaker_to_embedding
                 )
                 train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
                 val_loader = DataLoader(val_dataset, batch_size=4, shuffle=False)
