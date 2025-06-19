@@ -33,7 +33,8 @@ from data_processing import (
     group_by_meeting,
     prepare_data_loaders,
     power_set_encoding,
-    calculate_der
+    calculate_der,
+    compute_speaker_embeddings
 )
 import time
 
@@ -204,10 +205,11 @@ class SENDModel(nn.Module):
 
 class OverlappingSpeechDataset(Dataset):
     """Dataset for overlapping speech diarization."""
-    def __init__(self, features: np.ndarray, labels: np.ndarray, speaker_encoder: EncoderClassifier):
+    def __init__(self, features: np.ndarray, labels: np.ndarray, speaker_encoder: EncoderClassifier, speaker_to_embedding: Dict[int, np.ndarray]):
         self.features = features
         self.labels = labels
         self.speaker_encoder = speaker_encoder
+        self.speaker_to_embedding = speaker_to_embedding
         
     def __len__(self) -> int:
         return len(self.features)
@@ -218,8 +220,7 @@ class OverlappingSpeechDataset(Dataset):
         
         # Extract speaker embeddings
         with torch.no_grad():
-            speaker_embedding = self.speaker_encoder.encode_batch(feature.unsqueeze(0))
-            speaker_embedding = speaker_embedding.squeeze(0)
+            speaker_embedding = self.speaker_to_embedding[self.labels[idx]]
         
         return feature, speaker_embedding, label
 
@@ -232,7 +233,8 @@ class SENDClient(NumPyClient):
         val_loader: DataLoader,
         device: torch.device,
         power_set_encoder: PowerSetEncoder,
-        speaker_encoder: EncoderClassifier
+        speaker_encoder: EncoderClassifier,
+        speaker_to_embedding: Dict[int, np.ndarray]
     ):
         logger.info(f"[{datetime.now()}] SENDClient: Initializing client {id(self)}")
         self.model = model
@@ -241,6 +243,7 @@ class SENDClient(NumPyClient):
         self.device = device
         self.power_set_encoder = power_set_encoder
         self.speaker_encoder = speaker_encoder
+        self.speaker_to_embedding = speaker_to_embedding
         self.optimizer = optim.Adam(model.parameters())
         self.criterion = nn.CrossEntropyLoss()
         logger.info(f"[{datetime.now()}] SENDClient: Initialization complete for client {id(self)}")
@@ -253,55 +256,16 @@ class SENDClient(NumPyClient):
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
         self.model.load_state_dict(state_dict, strict=True)
     
-    def _prepare_speaker_embeddings(self, batch_size):
-        """Prepare speaker embeddings for a batch.
-        
-        Args:
-            batch_size: Size of the current batch
-            
-        Returns:
-            torch.Tensor: Speaker embeddings of shape (batch_size, num_speakers, 192)
-        """
-        speaker_embeddings = []
-        for i in range(self.power_set_encoder.max_speakers):
-            # Create a dummy audio segment for each speaker
-            dummy_audio = torch.zeros(1, 16000).to(self.device)  # 1 second of silence
-            embedding = self.speaker_encoder.encode_batch(dummy_audio)
-            
-            # Log the shape for debugging
-            logger.debug(f"Raw embedding shape: {embedding.shape}")
-            
-            # Ensure we have the right shape (192,)
-            if embedding.dim() > 1:
-                embedding = embedding.squeeze()  # Remove all size-1 dimensions
-            if embedding.dim() == 0:
-                embedding = embedding.unsqueeze(0)  # Add back dimension if needed
-                
-            speaker_embeddings.append(embedding)
-            
-        # Stack embeddings to get (num_speakers, 192)
-        speaker_embeddings = torch.stack(speaker_embeddings, dim=0)
-        logger.debug(f"Stacked embeddings shape: {speaker_embeddings.shape}")
-        
-        # Add batch dimension and expand
-        speaker_embeddings = speaker_embeddings.unsqueeze(0)  # (1, num_speakers, 192)
-        speaker_embeddings = speaker_embeddings.expand(batch_size, -1, -1)  # (batch_size, num_speakers, 192)
-        logger.debug(f"Final embeddings shape: {speaker_embeddings.shape}")
-        
-        return speaker_embeddings
-    
     def fit(self, parameters, config):
         logger.info(f"[{datetime.now()}] SENDClient: Starting fit for client {id(self)}")
         self.set_parameters(parameters)
         self.model.train()
         train_loss = 0.0
         start_time = time.time()
-        for batch_idx, (features, labels) in enumerate(self.train_loader):
+        for batch_idx, (features, speaker_embeddings, labels) in enumerate(self.train_loader):
             if batch_idx == 0:
                 logger.info(f"[{datetime.now()}] SENDClient: First batch in fit for client {id(self)}")
-            features, labels = features.to(self.device), labels.to(self.device)
-            with torch.no_grad():
-                speaker_embeddings = self._prepare_speaker_embeddings(features.size(0))
+            features, speaker_embeddings, labels = features.to(self.device), speaker_embeddings.to(self.device), labels.to(self.device)
             self.optimizer.zero_grad()
             outputs = self.model(features, speaker_embeddings)
             batch_size, seq_len, num_classes = outputs.shape
@@ -329,11 +293,10 @@ class SENDClient(NumPyClient):
         all_labels = []
         start_time = time.time()
         with torch.no_grad():
-            for batch_idx, (features, labels) in enumerate(self.val_loader):
+            for batch_idx, (features, speaker_embeddings, labels) in enumerate(self.val_loader):
                 if batch_idx == 0:
                     logger.info(f"[{datetime.now()}] SENDClient: First batch in evaluate for client {id(self)}")
-                features, labels = features.to(self.device), labels.to(self.device)
-                speaker_embeddings = self._prepare_speaker_embeddings(features.size(0))
+                features, speaker_embeddings, labels = features.to(self.device), speaker_embeddings.to(self.device), labels.to(self.device)
                 outputs = self.model(features, speaker_embeddings)
                 batch_size, seq_len, num_classes = outputs.shape
                 outputs = outputs.reshape(-1, num_classes)
@@ -486,6 +449,10 @@ def main():
         
         logger.info(f"[{datetime.now()}] MAIN: Split data among {len(client_data)} clients")
         
+        # Compute speaker embeddings for train set
+        logger.info(f"[{datetime.now()}] MAIN: Computing speaker embeddings for train set...")
+        speaker_to_embedding = compute_speaker_embeddings(grouped_train, speaker_encoder)
+        
         # Define client function for simulation
         def client_fn(context: Context):
             cid = context.node_config['partition-id']
@@ -505,7 +472,8 @@ def main():
                     val_loader=val_loader,
                     device=device,
                     power_set_encoder=power_set_encoder,
-                    speaker_encoder=speaker_encoder
+                    speaker_encoder=speaker_encoder,
+                    speaker_to_embedding=speaker_to_embedding
                 ).to_client()
             except Exception as e:
                 logger.error(f"Error creating client {cid}: {str(e)}")
@@ -549,7 +517,8 @@ def main():
         
         # Final evaluation on test set
         logger.info("Performing final evaluation on test set...")
-        _, _, test_loader = prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speaker_encoder)
+        train_loader, val_loader, test_loader = prepare_data_loaders(
+            grouped_train, grouped_validation, grouped_test, speaker_encoder, batch_size=4, speaker_to_embedding=speaker_to_embedding)
         
         model.eval()
         test_loss = 0.0
