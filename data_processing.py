@@ -502,6 +502,8 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder):
     """
     features = []
     labels = []
+    raw_features = []
+    raw_labels = []
     
     # Create speaker ID to index mapping
     speaker_to_idx = {}
@@ -514,7 +516,6 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder):
     logger.info(f"Created speaker ID mapping: {speaker_to_idx}")
     
     # First pass: extract features and find max length
-    raw_features = []
     for meeting_id, samples in grouped_data.items():
         for sample in samples:
             # Extract features
