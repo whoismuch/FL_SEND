@@ -491,7 +491,17 @@ def main():
         
         # Define client function for simulation
         def client_fn(context: Context):
-            cid = context.properties["cid"]
+            try:
+                cid = context.cid
+                logger.info(f"[client_fn] Got cid from context.cid: {cid}")
+            except AttributeError:
+                try:
+                    cid = context.args[0]
+                    logger.info(f"[client_fn] Got cid from context.args[0]: {cid}")
+                except Exception as e:
+                    logger.error(f"[client_fn] Could not get cid, context dir: {dir(context)}")
+                    logger.error(f"[client_fn] Context repr: {repr(context)}")
+                    raise RuntimeError("Could not extract client id from context")
             logger.info(f"[{datetime.now()}] MAIN: Creating client {cid}")
             try:
                 client_idx = int(cid)
