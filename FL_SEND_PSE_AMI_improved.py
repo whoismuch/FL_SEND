@@ -356,25 +356,22 @@ class SENDClient(NumPyClient):
         """Calculate Diarization Error Rate."""
         reference = Annotation()
         hypothesis = Annotation()
-        
         for i, (pred, label) in enumerate(zip(predictions, labels)):
+            if label == -100:
+                continue  # skip padded frames
             # Convert power set encoded values back to speaker labels
             pred_speakers = self.power_set_encoder.decode(pred)
             true_speakers = self.power_set_encoder.decode(label)
-            
             # Add segments to reference and hypothesis
             for speaker in true_speakers:
                 if speaker == 1:
                     reference[Segment(i, i+1)] = f"speaker_{speaker}"
-            
             for speaker in pred_speakers:
                 if speaker == 1:
                     hypothesis[Segment(i, i+1)] = f"speaker_{speaker}"
-        
         # Calculate DER
         metric = DiarizationErrorRate()
         der = metric(reference, hypothesis)
-        
         return der
 
 def find_available_port(start_port: int = 8080, max_attempts: int = 10) -> int:
