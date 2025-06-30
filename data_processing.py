@@ -553,7 +553,19 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder):
     features = np.array(features)
     labels = np.array(labels)
     
-    logger.info(f"Created dataset with shape: {features.shape}")
+    # === DATASET STATISTICS ===
+    logger.info(f"=== DATASET STATISTICS ===")
+    logger.info(f"Dataset size (number of samples): {features.shape[0]}")
+    logger.info(f"Feature shape (samples, frames, mel-bands): {features.shape}")
+    logger.info(f"Label shape: {labels.shape}")
+    logger.info(f"Frame size (number of frames per sample): min={np.min([f.shape[0] for f in raw_features])}, max={np.max([f.shape[0] for f in raw_features])}, mean={np.mean([f.shape[0] for f in raw_features]):.1f}")
+    logger.info(f"Feature dtype: {features.dtype}, Label dtype: {labels.dtype}")
+    logger.info(f"Example feature[0] shape: {features[0].shape}, min={features[0].min():.2f}, max={features[0].max():.2f}")
+    logger.info(f"Example label[0] shape: {labels[0].shape}, values: {np.unique(labels[0])}")
+    logger.info(f"Unique label values in dataset: {np.unique(labels)}")
+    # Optionally, print distribution of audio segment lengths
+    segment_lengths = [f.shape[0] for f in raw_features]
+    logger.info(f"Audio segment length distribution: min={np.min(segment_lengths)}, max={np.max(segment_lengths)}, mean={np.mean(segment_lengths):.1f}, median={np.median(segment_lengths)}")
     
     return OverlappingSpeechDataset(
         features=features,
@@ -634,15 +646,26 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
         labels = torch.tensor(np.array(labels), dtype=torch.long)
         return features, speaker_embeddings, labels
     
-    train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True, collate_fn=collate_fn)
-    val_loader = DataLoader(val_dataset, batch_size=4, shuffle=False, collate_fn=collate_fn)
-    test_loader = DataLoader(test_dataset, batch_size=4, shuffle=False, collate_fn=collate_fn)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
     
     logger.info(f"Created data loaders with batch size {batch_size}")
-    logger.info(f"Training samples: {len(train_dataset)}")
-    logger.info(f"Validation samples: {len(val_dataset)}")
-    logger.info(f"Test samples: {len(test_dataset)}")
-    
+    logger.info(f"Training set: {len(train_dataset)} samples | {len(train_loader)} batches | {len(train_dataset) * train_dataset[0][0].shape[0]} frames")
+    logger.info(f"Validation set: {len(val_dataset)} samples | {len(val_loader)} batches | {len(val_dataset) * val_dataset[0][0].shape[0]} frames")
+    logger.info(f"Test set: {len(test_dataset)} samples | {len(test_loader)} batches | {len(test_dataset) * test_dataset[0][0].shape[0]} frames")
+
+    # Example of a single sample from train_dataset
+    feature, all_embeddings, label = train_dataset[0]
+    logger.info("=== EXAMPLE TRAIN SAMPLE ===")
+    logger.info(f"Feature shape: {feature.shape}, dtype: {feature.dtype}")
+    logger.info(f"Feature (first frame): {feature[0]}")
+    logger.info(f"Speaker embeddings shape: {all_embeddings.shape}, dtype: {all_embeddings.dtype}")
+    logger.info(f"Label shape: {label.shape}, dtype: {label.dtype}")
+    logger.info(f"Label (first 10 frames): {label[:10]}")
+    logger.info("Sample = audio segment (feature matrix), batch = group of samples, frame = row in the feature matrix (one time step)")
+    logger.info("Frames are NOT independent: the model takes their sequence/context into account")
+
     return train_loader, val_loader, test_loader
 
 def power_set_encoding(label):
