@@ -64,18 +64,17 @@ class PowerSetEncoder:
         self.num_classes = 2 ** max_speakers
         
     def encode(self, speaker_labels: List[int]) -> int:
-        """Encode speaker labels into a single integer using power set encoding."""
-        if len(speaker_labels) > self.max_speakers:
-            raise ValueError(f"Number of speakers exceeds maximum ({self.max_speakers})")
-        
-        # Pad with zeros if necessary
-        padded_labels = speaker_labels + [0] * (self.max_speakers - len(speaker_labels))
-        return sum(label * (2 ** i) for i, label in enumerate(padded_labels))
+        """Encode speaker labels (as speaker IDs) into a single integer using power set encoding."""
+        if any(label >= self.max_speakers or label < 0 for label in speaker_labels):
+            raise ValueError(f"Speaker ID in labels exceeds max_speakers ({self.max_speakers}) or is negative.")
+        # Create binary vector: 1 if speaker ID is active, else 0
+        vector_bin = [1 if i in speaker_labels else 0 for i in range(self.max_speakers)]
+        return sum(bit * (2 ** i) for i, bit in enumerate(vector_bin))
     
     def decode(self, encoded_value: int) -> List[int]:
-        """Decode an encoded value back into speaker labels."""
+        """Decode an encoded value back into a list of active speaker IDs (positions with 1)."""
         binary = format(encoded_value, f'0{self.max_speakers}b')
-        return [int(bit) for bit in binary]
+        return [i for i, bit in enumerate(binary[::-1]) if bit == '1']
 
 class FSMNLayer(nn.Module):
     """Feedforward Sequential Memory Network layer."""
