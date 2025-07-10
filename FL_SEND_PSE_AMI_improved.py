@@ -391,9 +391,6 @@ class SENDClient(NumPyClient):
                 speaker_id_list = list(range(len(true_bits)))
             n_speakers = len(speaker_id_list)
             # Truncate bit vectors to match speaker_id_list length
-            if len(true_bits) > n_speakers or len(pred_bits) > n_speakers:
-                if debug:
-                    print(f"[WARNING] decoded bits longer than speaker_id_list! Truncating to {n_speakers}.")
             true_bits = true_bits[:n_speakers]
             pred_bits = pred_bits[:n_speakers]
             # Build reference and hypothesis speaker sets
