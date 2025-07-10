@@ -486,7 +486,7 @@ def main():
         
         # Load and preprocess data
         print(f"[{datetime.now()}] MAIN: Loading AMI dataset...")
-        dataset = load_dataset("edinburghcstr/ami", "ihm", trust_remote_code=True)
+        dataset = load_dataset("edinburghcstr/ami", "ihm")
         print(f"[{datetime.now()}] MAIN: Dataset loaded successfully")
         
         # Take a small subset for testing
