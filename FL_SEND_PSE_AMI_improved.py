@@ -467,6 +467,34 @@ def start_client(client: SENDClient, server_address: str):
     except Exception as e:
         logger.error(f"Client error: {str(e)}")
 
+def smart_split(dataset, train_size=6, val_size=3, test_size=3, seed=42):
+    """Smart split: ensures all speakers in val/test are present in train and all splits are non-empty."""
+    # 1. Group by speaker_id
+    speaker_to_samples = defaultdict(list)
+    for sample in dataset:
+        speaker_to_samples[sample["speaker_id"]].append(sample)
+    speakers = list(speaker_to_samples.keys())
+    if len(speakers) < train_size:
+        raise ValueError(f"Not enough unique speakers for train_size={train_size}")
+    random.seed(seed)
+    random.shuffle(speakers)
+    # 2. Select speakers for train
+    train_speakers = set(speakers[:train_size])
+    # 3. Collect train samples
+    train_samples = [s for spk in train_speakers for s in speaker_to_samples[spk]]
+    # 4. Candidates for val/test: only from train speakers, but not in train_samples
+    val_test_candidates = [s for spk in train_speakers for s in speaker_to_samples[spk] if s not in train_samples]
+    # If not enough, just reuse train_samples for val/test candidates
+    if len(val_test_candidates) < val_size + test_size:
+        val_test_candidates = [s for s in train_samples]
+    random.shuffle(val_test_candidates)
+    val_samples = val_test_candidates[:val_size]
+    test_samples = val_test_candidates[val_size:val_size+test_size]
+    # 5. Check non-empty
+    if not train_samples or not val_samples or not test_samples:
+        raise ValueError("Could not create non-empty splits with current settings. Try different sizes or seed.")
+    return train_samples, val_samples, test_samples
+
 def main():
     print("MAIN STARTED")
     print(f"[{datetime.now()}] MAIN: Starting main()")
