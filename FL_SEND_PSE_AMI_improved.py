@@ -85,24 +85,25 @@ class FSMNLayer(nn.Module):
         self.hidden_dim = hidden_dim
         self.linear = nn.Linear(input_dim, hidden_dim)
         self.memory = nn.Linear(input_dim, hidden_dim)
-        
+        # Add input adaptation layer if needed
+        if input_dim != hidden_dim:
+            self.input_lin = nn.Linear(input_dim, hidden_dim)
+        else:
+            self.input_lin = None
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x shape: (batch_size, seq_len, input_dim)
         batch_size, seq_len, current_dim = x.shape
-        
-        # Check and adapt input dimensions
-        if current_dim != self.input_dim:
-            x = nn.Linear(current_dim, self.input_dim)(x)
-        
+        # Adapt input dimension if needed
+        if self.input_lin is not None:
+            x = self.input_lin(x)
         # Linear projection
         h = self.linear(x)  # (batch_size, seq_len, hidden_dim)
-        
         # Memory mechanism
         memory = torch.zeros_like(h)
         for i in range(seq_len):
             start_idx = max(0, i - self.stride)
             memory[:, i] = self.memory(x[:, start_idx:i+1].mean(dim=1))
-        
         return h + memory
 
 class SENDModel(nn.Module):
