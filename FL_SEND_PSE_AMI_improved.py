@@ -35,7 +35,9 @@ from data_processing import (
     prepare_data_loaders,
     power_set_encoding,
     calculate_der,
-    compute_speaker_embeddings
+    compute_speaker_embeddings,
+    get_global_speaker_mapping,
+    check_no_unknown_speakers
 )
 import time
 
@@ -498,27 +500,23 @@ def main():
         grouped_train = group_by_meeting(dataset["train"].select(range(test_size)))
         grouped_validation = group_by_meeting(dataset["validation"].select(range(test_size)))
         grouped_test = group_by_meeting(dataset["test"].select(range(test_size)))
-        
         print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_train)} meetings from training set")
         print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_validation)} meetings from validation set")
         print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_test)} meetings from test set")
         
-        # Prepare test_loader for final evaluation
-        _, _, test_loader = prepare_data_loaders(
-            grouped_train, grouped_validation, grouped_test, speaker_encoder
-        )
-        
-        # Determine number of unique speakers across all splits
-        speaker_ids = set()
-        for grouped in [grouped_train, grouped_validation, grouped_test]:
-            for samples in grouped.values():
-                for sample in samples:
-                    speaker_ids.add(sample["speaker_id"])
-        speaker_id_list = sorted(list(speaker_ids))
+        # Build global speaker mapping and check splits
+        speaker_to_idx = get_global_speaker_mapping(grouped_train, grouped_validation, grouped_test)
+        check_no_unknown_speakers(grouped_train, grouped_validation, grouped_test)
+        speaker_id_list = sorted(speaker_to_idx.keys())
         num_speakers = len(speaker_id_list)
         num_classes = 2 ** num_speakers
         print(f"[{datetime.now()}] MAIN: Detected {num_speakers} unique speakers, num_classes={num_classes}")
         print(f"[{datetime.now()}] MAIN: speaker_ids: {speaker_id_list}")
+        
+        # Prepare DataLoaders for all splits
+        train_loader, val_loader, test_loader = prepare_data_loaders(
+            grouped_train, grouped_validation, grouped_test, speaker_encoder, batch_size=4, speaker_to_idx=speaker_to_idx
+        )
         
         # Initialize Power Set Encoder
         print(f"[{datetime.now()}] MAIN: Initializing Power Set Encoder with max_speakers={num_speakers}")
@@ -528,15 +526,14 @@ def main():
         print(f"[{datetime.now()}] MAIN: Creating SEND model...")
         model = SENDModel(num_classes=num_classes).to(device)
         
-        # Split data for federated learning with fewer clients
+        # Split data for federated learning with fewer clients (pass mapping)
         print(f"[{datetime.now()}] MAIN: Splitting data for federated learning...")
         num_clients = 2  # reduce number of clients for testing
-        client_data = split_data_for_clients(grouped_train, num_clients, speaker_encoder)
+        client_data = split_data_for_clients(grouped_train, num_clients, speaker_encoder, speaker_to_idx=speaker_to_idx)
         
         # Validate client data
         if not client_data or len(client_data) < num_clients:
             raise ValueError(f"Not enough data for {num_clients} clients. Only {len(client_data) if client_data else 0} clients can be created.")
-        
         print(f"[{datetime.now()}] MAIN: Split data among {len(client_data)} clients")
         
         # Compute speaker embeddings for train set

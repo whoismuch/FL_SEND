@@ -161,7 +161,7 @@ def split_data_for_clients(grouped_data, num_clients, speaker_encoder, min_overl
                 if speaker_id not in speaker_to_idx:
                     speaker_to_idx[speaker_id] = len(speaker_to_idx)
         
-        logger.info(f"Found {len(speaker_to_idx)} unique speakers: {speaker_to_idx}")
+        logger.info(f"[DEBUG] Speaker to index mapping (speaker_to_idx): {speaker_to_idx}")
         
         # Convert grouped data to list of samples
         all_samples = []
@@ -497,50 +497,53 @@ def group_by_meeting(dataset_split):
         grouped.setdefault(meeting_id, []).append(sample)
     return grouped
 
-def create_dataset_from_grouped(grouped_data, speaker_encoder):
-    """Create dataset from grouped data with proper padding.
-    
-    Args:
-        grouped_data: Dictionary of meeting_id to samples
-        speaker_encoder: Speaker encoder model
-        
-    Returns:
-        OverlappingSpeechDataset: Dataset with padded features
-    """
+def get_global_speaker_mapping(grouped_train, grouped_validation, grouped_test):
+    """Create a global speaker_id -> idx mapping for all splits."""
+    speaker_ids = set()
+    for grouped in [grouped_train, grouped_validation, grouped_test]:
+        for samples in grouped.values():
+            for sample in samples:
+                speaker_ids.add(sample["speaker_id"])
+    speaker_id_list = sorted(list(speaker_ids))
+    speaker_to_idx = {spk: idx for idx, spk in enumerate(speaker_id_list)}
+    logger.info(f"[GLOBAL] Global speaker_to_idx mapping: {speaker_to_idx}")
+    return speaker_to_idx
+
+
+def check_no_unknown_speakers(grouped_train, grouped_validation, grouped_test):
+    """Check that validation and test sets do not contain speakers not present in train."""
+    train_speakers = set(sample["speaker_id"] for samples in grouped_train.values() for sample in samples)
+    val_speakers = set(sample["speaker_id"] for samples in grouped_validation.values() for sample in samples)
+    test_speakers = set(sample["speaker_id"] for samples in grouped_test.values() for sample in samples)
+    unknown_val = val_speakers - train_speakers
+    unknown_test = test_speakers - train_speakers
+    logger.info(f"[CHECK] Speakers in val not in train: {unknown_val}")
+    logger.info(f"[CHECK] Speakers in test not in train: {unknown_test}")
+    if unknown_val:
+        raise ValueError(f"Validation set contains unknown speakers: {unknown_val}")
+    if unknown_test:
+        raise ValueError(f"Test set contains unknown speakers: {unknown_test}")
+
+def create_dataset_from_grouped(grouped_data, speaker_encoder, speaker_to_idx):
+    """Create dataset from grouped data with proper padding, using a global mapping."""
     features = []
     labels = []
     raw_features = []
     raw_labels = []
     speaker_ids = []
-    
-    # Create speaker ID to index mapping
-    speaker_to_idx = {}
-    for meeting_id, samples in grouped_data.items():
-        for sample in samples:
-            speaker_id = sample["speaker_id"]
-            if speaker_id not in speaker_to_idx:
-                speaker_to_idx[speaker_id] = len(speaker_to_idx)
-    
-    logger.info(f"Created speaker ID mapping: {speaker_to_idx}")
-    
+    # Use the provided mapping
+    logger.info(f"[DATASET] Using speaker_to_idx: {speaker_to_idx}")
     # First pass: extract features and find max length
     for meeting_id, samples in grouped_data.items():
         for sample in samples:
-            # Extract features
             feature = extract_features(sample["audio"]["array"])
             raw_features.append(feature)
-            # Convert string speaker ID to numeric index
             speaker_idx = speaker_to_idx[sample["speaker_id"]]
             label = power_set_encoding(speaker_idx)
-            # frame-wise labels
             raw_labels.append(np.full(feature.shape[0], label, dtype=np.int64))
             speaker_ids.append(sample["speaker_id"])
-    
-    # Find max sequence length
     max_len = max(f.shape[0] for f in raw_features)
     logger.info(f"Max sequence length: {max_len}")
-    
-    # Second pass: pad all features to max length
     for feature, label in zip(raw_features, raw_labels):
         if feature.shape[0] < max_len:
             pad_len = max_len - feature.shape[0]
@@ -548,12 +551,8 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder):
             label = np.pad(label, (0, pad_len), mode='constant', constant_values=-100)
         features.append(feature)
         labels.append(label)
-    
-    # Convert to numpy arrays
     features = np.array(features)
     labels = np.array(labels)
-    
-    # === DATASET STATISTICS ===
     logger.info(f"=== DATASET STATISTICS ===")
     logger.info(f"Dataset size (number of samples): {features.shape[0]}")
     logger.info(f"Feature shape (samples, frames, mel-bands): {features.shape}")
@@ -563,10 +562,8 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder):
     logger.info(f"Example feature[0] shape: {features[0].shape}, min={features[0].min():.2f}, max={features[0].max():.2f}")
     logger.info(f"Example label[0] shape: {labels[0].shape}, values: {np.unique(labels[0])}")
     logger.info(f"Unique label values in dataset: {np.unique(labels)}")
-    # Optionally, print distribution of audio segment lengths
     segment_lengths = [f.shape[0] for f in raw_features]
     logger.info(f"Audio segment length distribution: min={np.min(segment_lengths)}, max={np.max(segment_lengths)}, mean={np.mean(segment_lengths):.1f}, median={np.median(segment_lengths)}")
-    
     return OverlappingSpeechDataset(
         features=features,
         labels=labels,
@@ -621,14 +618,13 @@ def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, 
     print(f"[DER DEBUG] DER calculation: valid frames used = {len(predictions)}, DER = {der}")
     return der
 
-def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speaker_encoder, batch_size=4, speaker_to_embedding=None):
-    """Prepare data loaders for training, validation and testing."""
-    # Create datasets
-    train_dataset = create_dataset_from_grouped(grouped_train, speaker_encoder)
-    val_dataset = create_dataset_from_grouped(grouped_validation, speaker_encoder)
-    test_dataset = create_dataset_from_grouped(grouped_test, speaker_encoder)
-    
-    # Create data loaders with collate function
+def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speaker_encoder, batch_size=4, speaker_to_idx=None, speaker_to_embedding=None):
+    """Prepare data loaders for training, validation and testing, using a global mapping."""
+    if speaker_to_idx is None:
+        raise ValueError("speaker_to_idx mapping must be provided!")
+    train_dataset = create_dataset_from_grouped(grouped_train, speaker_encoder, speaker_to_idx)
+    val_dataset = create_dataset_from_grouped(grouped_validation, speaker_encoder, speaker_to_idx)
+    test_dataset = create_dataset_from_grouped(grouped_test, speaker_encoder, speaker_to_idx)
     def collate_fn(batch):
         max_len = max(x[0].shape[0] for x in batch)
         features = []
@@ -639,23 +635,19 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
                 pad_len = max_len - feature.shape[0]
                 feature = np.pad(feature, ((0, pad_len), (0, 0)), mode='constant')
             features.append(feature)
-            speaker_embeddings.append(all_embeddings)  # [num_speakers, 192]
+            speaker_embeddings.append(all_embeddings)
             labels.append(label)
         features = torch.tensor(np.array(features), dtype=torch.float32)
-        speaker_embeddings = torch.stack(speaker_embeddings).float()  # [batch, num_speakers, 192]
+        speaker_embeddings = torch.stack(speaker_embeddings).float()
         labels = torch.tensor(np.array(labels), dtype=torch.long)
         return features, speaker_embeddings, labels
-    
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
-    
     logger.info(f"Created data loaders with batch size {batch_size}")
     logger.info(f"Training set: {len(train_dataset)} samples | {len(train_loader)} batches | {len(train_dataset) * train_dataset[0][0].shape[0]} frames")
     logger.info(f"Validation set: {len(val_dataset)} samples | {len(val_loader)} batches | {len(val_dataset) * val_dataset[0][0].shape[0]} frames")
     logger.info(f"Test set: {len(test_dataset)} samples | {len(test_loader)} batches | {len(test_dataset) * test_dataset[0][0].shape[0]} frames")
-
-    # Example of a single sample from train_dataset
     feature, all_embeddings, label = train_dataset[0]
     logger.info("=== EXAMPLE TRAIN SAMPLE ===")
     logger.info(f"Feature shape: {feature.shape}, dtype: {feature.dtype}")
@@ -665,7 +657,6 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
     logger.info(f"Label (first 10 frames): {label[:10]}")
     logger.info("Sample = audio segment (feature matrix), batch = group of samples, frame = row in the feature matrix (one time step)")
     logger.info("Frames are NOT independent: the model takes their sequence/context into account")
-
     return train_loader, val_loader, test_loader
 
 def power_set_encoding(label):
@@ -720,7 +711,7 @@ def demonstrate_power_set_encoding():
         print(f"Speakers {speakers}: {encoded} (binary: {binary})")
 
 def compute_speaker_embeddings(grouped_data, speaker_encoder):
-    """Вычисляет speaker embedding для каждого уникального speaker_id по его первому аудиосегменту."""
+    """Calculates speaker embedding for each unique speaker_id based on its first audio segment."""
     speaker_to_audio = {}
     for meeting_id, samples in grouped_data.items():
         for sample in samples:

@@ -1,0 +1,1716 @@
+2025-06-30 16:42:48.051520: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2025-06-30 16:42:48.069573: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:477] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1751301768.091192    3622 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1751301768.097838    3622 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-06-30 16:42:48.120166: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+INFO:numexpr.utils:NumExpr defaulting to 12 threads.
+/usr/local/lib/python3.11/dist-packages/pyannote/core/notebook.py:134: MatplotlibDeprecationWarning: The get_cmap function was deprecated in Matplotlib 3.7 and will be removed in 3.11. Use ``matplotlib.colormaps[name]`` or ``matplotlib.colormaps.get_cmap()`` or ``pyplot.get_cmap()`` instead.
+  cm = get_cmap("Set1")
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint save hook for _speechbrain_save
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint load hook for _speechbrain_load
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint save hook for save
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint load hook for load
+INFO:speechbrain.utils.quirks:Applied quirks (see `speechbrain.utils.quirks`): [allow_tf32, disable_jit_profiling]
+INFO:speechbrain.utils.quirks:Excluded quirks specified by the `SB_DISABLE_QUIRKS` environment (comma-separated list): []
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint save hook for _save
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint load hook for _recover
+/content/FL_SEND/FL_SEND_PSE_AMI_improved.py:24: UserWarning: Module 'speechbrain.pretrained' was deprecated, redirecting to 'speechbrain.inference'. Please update your script. This is a change from SpeechBrain 1.0. See: https://github.com/speechbrain/speechbrain/releases/tag/v1.0.0
+  from speechbrain.pretrained import EncoderClassifier
+INFO:datasets:PyTorch version 2.6.0+cu124 available.
+INFO:datasets:Polars version 1.21.0 available.
+INFO:datasets:Duckdb version 1.2.2 available.
+INFO:datasets:TensorFlow version 2.18.0 available.
+INFO:datasets:JAX version 0.5.2 available.
+/usr/local/lib/python3.11/dist-packages/jupyter_client/connect.py:28: DeprecationWarning: Jupyter is migrating its paths to use standard platformdirs
+given by the platformdirs library.  To remove this warning and
+see the appropriate new directories, set the environment variable
+`JUPYTER_PLATFORM_DIRS=1` and then run `jupyter --paths`.
+The use of platformdirs will be the default in `jupyter_core` v6
+  from jupyter_core.paths import jupyter_data_dir, jupyter_runtime_dir, secure_write
+Using device: cuda
+MAIN STARTED
+[2025-06-30 16:42:53.189155] MAIN: Starting main()
+[2025-06-30 16:42:53.189187] MAIN: Using device: cuda
+[2025-06-30 16:42:53.189202] MAIN: Initializing speaker encoder...
+INFO:speechbrain.utils.fetching:Fetch hyperparams.yaml: Fetching from HuggingFace Hub 'speechbrain/spkrec-ecapa-voxceleb' if not cached
+hyperparams.yaml: 1.92kB [00:00, 11.8MB/s]
+DEBUG:speechbrain.utils.fetching:Fetch: Local file found, creating symlink '/root/.cache/huggingface/hub/models--speechbrain--spkrec-ecapa-voxceleb/snapshots/0f99f2d0ebe89ac095bcc5903c4dd8f72b367286/hyperparams.yaml' -> '/content/FL_SEND/pretrained_models/spkrec-ecapa/hyperparams.yaml'
+INFO:speechbrain.utils.fetching:Fetch custom.py: Fetching from HuggingFace Hub 'speechbrain/spkrec-ecapa-voxceleb' if not cached
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint save hook for _save
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint load hook for _load
+DEBUG:speechbrain.utils.checkpoints:Registered parameter transfer hook for _load
+/usr/local/lib/python3.11/dist-packages/speechbrain/utils/autocast.py:188: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
+  wrapped_fwd = torch.cuda.amp.custom_fwd(fwd, cast_inputs=cast_inputs)
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint save hook for save
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint load hook for load_if_possible
+DEBUG:speechbrain.utils.parameter_transfer:Collecting files (or symlinks) for pretraining in pretrained_models/spkrec-ecapa.
+INFO:speechbrain.utils.fetching:Fetch embedding_model.ckpt: Fetching from HuggingFace Hub 'speechbrain/spkrec-ecapa-voxceleb' if not cached
+embedding_model.ckpt: 100% 83.3M/83.3M [00:00<00:00, 179MB/s]
+DEBUG:speechbrain.utils.fetching:Fetch: Local file found, creating symlink '/root/.cache/huggingface/hub/models--speechbrain--spkrec-ecapa-voxceleb/snapshots/0f99f2d0ebe89ac095bcc5903c4dd8f72b367286/embedding_model.ckpt' -> '/content/FL_SEND/pretrained_models/spkrec-ecapa/embedding_model.ckpt'
+DEBUG:speechbrain.utils.parameter_transfer:Set local path in self.paths["embedding_model"] = /content/FL_SEND/pretrained_models/spkrec-ecapa/embedding_model.ckpt
+INFO:speechbrain.utils.fetching:Fetch mean_var_norm_emb.ckpt: Fetching from HuggingFace Hub 'speechbrain/spkrec-ecapa-voxceleb' if not cached
+mean_var_norm_emb.ckpt: 100% 1.92k/1.92k [00:00<00:00, 20.8MB/s]
+DEBUG:speechbrain.utils.fetching:Fetch: Local file found, creating symlink '/root/.cache/huggingface/hub/models--speechbrain--spkrec-ecapa-voxceleb/snapshots/0f99f2d0ebe89ac095bcc5903c4dd8f72b367286/mean_var_norm_emb.ckpt' -> '/content/FL_SEND/pretrained_models/spkrec-ecapa/mean_var_norm_emb.ckpt'
+DEBUG:speechbrain.utils.parameter_transfer:Set local path in self.paths["mean_var_norm_emb"] = /content/FL_SEND/pretrained_models/spkrec-ecapa/mean_var_norm_emb.ckpt
+INFO:speechbrain.utils.fetching:Fetch classifier.ckpt: Fetching from HuggingFace Hub 'speechbrain/spkrec-ecapa-voxceleb' if not cached
+classifier.ckpt: 100% 5.53M/5.53M [00:00<00:00, 167MB/s]
+DEBUG:speechbrain.utils.fetching:Fetch: Local file found, creating symlink '/root/.cache/huggingface/hub/models--speechbrain--spkrec-ecapa-voxceleb/snapshots/0f99f2d0ebe89ac095bcc5903c4dd8f72b367286/classifier.ckpt' -> '/content/FL_SEND/pretrained_models/spkrec-ecapa/classifier.ckpt'
+DEBUG:speechbrain.utils.parameter_transfer:Set local path in self.paths["classifier"] = /content/FL_SEND/pretrained_models/spkrec-ecapa/classifier.ckpt
+INFO:speechbrain.utils.fetching:Fetch label_encoder.txt: Fetching from HuggingFace Hub 'speechbrain/spkrec-ecapa-voxceleb' if not cached
+label_encoder.txt: 129kB [00:00, 12.9MB/s]
+DEBUG:speechbrain.utils.fetching:Fetch: Local file found, creating symlink '/root/.cache/huggingface/hub/models--speechbrain--spkrec-ecapa-voxceleb/snapshots/0f99f2d0ebe89ac095bcc5903c4dd8f72b367286/label_encoder.txt' -> '/content/FL_SEND/pretrained_models/spkrec-ecapa/label_encoder.ckpt'
+DEBUG:speechbrain.utils.parameter_transfer:Set local path in self.paths["label_encoder"] = /content/FL_SEND/pretrained_models/spkrec-ecapa/label_encoder.ckpt
+INFO:speechbrain.utils.parameter_transfer:Loading pretrained files for: embedding_model, mean_var_norm_emb, classifier, label_encoder
+DEBUG:speechbrain.utils.parameter_transfer:Redirecting (loading from local path): embedding_model -> /content/FL_SEND/pretrained_models/spkrec-ecapa/embedding_model.ckpt
+DEBUG:speechbrain.utils.parameter_transfer:Redirecting (loading from local path): mean_var_norm_emb -> /content/FL_SEND/pretrained_models/spkrec-ecapa/mean_var_norm_emb.ckpt
+DEBUG:speechbrain.utils.parameter_transfer:Redirecting (loading from local path): classifier -> /content/FL_SEND/pretrained_models/spkrec-ecapa/classifier.ckpt
+DEBUG:speechbrain.utils.parameter_transfer:Redirecting (loading from local path): label_encoder -> /content/FL_SEND/pretrained_models/spkrec-ecapa/label_encoder.ckpt
+DEBUG:speechbrain.dataio.encoder:Loaded categorical encoding from /content/FL_SEND/pretrained_models/spkrec-ecapa/label_encoder.ckpt
+[2025-06-30 16:42:54.897009] MAIN: Speaker encoder initialized successfully
+[2025-06-30 16:42:54.897053] MAIN: Loading AMI dataset...
+README.md: 5.79kB [00:00, 26.1MB/s]
+ami.py: 12.9kB [00:00, 50.1MB/s]
+Downloading data:   0% 0/137 [00:00<?, ?files/s]
+EN2001a.tar.gz:   0% 0.00/120M [00:00<?, ?B/s]
+EN2001a.tar.gz:   9% 10.5M/120M [00:00<00:01, 99.9MB/s]
+EN2001a.tar.gz:  26% 31.5M/120M [00:00<00:00, 161MB/s] 
+EN2001a.tar.gz:  52% 62.9M/120M [00:00<00:00, 213MB/s]
+EN2001a.tar.gz: 100% 120M/120M [00:00<00:00, 225MB/s] 
+Downloading data:   1% 1/137 [00:00<01:38,  1.38files/s]
+EN2001b.tar.gz:   0% 0.00/78.8M [00:00<?, ?B/s]
+EN2001b.tar.gz:  13% 10.5M/78.8M [00:00<00:00, 91.2MB/s]
+EN2001b.tar.gz:  40% 31.5M/78.8M [00:00<00:00, 142MB/s] 
+EN2001b.tar.gz: 100% 78.8M/78.8M [00:00<00:00, 190MB/s]
+Downloading data:   1% 2/137 [00:01<01:19,  1.70files/s]
+EN2001d.tar.gz:   0% 0.00/74.7M [00:00<?, ?B/s]
+EN2001d.tar.gz:  42% 31.5M/74.7M [00:00<00:00, 284MB/s]
+EN2001d.tar.gz: 100% 74.7M/74.7M [00:00<00:00, 276MB/s]
+Downloading data:   2% 3/137 [00:01<01:03,  2.11files/s]
+EN2001e.tar.gz:   0% 0.00/99.1M [00:00<?, ?B/s]
+EN2001e.tar.gz:  32% 31.5M/99.1M [00:00<00:00, 275MB/s]
+EN2001e.tar.gz:  63% 62.9M/99.1M [00:00<00:00, 260MB/s]
+EN2001e.tar.gz: 100% 99.1M/99.1M [00:00<00:00, 266MB/s]
+Downloading data:   3% 4/137 [00:02<01:01,  2.16files/s]
+EN2003a.tar.gz:   0% 0.00/47.2M [00:00<?, ?B/s]
+EN2003a.tar.gz: 100% 47.2M/47.2M [00:00<00:00, 251MB/s]
+Downloading data:   4% 5/137 [00:02<00:51,  2.55files/s]
+EN2004a.tar.gz:   0% 0.00/95.7M [00:00<?, ?B/s]
+EN2004a.tar.gz:  11% 10.5M/95.7M [00:00<00:00, 96.3MB/s]
+EN2004a.tar.gz:  22% 21.0M/95.7M [00:00<00:00, 99.1MB/s]
+EN2004a.tar.gz:  55% 52.4M/95.7M [00:00<00:00, 168MB/s] 
+EN2004a.tar.gz: 100% 95.7M/95.7M [00:00<00:00, 179MB/s]
+Downloading data:   4% 6/137 [00:02<01:01,  2.14files/s]
+EN2005a.tar.gz:   0% 0.00/136M [00:00<?, ?B/s]
+EN2005a.tar.gz:  23% 31.5M/136M [00:00<00:00, 247MB/s]
+EN2005a.tar.gz:  46% 62.9M/136M [00:00<00:00, 261MB/s]
+EN2005a.tar.gz:  69% 94.4M/136M [00:00<00:00, 262MB/s]
+EN2005a.tar.gz: 100% 136M/136M [00:00<00:00, 260MB/s]
+Downloading data:   5% 7/137 [00:03<01:06,  1.96files/s]
+EN2006a.tar.gz:   0% 0.00/70.2M [00:00<?, ?B/s]
+EN2006a.tar.gz:  30% 21.0M/70.2M [00:00<00:00, 99.0MB/s]
+EN2006a.tar.gz: 100% 70.2M/70.2M [00:00<00:00, 163MB/s]
+Downloading data:   6% 8/137 [00:03<01:05,  1.97files/s]
+EN2006b.tar.gz:   0% 0.00/61.7M [00:00<?, ?B/s]
+EN2006b.tar.gz:  51% 31.5M/61.7M [00:00<00:00, 244MB/s]
+EN2006b.tar.gz: 100% 61.7M/61.7M [00:00<00:00, 246MB/s]
+Downloading data:   7% 9/137 [00:04<00:57,  2.22files/s]
+EN2009b.tar.gz:   0% 0.00/64.1M [00:00<?, ?B/s]
+EN2009b.tar.gz:  16% 10.5M/64.1M [00:00<00:00, 101MB/s]
+EN2009b.tar.gz:  49% 31.5M/64.1M [00:00<00:00, 147MB/s]
+EN2009b.tar.gz: 100% 64.1M/64.1M [00:00<00:00, 183MB/s]
+Downloading data:   7% 10/137 [00:04<00:56,  2.27files/s]
+EN2009c.tar.gz:   0% 0.00/82.4M [00:00<?, ?B/s]
+EN2009c.tar.gz:  38% 31.5M/82.4M [00:00<00:00, 239MB/s]
+EN2009c.tar.gz: 100% 82.4M/82.4M [00:00<00:00, 241MB/s]
+Downloading data:   8% 11/137 [00:05<00:54,  2.31files/s]
+EN2009d.tar.gz:   0% 0.00/157M [00:00<?, ?B/s]
+EN2009d.tar.gz:  13% 21.0M/157M [00:00<00:00, 194MB/s]
+EN2009d.tar.gz:  27% 41.9M/157M [00:00<00:00, 178MB/s]
+EN2009d.tar.gz:  40% 62.9M/157M [00:00<00:00, 184MB/s]
+EN2009d.tar.gz:  60% 94.4M/157M [00:00<00:00, 201MB/s]
+EN2009d.tar.gz:  80% 126M/157M [00:00<00:00, 216MB/s] 
+EN2009d.tar.gz: 100% 157M/157M [00:00<00:00, 208MB/s]
+Downloading data:   9% 12/137 [00:05<01:08,  1.81files/s]
+ES2002a.tar.gz:   0% 0.00/21.1M [00:00<?, ?B/s]
+ES2002a.tar.gz: 100% 21.1M/21.1M [00:00<00:00, 93.0MB/s]
+Downloading data:   9% 13/137 [00:06<00:59,  2.10files/s]
+ES2002b.tar.gz:   0% 0.00/51.7M [00:00<?, ?B/s]
+ES2002b.tar.gz: 100% 51.7M/51.7M [00:00<00:00, 244MB/s]
+Downloading data:  10% 14/137 [00:06<00:52,  2.34files/s]
+ES2002c.tar.gz:   0% 0.00/60.0M [00:00<?, ?B/s]
+ES2002c.tar.gz:  35% 21.0M/60.0M [00:00<00:00, 116MB/s]
+ES2002c.tar.gz: 100% 60.0M/60.0M [00:00<00:00, 166MB/s]
+Downloading data:  11% 15/137 [00:07<00:52,  2.33files/s]
+ES2002d.tar.gz:   0% 0.00/58.7M [00:00<?, ?B/s]
+ES2002d.tar.gz:  54% 31.5M/58.7M [00:00<00:00, 266MB/s]
+ES2002d.tar.gz: 100% 58.7M/58.7M [00:00<00:00, 253MB/s]
+Downloading data:  12% 16/137 [00:07<00:47,  2.55files/s]
+ES2003a.tar.gz:   0% 0.00/16.4M [00:00<?, ?B/s]
+ES2003a.tar.gz: 100% 16.4M/16.4M [00:00<00:00, 80.6MB/s]
+Downloading data:  12% 17/137 [00:07<00:43,  2.78files/s]
+ES2003b.tar.gz:   0% 0.00/49.2M [00:00<?, ?B/s]
+ES2003b.tar.gz: 100% 49.2M/49.2M [00:00<00:00, 246MB/s]
+Downloading data:  13% 18/137 [00:07<00:39,  3.00files/s]
+ES2003c.tar.gz:   0% 0.00/54.9M [00:00<?, ?B/s]
+ES2003c.tar.gz: 100% 54.9M/54.9M [00:00<00:00, 257MB/s]
+Downloading data:  14% 19/137 [00:08<00:37,  3.13files/s]
+ES2003d.tar.gz:   0% 0.00/56.6M [00:00<?, ?B/s]
+ES2003d.tar.gz: 100% 56.6M/56.6M [00:00<00:00, 246MB/s]
+Downloading data:  15% 20/137 [00:08<00:38,  3.03files/s]
+ES2005a.tar.gz: 100% 7.09M/7.09M [00:00<00:00, 91.8MB/s]
+Downloading data:  15% 21/137 [00:08<00:32,  3.61files/s]
+ES2005b.tar.gz:   0% 0.00/56.1M [00:00<?, ?B/s]
+ES2005b.tar.gz:  37% 21.0M/56.1M [00:00<00:00, 117MB/s]
+ES2005b.tar.gz: 100% 56.1M/56.1M [00:00<00:00, 184MB/s]
+Downloading data:  16% 22/137 [00:09<00:35,  3.26files/s]
+ES2005c.tar.gz:   0% 0.00/62.9M [00:00<?, ?B/s]
+ES2005c.tar.gz:  33% 21.0M/62.9M [00:00<00:00, 110MB/s]
+ES2005c.tar.gz: 100% 62.9M/62.9M [00:00<00:00, 183MB/s]
+Downloading data:  17% 23/137 [00:09<00:38,  2.93files/s]
+ES2005d.tar.gz:   0% 0.00/41.4M [00:00<?, ?B/s]
+ES2005d.tar.gz:  51% 21.0M/41.4M [00:00<00:00, 130MB/s]
+ES2005d.tar.gz: 100% 41.4M/41.4M [00:00<00:00, 145MB/s]
+Downloading data:  18% 24/137 [00:09<00:39,  2.89files/s]
+ES2006a.tar.gz:   0% 0.00/26.2M [00:00<?, ?B/s]
+ES2006a.tar.gz: 100% 26.2M/26.2M [00:00<00:00, 229MB/s]
+Downloading data:  18% 25/137 [00:10<00:33,  3.31files/s]
+ES2006b.tar.gz:   0% 0.00/54.4M [00:00<?, ?B/s]
+ES2006b.tar.gz: 100% 54.4M/54.4M [00:00<00:00, 247MB/s]
+Downloading data:  19% 26/137 [00:10<00:33,  3.35files/s]
+ES2006c.tar.gz:   0% 0.00/59.0M [00:00<?, ?B/s]
+ES2006c.tar.gz: 100% 59.0M/59.0M [00:00<00:00, 262MB/s]
+Downloading data:  20% 27/137 [00:10<00:32,  3.35files/s]
+ES2006d.tar.gz:   0% 0.00/53.9M [00:00<?, ?B/s]
+ES2006d.tar.gz: 100% 53.9M/53.9M [00:00<00:00, 262MB/s]
+Downloading data:  20% 28/137 [00:10<00:31,  3.41files/s]
+ES2007a.tar.gz:   0% 0.00/22.7M [00:00<?, ?B/s]
+ES2007a.tar.gz: 100% 22.7M/22.7M [00:00<00:00, 74.0MB/s]
+Downloading data:  21% 29/137 [00:11<00:36,  2.97files/s]
+ES2007b.tar.gz:   0% 0.00/39.1M [00:00<?, ?B/s]
+ES2007b.tar.gz: 100% 39.1M/39.1M [00:00<00:00, 261MB/s]
+Downloading data:  22% 30/137 [00:11<00:32,  3.31files/s]
+ES2007c.tar.gz:   0% 0.00/54.7M [00:00<?, ?B/s]
+ES2007c.tar.gz: 100% 54.7M/54.7M [00:00<00:00, 260MB/s]
+Downloading data:  23% 31/137 [00:11<00:31,  3.33files/s]
+ES2007d.tar.gz:   0% 0.00/30.6M [00:00<?, ?B/s]
+ES2007d.tar.gz: 100% 30.6M/30.6M [00:00<00:00, 239MB/s]
+Downloading data:  23% 32/137 [00:12<00:28,  3.65files/s]
+ES2008a.tar.gz:   0% 0.00/21.6M [00:00<?, ?B/s]
+ES2008a.tar.gz: 100% 21.6M/21.6M [00:00<00:00, 122MB/s]
+Downloading data:  24% 33/137 [00:12<00:28,  3.65files/s]
+ES2008b.tar.gz:   0% 0.00/47.3M [00:00<?, ?B/s]
+ES2008b.tar.gz:  22% 10.5M/47.3M [00:00<00:00, 80.9MB/s]
+ES2008b.tar.gz: 100% 47.3M/47.3M [00:00<00:00, 129MB/s]
+Downloading data:  25% 34/137 [00:12<00:33,  3.08files/s]
+ES2008c.tar.gz:   0% 0.00/51.1M [00:00<?, ?B/s]
+ES2008c.tar.gz:  41% 21.0M/51.1M [00:00<00:00, 201MB/s]
+ES2008c.tar.gz: 100% 51.1M/51.1M [00:00<00:00, 224MB/s]
+Downloading data:  26% 35/137 [00:13<00:33,  3.09files/s]
+ES2008d.tar.gz:   0% 0.00/62.2M [00:00<?, ?B/s]
+ES2008d.tar.gz:  34% 21.0M/62.2M [00:00<00:00, 137MB/s]
+ES2008d.tar.gz: 100% 62.2M/62.2M [00:00<00:00, 191MB/s]
+Downloading data:  26% 36/137 [00:13<00:34,  2.89files/s]
+ES2009a.tar.gz:   0% 0.00/36.4M [00:00<?, ?B/s]
+ES2009a.tar.gz: 100% 36.4M/36.4M [00:00<00:00, 154MB/s]
+Downloading data:  27% 37/137 [00:13<00:33,  2.99files/s]
+ES2009b.tar.gz:   0% 0.00/35.6M [00:00<?, ?B/s]
+ES2009b.tar.gz: 100% 35.6M/35.6M [00:00<00:00, 148MB/s]
+Downloading data:  28% 38/137 [00:14<00:32,  3.03files/s]
+ES2009c.tar.gz:   0% 0.00/50.4M [00:00<?, ?B/s]
+ES2009c.tar.gz: 100% 50.4M/50.4M [00:00<00:00, 265MB/s]
+Downloading data:  28% 39/137 [00:14<00:30,  3.23files/s]
+ES2009d.tar.gz:   0% 0.00/57.4M [00:00<?, ?B/s]
+ES2009d.tar.gz:  18% 10.5M/57.4M [00:00<00:00, 99.1MB/s]
+ES2009d.tar.gz:  55% 31.5M/57.4M [00:00<00:00, 137MB/s] 
+ES2009d.tar.gz: 100% 57.4M/57.4M [00:00<00:00, 165MB/s]
+Downloading data:  29% 40/137 [00:14<00:33,  2.92files/s]
+ES2010a.tar.gz: 100% 12.9M/12.9M [00:00<00:00, 269MB/s]
+Downloading data:  30% 41/137 [00:14<00:26,  3.64files/s]
+ES2010b.tar.gz:   0% 0.00/37.6M [00:00<?, ?B/s]
+ES2010b.tar.gz: 100% 37.6M/37.6M [00:00<00:00, 149MB/s]
+Downloading data:  31% 42/137 [00:15<00:27,  3.44files/s]
+ES2010c.tar.gz:   0% 0.00/45.1M [00:00<?, ?B/s]
+ES2010c.tar.gz:  23% 10.5M/45.1M [00:00<00:00, 81.6MB/s]
+ES2010c.tar.gz:  47% 21.0M/45.1M [00:00<00:00, 88.3MB/s]
+ES2010c.tar.gz: 100% 45.1M/45.1M [00:00<00:00, 124MB/s]
+Downloading data:  31% 43/137 [00:15<00:31,  2.97files/s]
+ES2010d.tar.gz:   0% 0.00/29.0M [00:00<?, ?B/s]
+ES2010d.tar.gz: 100% 29.0M/29.0M [00:00<00:00, 124MB/s]
+Downloading data:  32% 44/137 [00:16<00:30,  3.05files/s]
+ES2012a.tar.gz:   0% 0.00/23.9M [00:00<?, ?B/s]
+ES2012a.tar.gz: 100% 23.9M/23.9M [00:00<00:00, 118MB/s]
+Downloading data:  33% 45/137 [00:16<00:28,  3.19files/s]
+ES2012b.tar.gz:   0% 0.00/46.7M [00:00<?, ?B/s]
+ES2012b.tar.gz:  22% 10.5M/46.7M [00:00<00:00, 71.1MB/s]
+ES2012b.tar.gz: 100% 46.7M/46.7M [00:00<00:00, 136MB/s]
+Downloading data:  34% 46/137 [00:16<00:31,  2.91files/s]
+ES2012c.tar.gz:   0% 0.00/52.8M [00:00<?, ?B/s]
+ES2012c.tar.gz: 100% 52.8M/52.8M [00:00<00:00, 238MB/s]
+Downloading data:  34% 47/137 [00:17<00:30,  2.96files/s]
+ES2012d.tar.gz:   0% 0.00/23.7M [00:00<?, ?B/s]
+ES2012d.tar.gz: 100% 23.7M/23.7M [00:00<00:00, 133MB/s]
+Downloading data:  35% 48/137 [00:17<00:27,  3.18files/s]
+ES2013a.tar.gz:   0% 0.00/13.9M [00:00<?, ?B/s]
+ES2013a.tar.gz: 100% 13.9M/13.9M [00:00<00:00, 103MB/s]
+Downloading data:  36% 49/137 [00:17<00:24,  3.54files/s]
+ES2013b.tar.gz:   0% 0.00/41.9M [00:00<?, ?B/s]
+ES2013b.tar.gz: 100% 41.9M/41.9M [00:00<00:00, 150MB/s]
+Downloading data:  36% 50/137 [00:17<00:26,  3.30files/s]
+ES2013c.tar.gz:   0% 0.00/47.1M [00:00<?, ?B/s]
+ES2013c.tar.gz:  45% 21.0M/47.1M [00:00<00:00, 201MB/s]
+ES2013c.tar.gz: 100% 47.1M/47.1M [00:00<00:00, 221MB/s]
+Downloading data:  37% 51/137 [00:18<00:25,  3.32files/s]
+ES2013d.tar.gz:   0% 0.00/33.8M [00:00<?, ?B/s]
+ES2013d.tar.gz: 100% 33.8M/33.8M [00:00<00:00, 144MB/s]
+Downloading data:  38% 52/137 [00:18<00:25,  3.31files/s]
+ES2014a.tar.gz: 100% 23.5M/23.5M [00:00<00:00, 272MB/s]
+Downloading data:  39% 53/137 [00:18<00:21,  3.87files/s]
+ES2014b.tar.gz:   0% 0.00/49.4M [00:00<?, ?B/s]
+ES2014b.tar.gz: 100% 49.4M/49.4M [00:00<00:00, 263MB/s]
+Downloading data:  39% 54/137 [00:18<00:21,  3.79files/s]
+ES2014c.tar.gz:   0% 0.00/51.2M [00:00<?, ?B/s]
+ES2014c.tar.gz: 100% 51.2M/51.2M [00:00<00:00, 258MB/s]
+Downloading data:  40% 55/137 [00:19<00:21,  3.79files/s]
+ES2014d.tar.gz:   0% 0.00/69.5M [00:00<?, ?B/s]
+ES2014d.tar.gz:  45% 31.5M/69.5M [00:00<00:00, 235MB/s]
+ES2014d.tar.gz: 100% 69.5M/69.5M [00:00<00:00, 251MB/s]
+Downloading data:  41% 56/137 [00:19<00:23,  3.46files/s]
+ES2015a.tar.gz: 100% 24.7M/24.7M [00:00<00:00, 278MB/s]
+Downloading data:  42% 57/137 [00:19<00:20,  3.98files/s]
+ES2015b.tar.gz:   0% 0.00/55.0M [00:00<?, ?B/s]
+ES2015b.tar.gz: 100% 55.0M/55.0M [00:00<00:00, 251MB/s]
+Downloading data:  42% 58/137 [00:19<00:20,  3.82files/s]
+ES2015c.tar.gz:   0% 0.00/52.6M [00:00<?, ?B/s]
+ES2015c.tar.gz:  20% 10.5M/52.6M [00:00<00:00, 97.5MB/s]
+ES2015c.tar.gz:  40% 21.0M/52.6M [00:00<00:00, 94.3MB/s]
+ES2015c.tar.gz: 100% 52.6M/52.6M [00:00<00:00, 156MB/s]
+Downloading data:  43% 59/137 [00:20<00:24,  3.15files/s]
+ES2015d.tar.gz:   0% 0.00/51.8M [00:00<?, ?B/s]
+ES2015d.tar.gz: 100% 51.8M/51.8M [00:00<00:00, 259MB/s]
+Downloading data:  44% 60/137 [00:20<00:23,  3.29files/s]
+ES2016a.tar.gz:   0% 0.00/28.1M [00:00<?, ?B/s]
+ES2016a.tar.gz: 100% 28.1M/28.1M [00:00<00:00, 123MB/s]
+Downloading data:  45% 61/137 [00:20<00:23,  3.28files/s]
+ES2016b.tar.gz:   0% 0.00/45.1M [00:00<?, ?B/s]
+ES2016b.tar.gz:  46% 21.0M/45.1M [00:00<00:00, 132MB/s]
+ES2016b.tar.gz: 100% 45.1M/45.1M [00:00<00:00, 171MB/s]
+Downloading data:  45% 62/137 [00:21<00:23,  3.20files/s]
+ES2016c.tar.gz:   0% 0.00/43.5M [00:00<?, ?B/s]
+ES2016c.tar.gz: 100% 43.5M/43.5M [00:00<00:00, 237MB/s]
+Downloading data:  46% 63/137 [00:21<00:21,  3.39files/s]
+ES2016d.tar.gz:   0% 0.00/31.1M [00:00<?, ?B/s]
+ES2016d.tar.gz: 100% 31.1M/31.1M [00:00<00:00, 239MB/s]
+Downloading data:  47% 64/137 [00:21<00:19,  3.75files/s]
+IB4005.tar.gz:   0% 0.00/76.9M [00:00<?, ?B/s]
+IB4005.tar.gz:  41% 31.5M/76.9M [00:00<00:00, 220MB/s]
+IB4005.tar.gz: 100% 76.9M/76.9M [00:00<00:00, 146MB/s]
+Downloading data:  47% 65/137 [00:22<00:27,  2.63files/s]
+IN1001.tar.gz:   0% 0.00/127M [00:00<?, ?B/s]
+IN1001.tar.gz:   8% 10.5M/127M [00:00<00:01, 95.0MB/s]
+IN1001.tar.gz:  25% 31.5M/127M [00:00<00:00, 152MB/s] 
+IN1001.tar.gz:  49% 62.9M/127M [00:00<00:00, 210MB/s]
+IN1001.tar.gz:  74% 94.4M/127M [00:00<00:00, 234MB/s]
+IN1001.tar.gz: 100% 127M/127M [00:00<00:00, 220MB/s]
+Downloading data:  48% 66/137 [00:23<00:32,  2.17files/s]
+IN1002.tar.gz:   0% 0.00/96.5M [00:00<?, ?B/s]
+IN1002.tar.gz:  33% 31.5M/96.5M [00:00<00:00, 272MB/s]
+IN1002.tar.gz:  65% 62.9M/96.5M [00:00<00:00, 271MB/s]
+IN1002.tar.gz: 100% 96.5M/96.5M [00:00<00:00, 268MB/s]
+Downloading data:  49% 67/137 [00:23<00:31,  2.20files/s]
+IN1005.tar.gz:   0% 0.00/105M [00:00<?, ?B/s]
+IN1005.tar.gz:  20% 21.0M/105M [00:00<00:00, 116MB/s]
+IN1005.tar.gz:  50% 52.4M/105M [00:00<00:00, 175MB/s]
+IN1005.tar.gz: 100% 105M/105M [00:00<00:00, 197MB/s] 
+Downloading data:  50% 68/137 [00:24<00:34,  2.00files/s]
+IN1007.tar.gz:   0% 0.00/107M [00:00<?, ?B/s]
+IN1007.tar.gz:  20% 21.0M/107M [00:00<00:00, 101MB/s]
+IN1007.tar.gz:  49% 52.4M/107M [00:00<00:00, 156MB/s]
+IN1007.tar.gz: 100% 107M/107M [00:00<00:00, 183MB/s] 
+Downloading data:  50% 69/137 [00:24<00:37,  1.83files/s]
+IN1008.tar.gz:   0% 0.00/119M [00:00<?, ?B/s]
+IN1008.tar.gz:  26% 31.5M/119M [00:00<00:00, 238MB/s]
+IN1008.tar.gz:  53% 62.9M/119M [00:00<00:00, 258MB/s]
+IN1008.tar.gz: 100% 119M/119M [00:00<00:00, 252MB/s] 
+Downloading data:  51% 70/137 [00:25<00:36,  1.84files/s]
+IN1009.tar.gz:   0% 0.00/41.6M [00:00<?, ?B/s]
+IN1009.tar.gz: 100% 41.6M/41.6M [00:00<00:00, 238MB/s]
+Downloading data:  52% 71/137 [00:25<00:30,  2.20files/s]
+IN1012.tar.gz:   0% 0.00/144M [00:00<?, ?B/s]
+IN1012.tar.gz:  22% 31.5M/144M [00:00<00:00, 238MB/s]
+IN1012.tar.gz:  44% 62.9M/144M [00:00<00:00, 253MB/s]
+IN1012.tar.gz:  65% 94.4M/144M [00:00<00:00, 258MB/s]
+IN1012.tar.gz: 100% 144M/144M [00:00<00:00, 244MB/s]
+Downloading data:  53% 72/137 [00:26<00:33,  1.93files/s]
+IN1013.tar.gz:   0% 0.00/144M [00:00<?, ?B/s]
+IN1013.tar.gz:   7% 10.5M/144M [00:00<00:01, 77.6MB/s]
+IN1013.tar.gz:  22% 31.5M/144M [00:00<00:00, 129MB/s] 
+IN1013.tar.gz:  44% 62.9M/144M [00:00<00:00, 177MB/s]
+IN1013.tar.gz:  66% 94.4M/144M [00:00<00:00, 208MB/s]
+IN1013.tar.gz: 100% 144M/144M [00:00<00:00, 199MB/s]
+Downloading data:  53% 73/137 [00:26<00:38,  1.67files/s]
+IN1014.tar.gz:   0% 0.00/134M [00:00<?, ?B/s]
+IN1014.tar.gz:  24% 31.5M/134M [00:00<00:00, 233MB/s]
+IN1014.tar.gz:  47% 62.9M/134M [00:00<00:00, 252MB/s]
+IN1014.tar.gz:  71% 94.4M/134M [00:00<00:00, 250MB/s]
+IN1014.tar.gz: 100% 134M/134M [00:00<00:00, 249MB/s]
+Downloading data:  54% 74/137 [00:27<00:37,  1.66files/s]
+IN1016.tar.gz:   0% 0.00/146M [00:00<?, ?B/s]
+IN1016.tar.gz:  21% 31.5M/146M [00:00<00:00, 244MB/s]
+IN1016.tar.gz:  43% 62.9M/146M [00:00<00:00, 254MB/s]
+IN1016.tar.gz:  64% 94.4M/146M [00:00<00:00, 269MB/s]
+IN1016.tar.gz: 100% 146M/146M [00:00<00:00, 257MB/s]
+Downloading data:  55% 75/137 [00:28<00:37,  1.63files/s]
+IS1000a.tar.gz:   0% 0.00/40.7M [00:00<?, ?B/s]
+IS1000a.tar.gz: 100% 40.7M/40.7M [00:00<00:00, 247MB/s]
+Downloading data:  55% 76/137 [00:28<00:30,  2.00files/s]
+IS1000b.tar.gz:   0% 0.00/75.0M [00:00<?, ?B/s]
+IS1000b.tar.gz:  14% 10.5M/75.0M [00:00<00:00, 97.8MB/s]
+IS1000b.tar.gz:  28% 21.0M/75.0M [00:00<00:00, 95.3MB/s]
+IS1000b.tar.gz:  56% 41.9M/75.0M [00:00<00:00, 118MB/s] 
+IS1000b.tar.gz: 100% 75.0M/75.0M [00:00<00:00, 138MB/s]
+Downloading data:  56% 77/137 [00:29<00:32,  1.86files/s]
+IS1000c.tar.gz:   0% 0.00/71.8M [00:00<?, ?B/s]
+IS1000c.tar.gz:  44% 31.5M/71.8M [00:00<00:00, 248MB/s]
+IS1000c.tar.gz: 100% 71.8M/71.8M [00:00<00:00, 262MB/s]
+Downloading data:  57% 78/137 [00:29<00:28,  2.09files/s]
+IS1000d.tar.gz:   0% 0.00/88.5M [00:00<?, ?B/s]
+IS1000d.tar.gz:  24% 21.0M/88.5M [00:00<00:00, 186MB/s]
+IS1000d.tar.gz:  59% 52.4M/88.5M [00:00<00:00, 248MB/s]
+IS1000d.tar.gz: 100% 88.5M/88.5M [00:00<00:00, 241MB/s]
+Downloading data:  58% 79/137 [00:29<00:27,  2.14files/s]
+IS1001a.tar.gz:   0% 0.00/26.9M [00:00<?, ?B/s]
+IS1001a.tar.gz: 100% 26.9M/26.9M [00:00<00:00, 208MB/s]
+Downloading data:  58% 80/137 [00:30<00:22,  2.55files/s]
+IS1001b.tar.gz:   0% 0.00/68.0M [00:00<?, ?B/s]
+IS1001b.tar.gz:  15% 10.5M/68.0M [00:00<00:00, 81.9MB/s]
+IS1001b.tar.gz:  31% 21.0M/68.0M [00:00<00:00, 78.5MB/s]
+IS1001b.tar.gz:  62% 41.9M/68.0M [00:00<00:00, 107MB/s] 
+IS1001b.tar.gz: 100% 68.0M/68.0M [00:00<00:00, 126MB/s]
+Downloading data:  59% 81/137 [00:30<00:25,  2.19files/s]
+IS1001c.tar.gz:   0% 0.00/45.0M [00:00<?, ?B/s]
+IS1001c.tar.gz: 100% 45.0M/45.0M [00:00<00:00, 242MB/s]
+Downloading data:  60% 82/137 [00:30<00:21,  2.52files/s]
+IS1001d.tar.gz:   0% 0.00/25.5M [00:00<?, ?B/s]
+IS1001d.tar.gz: 100% 25.5M/25.5M [00:00<00:00, 200MB/s]
+Downloading data:  61% 83/137 [00:31<00:18,  2.96files/s]
+IS1002b.tar.gz:   0% 0.00/85.1M [00:00<?, ?B/s]
+IS1002b.tar.gz:  37% 31.5M/85.1M [00:00<00:00, 263MB/s]
+IS1002b.tar.gz: 100% 85.1M/85.1M [00:00<00:00, 277MB/s]
+Downloading data:  61% 84/137 [00:31<00:18,  2.84files/s]
+IS1002c.tar.gz:   0% 0.00/75.6M [00:00<?, ?B/s]
+IS1002c.tar.gz:  42% 31.5M/75.6M [00:00<00:00, 279MB/s]
+IS1002c.tar.gz: 100% 75.6M/75.6M [00:00<00:00, 288MB/s]
+Downloading data:  62% 85/137 [00:31<00:18,  2.88files/s]
+IS1002d.tar.gz:   0% 0.00/44.6M [00:00<?, ?B/s]
+IS1002d.tar.gz: 100% 44.6M/44.6M [00:00<00:00, 265MB/s]
+Downloading data:  63% 86/137 [00:32<00:16,  3.18files/s]
+IS1003a.tar.gz: 100% 20.4M/20.4M [00:00<00:00, 253MB/s]
+Downloading data:  64% 87/137 [00:32<00:13,  3.76files/s]
+IS1003b.tar.gz:   0% 0.00/43.2M [00:00<?, ?B/s]
+IS1003b.tar.gz: 100% 43.2M/43.2M [00:00<00:00, 243MB/s]
+Downloading data:  64% 88/137 [00:32<00:12,  3.78files/s]
+IS1003c.tar.gz:   0% 0.00/62.4M [00:00<?, ?B/s]
+IS1003c.tar.gz:  50% 31.5M/62.4M [00:00<00:00, 218MB/s]
+IS1003c.tar.gz: 100% 62.4M/62.4M [00:00<00:00, 217MB/s]
+Downloading data:  65% 89/137 [00:32<00:14,  3.41files/s]
+IS1003d.tar.gz:   0% 0.00/87.9M [00:00<?, ?B/s]
+IS1003d.tar.gz:  12% 10.5M/87.9M [00:00<00:00, 99.4MB/s]
+IS1003d.tar.gz:  24% 21.0M/87.9M [00:00<00:00, 101MB/s] 
+IS1003d.tar.gz:  48% 41.9M/87.9M [00:00<00:00, 131MB/s]
+IS1003d.tar.gz:  72% 62.9M/87.9M [00:00<00:00, 156MB/s]
+IS1003d.tar.gz: 100% 87.9M/87.9M [00:00<00:00, 160MB/s]
+Downloading data:  66% 90/137 [00:33<00:18,  2.55files/s]
+IS1004a.tar.gz:   0% 0.00/21.4M [00:00<?, ?B/s]
+IS1004a.tar.gz: 100% 21.4M/21.4M [00:00<00:00, 210MB/s]
+Downloading data:  66% 91/137 [00:33<00:15,  3.04files/s]
+IS1004b.tar.gz:   0% 0.00/75.8M [00:00<?, ?B/s]
+IS1004b.tar.gz:  42% 31.5M/75.8M [00:00<00:00, 272MB/s]
+IS1004b.tar.gz: 100% 75.8M/75.8M [00:00<00:00, 246MB/s]
+Downloading data:  67% 92/137 [00:34<00:15,  2.90files/s]
+IS1004c.tar.gz:   0% 0.00/79.1M [00:00<?, ?B/s]
+IS1004c.tar.gz:  40% 31.5M/79.1M [00:00<00:00, 243MB/s]
+IS1004c.tar.gz: 100% 79.1M/79.1M [00:00<00:00, 236MB/s]
+Downloading data:  68% 93/137 [00:34<00:16,  2.74files/s]
+IS1004d.tar.gz:   0% 0.00/65.0M [00:00<?, ?B/s]
+IS1004d.tar.gz:  48% 31.5M/65.0M [00:00<00:00, 261MB/s]
+IS1004d.tar.gz: 100% 65.0M/65.0M [00:00<00:00, 252MB/s]
+Downloading data:  69% 94/137 [00:34<00:15,  2.82files/s]
+IS1005a.tar.gz:   0% 0.00/24.8M [00:00<?, ?B/s]
+IS1005a.tar.gz: 100% 24.8M/24.8M [00:00<00:00, 105MB/s] 
+Downloading data:  69% 95/137 [00:35<00:14,  2.92files/s]
+IS1005b.tar.gz:   0% 0.00/72.0M [00:00<?, ?B/s]
+IS1005b.tar.gz:  44% 31.5M/72.0M [00:00<00:00, 256MB/s]
+IS1005b.tar.gz: 100% 72.0M/72.0M [00:00<00:00, 228MB/s]
+Downloading data:  70% 96/137 [00:35<00:15,  2.59files/s]
+IS1005c.tar.gz:   0% 0.00/65.3M [00:00<?, ?B/s]
+IS1005c.tar.gz:  48% 31.5M/65.3M [00:00<00:00, 264MB/s]
+IS1005c.tar.gz: 100% 65.3M/65.3M [00:00<00:00, 241MB/s]
+Downloading data:  71% 97/137 [00:35<00:14,  2.68files/s]
+IS1006a.tar.gz:   0% 0.00/30.9M [00:00<?, ?B/s]
+IS1006a.tar.gz: 100% 30.9M/30.9M [00:00<00:00, 108MB/s]
+Downloading data:  72% 98/137 [00:36<00:14,  2.61files/s]
+IS1006b.tar.gz:   0% 0.00/75.7M [00:00<?, ?B/s]
+IS1006b.tar.gz:  28% 21.0M/75.7M [00:00<00:00, 146MB/s]
+IS1006b.tar.gz:  55% 41.9M/75.7M [00:00<00:00, 175MB/s]
+IS1006b.tar.gz: 100% 75.7M/75.7M [00:00<00:00, 188MB/s]
+Downloading data:  72% 99/137 [00:36<00:15,  2.43files/s]
+IS1006c.tar.gz:   0% 0.00/71.5M [00:00<?, ?B/s]
+IS1006c.tar.gz:  15% 10.5M/71.5M [00:00<00:00, 105MB/s]
+IS1006c.tar.gz:  44% 31.5M/71.5M [00:00<00:00, 131MB/s]
+IS1006c.tar.gz: 100% 71.5M/71.5M [00:00<00:00, 166MB/s]
+Downloading data:  73% 100/137 [00:37<00:16,  2.25files/s]
+IS1006d.tar.gz:   0% 0.00/80.7M [00:00<?, ?B/s]
+IS1006d.tar.gz:  13% 10.5M/80.7M [00:00<00:00, 94.8MB/s]
+IS1006d.tar.gz:  39% 31.5M/80.7M [00:00<00:00, 142MB/s] 
+IS1006d.tar.gz: 100% 80.7M/80.7M [00:00<00:00, 188MB/s]
+Downloading data:  74% 101/137 [00:37<00:16,  2.17files/s]
+IS1007a.tar.gz:   0% 0.00/27.6M [00:00<?, ?B/s]
+IS1007a.tar.gz: 100% 27.6M/27.6M [00:00<00:00, 226MB/s]
+Downloading data:  74% 102/137 [00:38<00:13,  2.62files/s]
+IS1007b.tar.gz:   0% 0.00/43.7M [00:00<?, ?B/s]
+IS1007b.tar.gz:  48% 21.0M/43.7M [00:00<00:00, 131MB/s]
+IS1007b.tar.gz: 100% 43.7M/43.7M [00:00<00:00, 158MB/s]
+Downloading data:  75% 103/137 [00:38<00:12,  2.68files/s]
+IS1007c.tar.gz:   0% 0.00/71.7M [00:00<?, ?B/s]
+IS1007c.tar.gz:  29% 21.0M/71.7M [00:00<00:00, 105MB/s]
+IS1007c.tar.gz: 100% 71.7M/71.7M [00:00<00:00, 179MB/s]
+Downloading data:  76% 104/137 [00:38<00:13,  2.48files/s]
+IS1007d.tar.gz:   0% 0.00/75.6M [00:00<?, ?B/s]
+IS1007d.tar.gz:  42% 31.5M/75.6M [00:00<00:00, 266MB/s]
+IS1007d.tar.gz: 100% 75.6M/75.6M [00:00<00:00, 271MB/s]
+Downloading data:  77% 105/137 [00:39<00:12,  2.57files/s]
+TS3005a.tar.gz:   0% 0.00/29.0M [00:00<?, ?B/s]
+TS3005a.tar.gz:  36% 10.5M/29.0M [00:00<00:00, 97.4MB/s]
+TS3005a.tar.gz: 100% 29.0M/29.0M [00:00<00:00, 113MB/s] 
+Downloading data:  77% 106/137 [00:39<00:11,  2.69files/s]
+TS3005b.tar.gz:   0% 0.00/66.7M [00:00<?, ?B/s]
+TS3005b.tar.gz:  31% 21.0M/66.7M [00:00<00:00, 206MB/s]
+TS3005b.tar.gz: 100% 66.7M/66.7M [00:00<00:00, 253MB/s]
+Downloading data:  78% 107/137 [00:39<00:10,  2.76files/s]
+TS3005c.tar.gz:   0% 0.00/61.5M [00:00<?, ?B/s]
+TS3005c.tar.gz:  34% 21.0M/61.5M [00:00<00:00, 109MB/s]
+TS3005c.tar.gz: 100% 61.5M/61.5M [00:00<00:00, 161MB/s]
+Downloading data:  79% 108/137 [00:40<00:11,  2.57files/s]
+TS3005d.tar.gz:   0% 0.00/84.0M [00:00<?, ?B/s]
+TS3005d.tar.gz:  37% 31.5M/84.0M [00:00<00:00, 252MB/s]
+TS3005d.tar.gz: 100% 84.0M/84.0M [00:00<00:00, 263MB/s]
+Downloading data:  80% 109/137 [00:40<00:10,  2.57files/s]
+TS3006a.tar.gz:   0% 0.00/29.9M [00:00<?, ?B/s]
+TS3006a.tar.gz: 100% 29.9M/29.9M [00:00<00:00, 259MB/s]
+Downloading data:  80% 110/137 [00:40<00:08,  3.04files/s]
+TS3006b.tar.gz:   0% 0.00/73.1M [00:00<?, ?B/s]
+TS3006b.tar.gz:  29% 21.0M/73.1M [00:00<00:00, 101MB/s]
+TS3006b.tar.gz:  57% 41.9M/73.1M [00:00<00:00, 135MB/s]
+TS3006b.tar.gz: 100% 73.1M/73.1M [00:00<00:00, 159MB/s]
+Downloading data:  81% 111/137 [00:41<00:10,  2.57files/s]
+TS3006c.tar.gz:   0% 0.00/79.7M [00:00<?, ?B/s]
+TS3006c.tar.gz:  39% 31.5M/79.7M [00:00<00:00, 254MB/s]
+TS3006c.tar.gz: 100% 79.7M/79.7M [00:00<00:00, 255MB/s]
+Downloading data:  82% 112/137 [00:41<00:09,  2.57files/s]
+TS3006d.tar.gz:   0% 0.00/92.5M [00:00<?, ?B/s]
+TS3006d.tar.gz:  23% 21.0M/92.5M [00:00<00:00, 125MB/s]
+TS3006d.tar.gz:  45% 41.9M/92.5M [00:00<00:00, 132MB/s]
+TS3006d.tar.gz:  68% 62.9M/92.5M [00:00<00:00, 158MB/s]
+TS3006d.tar.gz: 100% 92.5M/92.5M [00:00<00:00, 168MB/s]
+Downloading data:  82% 113/137 [00:42<00:11,  2.14files/s]
+TS3007a.tar.gz:   0% 0.00/33.5M [00:00<?, ?B/s]
+TS3007a.tar.gz: 100% 33.5M/33.5M [00:00<00:00, 193MB/s]
+Downloading data:  83% 114/137 [00:42<00:09,  2.49files/s]
+TS3007b.tar.gz:   0% 0.00/66.3M [00:00<?, ?B/s]
+TS3007b.tar.gz:  47% 31.5M/66.3M [00:00<00:00, 263MB/s]
+TS3007b.tar.gz: 100% 66.3M/66.3M [00:00<00:00, 259MB/s]
+Downloading data:  84% 115/137 [00:43<00:08,  2.64files/s]
+TS3007c.tar.gz:   0% 0.00/75.2M [00:00<?, ?B/s]
+TS3007c.tar.gz:  14% 10.5M/75.2M [00:00<00:00, 95.7MB/s]
+TS3007c.tar.gz:  42% 31.5M/75.2M [00:00<00:00, 119MB/s] 
+TS3007c.tar.gz:  70% 52.4M/75.2M [00:00<00:00, 148MB/s]
+TS3007c.tar.gz: 100% 75.2M/75.2M [00:00<00:00, 156MB/s]
+Downloading data:  85% 116/137 [00:43<00:09,  2.32files/s]
+TS3007d.tar.gz:   0% 0.00/79.7M [00:00<?, ?B/s]
+TS3007d.tar.gz:  26% 21.0M/79.7M [00:00<00:00, 129MB/s]
+TS3007d.tar.gz:  53% 41.9M/79.7M [00:00<00:00, 140MB/s]
+TS3007d.tar.gz: 100% 79.7M/79.7M [00:00<00:00, 174MB/s]
+Downloading data:  85% 117/137 [00:44<00:09,  2.17files/s]
+TS3008a.tar.gz:   0% 0.00/27.8M [00:00<?, ?B/s]
+TS3008a.tar.gz: 100% 27.8M/27.8M [00:00<00:00, 209MB/s]
+Downloading data:  86% 118/137 [00:44<00:07,  2.60files/s]
+TS3008b.tar.gz:   0% 0.00/65.5M [00:00<?, ?B/s]
+TS3008b.tar.gz:  48% 31.5M/65.5M [00:00<00:00, 236MB/s]
+TS3008b.tar.gz: 100% 65.5M/65.5M [00:00<00:00, 237MB/s]
+Downloading data:  87% 119/137 [00:44<00:06,  2.66files/s]
+TS3008c.tar.gz:   0% 0.00/69.5M [00:00<?, ?B/s]
+TS3008c.tar.gz:  45% 31.5M/69.5M [00:00<00:00, 250MB/s]
+TS3008c.tar.gz: 100% 69.5M/69.5M [00:00<00:00, 219MB/s]
+Downloading data:  88% 120/137 [00:45<00:06,  2.63files/s]
+TS3008d.tar.gz:   0% 0.00/78.2M [00:00<?, ?B/s]
+TS3008d.tar.gz:  27% 21.0M/78.2M [00:00<00:00, 110MB/s]
+TS3008d.tar.gz:  54% 41.9M/78.2M [00:00<00:00, 152MB/s]
+TS3008d.tar.gz: 100% 78.2M/78.2M [00:00<00:00, 173MB/s]
+Downloading data:  88% 121/137 [00:45<00:06,  2.37files/s]
+TS3009a.tar.gz:   0% 0.00/44.0M [00:00<?, ?B/s]
+TS3009a.tar.gz:  24% 10.5M/44.0M [00:00<00:00, 99.9MB/s]
+TS3009a.tar.gz:  48% 21.0M/44.0M [00:00<00:00, 96.9MB/s]
+TS3009a.tar.gz: 100% 44.0M/44.0M [00:00<00:00, 131MB/s]
+Downloading data:  89% 122/137 [00:46<00:06,  2.39files/s]
+TS3009b.tar.gz:   0% 0.00/76.3M [00:00<?, ?B/s]
+TS3009b.tar.gz:  41% 31.5M/76.3M [00:00<00:00, 232MB/s]
+TS3009b.tar.gz: 100% 76.3M/76.3M [00:00<00:00, 239MB/s]
+Downloading data:  90% 123/137 [00:46<00:05,  2.44files/s]
+TS3009c.tar.gz:   0% 0.00/76.8M [00:00<?, ?B/s]
+TS3009c.tar.gz:  41% 31.5M/76.8M [00:00<00:00, 238MB/s]
+TS3009c.tar.gz: 100% 76.8M/76.8M [00:00<00:00, 257MB/s]
+Downloading data:  91% 124/137 [00:46<00:05,  2.51files/s]
+TS3009d.tar.gz:   0% 0.00/71.2M [00:00<?, ?B/s]
+TS3009d.tar.gz:  44% 31.5M/71.2M [00:00<00:00, 245MB/s]
+TS3009d.tar.gz: 100% 71.2M/71.2M [00:00<00:00, 249MB/s]
+Downloading data:  91% 125/137 [00:47<00:04,  2.53files/s]
+TS3010a.tar.gz: 100% 12.1M/12.1M [00:00<00:00, 278MB/s]
+Downloading data:  92% 126/137 [00:47<00:03,  3.22files/s]
+TS3010b.tar.gz:   0% 0.00/36.1M [00:00<?, ?B/s]
+TS3010b.tar.gz: 100% 36.1M/36.1M [00:00<00:00, 248MB/s]
+Downloading data:  93% 127/137 [00:47<00:02,  3.56files/s]
+TS3010c.tar.gz:   0% 0.00/39.4M [00:00<?, ?B/s]
+TS3010c.tar.gz:  27% 10.5M/39.4M [00:00<00:00, 86.2MB/s]
+TS3010c.tar.gz: 100% 39.4M/39.4M [00:00<00:00, 121MB/s]
+Downloading data:  93% 128/137 [00:47<00:02,  3.02files/s]
+TS3010d.tar.gz:   0% 0.00/30.7M [00:00<?, ?B/s]
+TS3010d.tar.gz: 100% 30.7M/30.7M [00:00<00:00, 187MB/s]
+Downloading data:  94% 129/137 [00:48<00:02,  3.31files/s]
+TS3011a.tar.gz:   0% 0.00/35.9M [00:00<?, ?B/s]
+TS3011a.tar.gz:  29% 10.5M/35.9M [00:00<00:00, 73.4MB/s]
+TS3011a.tar.gz: 100% 35.9M/35.9M [00:00<00:00, 110MB/s]
+Downloading data:  95% 130/137 [00:48<00:02,  3.04files/s]
+TS3011b.tar.gz:   0% 0.00/59.0M [00:00<?, ?B/s]
+TS3011b.tar.gz:  53% 31.5M/59.0M [00:00<00:00, 220MB/s]
+TS3011b.tar.gz: 100% 59.0M/59.0M [00:00<00:00, 226MB/s]
+Downloading data:  96% 131/137 [00:48<00:01,  3.03files/s]
+TS3011c.tar.gz:   0% 0.00/60.0M [00:00<?, ?B/s]
+TS3011c.tar.gz:  35% 21.0M/60.0M [00:00<00:00, 137MB/s]
+TS3011c.tar.gz: 100% 60.0M/60.0M [00:00<00:00, 178MB/s]
+Downloading data:  96% 132/137 [00:49<00:01,  2.83files/s]
+TS3011d.tar.gz:   0% 0.00/48.3M [00:00<?, ?B/s]
+TS3011d.tar.gz:  43% 21.0M/48.3M [00:00<00:00, 114MB/s]
+TS3011d.tar.gz: 100% 48.3M/48.3M [00:00<00:00, 137MB/s]
+Downloading data:  97% 133/137 [00:49<00:01,  2.66files/s]
+TS3012a.tar.gz: 100% 17.4M/17.4M [00:00<00:00, 184MB/s]
+Downloading data:  98% 134/137 [00:49<00:00,  3.19files/s]
+TS3012b.tar.gz:   0% 0.00/70.6M [00:00<?, ?B/s]
+TS3012b.tar.gz:  15% 10.5M/70.6M [00:00<00:00, 84.5MB/s]
+TS3012b.tar.gz:  45% 31.5M/70.6M [00:00<00:00, 132MB/s] 
+TS3012b.tar.gz: 100% 70.6M/70.6M [00:00<00:00, 170MB/s]
+Downloading data:  99% 135/137 [00:50<00:00,  2.73files/s]
+TS3012c.tar.gz:   0% 0.00/65.6M [00:00<?, ?B/s]
+TS3012c.tar.gz:  48% 31.5M/65.6M [00:00<00:00, 255MB/s]
+TS3012c.tar.gz: 100% 65.6M/65.6M [00:00<00:00, 260MB/s]
+Downloading data:  99% 136/137 [00:50<00:00,  2.83files/s]
+TS3012d.tar.gz:   0% 0.00/57.0M [00:00<?, ?B/s]
+TS3012d.tar.gz:  55% 31.5M/57.0M [00:00<00:00, 254MB/s]
+TS3012d.tar.gz: 100% 57.0M/57.0M [00:00<00:00, 247MB/s]
+Downloading data: 100% 137/137 [00:51<00:00,  2.68files/s]
+Downloading data:   0% 0/18 [00:00<?, ?files/s]
+ES2011a.tar.gz:   0% 0.00/22.9M [00:00<?, ?B/s]
+ES2011a.tar.gz:  46% 10.5M/22.9M [00:00<00:00, 72.1MB/s]
+ES2011a.tar.gz: 100% 22.9M/22.9M [00:00<00:00, 90.1MB/s]
+Downloading data:   6% 1/18 [00:00<00:05,  3.12files/s]
+ES2011c.tar.gz:   0% 0.00/39.9M [00:00<?, ?B/s]
+ES2011c.tar.gz:  26% 10.5M/39.9M [00:00<00:00, 98.5MB/s]
+ES2011c.tar.gz:  53% 21.0M/39.9M [00:00<00:00, 99.1MB/s]
+ES2011c.tar.gz: 100% 39.9M/39.9M [00:00<00:00, 119MB/s]
+Downloading data:  11% 2/18 [00:00<00:06,  2.47files/s]
+IB4001.tar.gz:   0% 0.00/57.6M [00:00<?, ?B/s]
+IB4001.tar.gz:  36% 21.0M/57.6M [00:00<00:00, 177MB/s]
+IB4001.tar.gz: 100% 57.6M/57.6M [00:00<00:00, 202MB/s]
+Downloading data:  17% 3/18 [00:01<00:05,  2.62files/s]
+IB4003.tar.gz:   0% 0.00/80.0M [00:00<?, ?B/s]
+IB4003.tar.gz:  26% 21.0M/80.0M [00:00<00:00, 204MB/s]
+IB4003.tar.gz: 100% 80.0M/80.0M [00:00<00:00, 252MB/s]
+Downloading data:  22% 4/18 [00:01<00:05,  2.59files/s]
+IB4010.tar.gz:   0% 0.00/119M [00:00<?, ?B/s]
+IB4010.tar.gz:  26% 31.5M/119M [00:00<00:00, 267MB/s]
+IB4010.tar.gz:  53% 62.9M/119M [00:00<00:00, 290MB/s]
+IB4010.tar.gz: 100% 119M/119M [00:00<00:00, 294MB/s] 
+Downloading data:  28% 5/18 [00:02<00:05,  2.39files/s]
+IS1008a.tar.gz:   0% 0.00/27.7M [00:00<?, ?B/s]
+IS1008a.tar.gz: 100% 27.7M/27.7M [00:00<00:00, 254MB/s]
+Downloading data:  33% 6/18 [00:02<00:04,  2.98files/s]
+IS1008c.tar.gz:   0% 0.00/51.2M [00:00<?, ?B/s]
+IS1008c.tar.gz: 100% 51.2M/51.2M [00:00<00:00, 270MB/s]
+Downloading data:  39% 7/18 [00:02<00:03,  3.18files/s]
+TS3004a.tar.gz:   0% 0.00/27.0M [00:00<?, ?B/s]
+TS3004a.tar.gz: 100% 27.0M/27.0M [00:00<00:00, 95.1MB/s]
+Downloading data:  44% 8/18 [00:03<00:03,  2.53files/s]
+TS3004c.tar.gz:   0% 0.00/61.5M [00:00<?, ?B/s]
+TS3004c.tar.gz:  51% 31.5M/61.5M [00:00<00:00, 224MB/s]
+TS3004c.tar.gz: 100% 61.5M/61.5M [00:00<00:00, 240MB/s]
+Downloading data:  50% 9/18 [00:03<00:03,  2.68files/s]
+ES2011b.tar.gz:   0% 0.00/36.8M [00:00<?, ?B/s]
+ES2011b.tar.gz:  29% 10.5M/36.8M [00:00<00:00, 96.0MB/s]
+ES2011b.tar.gz: 100% 36.8M/36.8M [00:00<00:00, 133MB/s]
+Downloading data:  56% 10/18 [00:03<00:02,  2.72files/s]
+ES2011d.tar.gz:   0% 0.00/40.7M [00:00<?, ?B/s]
+ES2011d.tar.gz:  26% 10.5M/40.7M [00:00<00:00, 58.3MB/s]
+ES2011d.tar.gz: 100% 40.7M/40.7M [00:00<00:00, 133MB/s]
+Downloading data:  61% 11/18 [00:04<00:02,  2.70files/s]
+IB4002.tar.gz:   0% 0.00/49.7M [00:00<?, ?B/s]
+IB4002.tar.gz: 100% 49.7M/49.7M [00:00<00:00, 277MB/s]
+Downloading data:  67% 12/18 [00:04<00:02,  2.97files/s]
+IB4004.tar.gz:   0% 0.00/101M [00:00<?, ?B/s]
+IB4004.tar.gz:  31% 31.5M/101M [00:00<00:00, 265MB/s]
+IB4004.tar.gz:  63% 62.9M/101M [00:00<00:00, 277MB/s]
+IB4004.tar.gz: 100% 101M/101M [00:00<00:00, 272MB/s] 
+Downloading data:  72% 13/18 [00:04<00:01,  2.67files/s]
+IB4011.tar.gz:   0% 0.00/92.2M [00:00<?, ?B/s]
+IB4011.tar.gz:  11% 10.5M/92.2M [00:00<00:01, 58.8MB/s]
+IB4011.tar.gz:  34% 31.5M/92.2M [00:00<00:00, 113MB/s] 
+IB4011.tar.gz:  57% 52.4M/92.2M [00:00<00:00, 134MB/s]
+IB4011.tar.gz: 100% 92.2M/92.2M [00:00<00:00, 150MB/s]
+Downloading data:  78% 14/18 [00:05<00:01,  2.12files/s]
+IS1008b.tar.gz:   0% 0.00/52.1M [00:00<?, ?B/s]
+IS1008b.tar.gz: 100% 52.1M/52.1M [00:00<00:00, 237MB/s]
+Downloading data:  83% 15/18 [00:05<00:01,  2.30files/s]
+IS1008d.tar.gz:   0% 0.00/49.8M [00:00<?, ?B/s]
+IS1008d.tar.gz: 100% 49.8M/49.8M [00:00<00:00, 248MB/s]
+Downloading data:  89% 16/18 [00:06<00:00,  2.59files/s]
+TS3004b.tar.gz:   0% 0.00/57.7M [00:00<?, ?B/s]
+TS3004b.tar.gz: 100% 57.7M/57.7M [00:00<00:00, 265MB/s]
+Downloading data:  94% 17/18 [00:06<00:00,  2.80files/s]
+TS3004d.tar.gz:   0% 0.00/58.3M [00:00<?, ?B/s]
+TS3004d.tar.gz: 100% 58.3M/58.3M [00:00<00:00, 267MB/s]
+Downloading data: 100% 18/18 [00:06<00:00,  2.69files/s]
+Downloading data:   0% 0/16 [00:00<?, ?files/s]
+EN2002a.tar.gz:   0% 0.00/62.8M [00:00<?, ?B/s]
+EN2002a.tar.gz:  50% 31.5M/62.8M [00:00<00:00, 262MB/s]
+EN2002a.tar.gz: 100% 62.8M/62.8M [00:00<00:00, 258MB/s]
+Downloading data:   6% 1/16 [00:00<00:04,  3.04files/s]
+EN2002b.tar.gz:   0% 0.00/46.9M [00:00<?, ?B/s]
+EN2002b.tar.gz:  22% 10.5M/46.9M [00:00<00:00, 72.9MB/s]
+EN2002b.tar.gz: 100% 46.9M/46.9M [00:00<00:00, 136MB/s]
+Downloading data:  12% 2/16 [00:00<00:05,  2.61files/s]
+EN2002c.tar.gz:   0% 0.00/79.2M [00:00<?, ?B/s]
+EN2002c.tar.gz:  40% 31.5M/79.2M [00:00<00:00, 238MB/s]
+EN2002c.tar.gz: 100% 79.2M/79.2M [00:00<00:00, 243MB/s]
+Downloading data:  19% 3/16 [00:01<00:05,  2.56files/s]
+EN2002d.tar.gz:   0% 0.00/66.0M [00:00<?, ?B/s]
+EN2002d.tar.gz:  48% 31.5M/66.0M [00:00<00:00, 259MB/s]
+EN2002d.tar.gz: 100% 66.0M/66.0M [00:00<00:00, 265MB/s]
+Downloading data:  25% 4/16 [00:01<00:04,  2.74files/s]
+ES2004a.tar.gz: 100% 22.7M/22.7M [00:00<00:00, 228MB/s]
+Downloading data:  31% 5/16 [00:01<00:03,  3.39files/s]
+ES2004b.tar.gz:   0% 0.00/56.6M [00:00<?, ?B/s]
+ES2004b.tar.gz:  37% 21.0M/56.6M [00:00<00:00, 205MB/s]
+ES2004b.tar.gz: 100% 56.6M/56.6M [00:00<00:00, 248MB/s]
+Downloading data:  38% 6/16 [00:01<00:02,  3.36files/s]
+ES2004c.tar.gz:   0% 0.00/54.1M [00:00<?, ?B/s]
+ES2004c.tar.gz: 100% 54.1M/54.1M [00:00<00:00, 241MB/s]
+Downloading data:  44% 7/16 [00:02<00:02,  3.36files/s]
+ES2004d.tar.gz:   0% 0.00/48.2M [00:00<?, ?B/s]
+ES2004d.tar.gz: 100% 48.2M/48.2M [00:00<00:00, 257MB/s]
+Downloading data:  50% 8/16 [00:02<00:02,  3.47files/s]
+IS1009a.tar.gz:   0% 0.00/25.1M [00:00<?, ?B/s]
+IS1009a.tar.gz: 100% 25.1M/25.1M [00:00<00:00, 104MB/s] 
+Downloading data:  56% 9/16 [00:02<00:02,  3.33files/s]
+IS1009b.tar.gz:   0% 0.00/70.4M [00:00<?, ?B/s]
+IS1009b.tar.gz:  45% 31.5M/70.4M [00:00<00:00, 286MB/s]
+IS1009b.tar.gz: 100% 70.4M/70.4M [00:00<00:00, 284MB/s]
+Downloading data:  62% 10/16 [00:03<00:01,  3.27files/s]
+IS1009c.tar.gz:   0% 0.00/56.6M [00:00<?, ?B/s]
+IS1009c.tar.gz:  37% 21.0M/56.6M [00:00<00:00, 88.4MB/s]
+IS1009c.tar.gz: 100% 56.6M/56.6M [00:00<00:00, 135MB/s]
+Downloading data:  69% 11/16 [00:03<00:01,  2.76files/s]
+IS1009d.tar.gz:   0% 0.00/62.3M [00:00<?, ?B/s]
+IS1009d.tar.gz:  51% 31.5M/62.3M [00:00<00:00, 230MB/s]
+IS1009d.tar.gz: 100% 62.3M/62.3M [00:00<00:00, 249MB/s]
+Downloading data:  75% 12/16 [00:03<00:01,  2.85files/s]
+TS3003a.tar.gz:   0% 0.00/28.4M [00:00<?, ?B/s]
+TS3003a.tar.gz: 100% 28.4M/28.4M [00:00<00:00, 128MB/s]
+Downloading data:  81% 13/16 [00:04<00:01,  2.99files/s]
+TS3003b.tar.gz:   0% 0.00/49.9M [00:00<?, ?B/s]
+TS3003b.tar.gz:  42% 21.0M/49.9M [00:00<00:00, 126MB/s]
+TS3003b.tar.gz: 100% 49.9M/49.9M [00:00<00:00, 170MB/s]
+Downloading data:  88% 14/16 [00:04<00:00,  2.91files/s]
+TS3003c.tar.gz:   0% 0.00/52.0M [00:00<?, ?B/s]
+TS3003c.tar.gz: 100% 52.0M/52.0M [00:00<00:00, 271MB/s]
+Downloading data:  94% 15/16 [00:04<00:00,  3.12files/s]
+TS3003d.tar.gz:   0% 0.00/56.6M [00:00<?, ?B/s]
+TS3003d.tar.gz: 100% 56.6M/56.6M [00:00<00:00, 262MB/s]
+Downloading data: 100% 16/16 [00:05<00:00,  3.06files/s]
+text: 8.24MB [00:00, 98.2MB/s]
+text: 979kB [00:00, 158MB/s]
+text: 944kB [00:00, 163MB/s]
+Generating train split: 108502 examples [01:59, 907.68 examples/s] 
+Generating validation split: 13098 examples [00:14, 873.82 examples/s] 
+Generating test split: 12643 examples [00:12, 983.38 examples/s] 
+[2025-06-30 16:49:59.259595] MAIN: Dataset loaded successfully
+[2025-06-30 16:49:59.259635] MAIN: Using subset of 6 samples for testing
+[2025-06-30 16:49:59.259646] MAIN: Grouping data by meeting ID...
+[2025-06-30 16:50:10.719850] MAIN: Grouped 1 meetings from training set
+[2025-06-30 16:50:10.719888] MAIN: Grouped 1 meetings from validation set
+[2025-06-30 16:50:10.719895] MAIN: Grouped 1 meetings from test set
+INFO:data_processing:Created speaker ID mapping: {'MEO069': 0, 'MEE068': 1, 'MEE067': 2, 'FEO065': 3}
+INFO:data_processing:Max sequence length: 638
+INFO:data_processing:=== DATASET STATISTICS ===
+INFO:data_processing:Dataset size (number of samples): 6
+INFO:data_processing:Feature shape (samples, frames, mel-bands): (6, 638, 80)
+INFO:data_processing:Label shape: (6, 638)
+INFO:data_processing:Frame size (number of frames per sample): min=38, max=638, mean=304.3
+INFO:data_processing:Feature dtype: float64, Label dtype: int64
+INFO:data_processing:Example feature[0] shape: (638, 80), min=-78.34, max=1.66
+INFO:data_processing:Example label[0] shape: (638,), values: [-100    1]
+INFO:data_processing:Unique label values in dataset: [-100    1    2    4    8]
+INFO:data_processing:Audio segment length distribution: min=38, max=638, mean=304.3, median=293.0
+INFO:data_processing:Created speaker ID mapping: {'FEE044': 0, 'FEE041': 1, 'FEE043': 2}
+INFO:data_processing:Max sequence length: 269
+INFO:data_processing:=== DATASET STATISTICS ===
+INFO:data_processing:Dataset size (number of samples): 6
+INFO:data_processing:Feature shape (samples, frames, mel-bands): (6, 269, 80)
+INFO:data_processing:Label shape: (6, 269)
+INFO:data_processing:Frame size (number of frames per sample): min=16, max=269, mean=130.0
+INFO:data_processing:Feature dtype: float64, Label dtype: int64
+INFO:data_processing:Example feature[0] shape: (269, 80), min=-72.38, max=7.62
+INFO:data_processing:Example label[0] shape: (269,), values: [1]
+INFO:data_processing:Unique label values in dataset: [-100    1    2    4]
+INFO:data_processing:Audio segment length distribution: min=16, max=269, mean=130.0, median=120.0
+INFO:data_processing:Created speaker ID mapping: {'MEE073': 0, 'FEO072': 1, 'FEO070': 2}
+INFO:data_processing:Max sequence length: 138
+INFO:data_processing:=== DATASET STATISTICS ===
+INFO:data_processing:Dataset size (number of samples): 6
+INFO:data_processing:Feature shape (samples, frames, mel-bands): (6, 138, 80)
+INFO:data_processing:Label shape: (6, 138)
+INFO:data_processing:Frame size (number of frames per sample): min=30, max=138, mean=87.7
+INFO:data_processing:Feature dtype: float64, Label dtype: int64
+INFO:data_processing:Example feature[0] shape: (138, 80), min=-93.66, max=-13.66
+INFO:data_processing:Example label[0] shape: (138,), values: [1]
+INFO:data_processing:Unique label values in dataset: [-100    1    2    4]
+INFO:data_processing:Audio segment length distribution: min=30, max=138, mean=87.7, median=91.5
+INFO:data_processing:Created data loaders with batch size 4
+INFO:data_processing:Training set: 6 samples | 2 batches | 3828 frames
+INFO:data_processing:Validation set: 6 samples | 2 batches | 1614 frames
+INFO:data_processing:Test set: 6 samples | 2 batches | 828 frames
+INFO:data_processing:=== EXAMPLE TRAIN SAMPLE ===
+INFO:data_processing:Feature shape: torch.Size([638, 80]), dtype: torch.float32
+INFO:data_processing:Feature (first frame): tensor([-25.7961, -21.6416, -16.6324, -13.3380, -12.1601, -12.7919, -14.0378,
+        -14.8877, -17.3196, -23.8747, -20.1642, -14.1468, -11.4491, -11.4738,
+        -14.0905, -19.3088, -25.9539, -33.7698, -32.3547, -29.1311, -28.5645,
+        -28.0751, -29.4783, -34.3271, -41.1570, -40.3496, -36.6071, -33.9976,
+        -33.8865, -34.8686, -35.8664, -36.6525, -37.4211, -38.2193, -36.4379,
+        -35.8695, -38.0396, -42.2522, -47.5849, -42.9448, -41.8785, -47.9526,
+        -48.7211, -43.4506, -44.3202, -45.9654, -38.6584, -40.9482, -44.7076,
+        -45.1133, -51.1277, -50.1222, -51.6958, -53.1796, -53.4646, -54.9030,
+        -54.5478, -55.6168, -55.2637, -52.1974, -53.0708, -49.8131, -50.6336,
+        -51.5848, -52.7451, -55.4427, -58.7778, -58.6580, -58.5146, -59.1365,
+        -60.0565, -62.9523, -61.9280, -61.2017, -61.9546, -62.1751, -61.5246,
+        -61.7682, -61.8947, -61.8983])
+INFO:data_processing:Speaker embeddings shape: torch.Size([4, 192]), dtype: torch.float32
+INFO:data_processing:Label shape: torch.Size([638]), dtype: torch.int64
+INFO:data_processing:Label (first 10 frames): tensor([1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
+INFO:data_processing:Sample = audio segment (feature matrix), batch = group of samples, frame = row in the feature matrix (one time step)
+INFO:data_processing:Frames are NOT independent: the model takes their sequence/context into account
+[2025-06-30 16:50:13.902018] MAIN: Detected 10 unique speakers, num_classes=1024
+[2025-06-30 16:50:13.902041] MAIN: speaker_ids: ['FEE041', 'FEE043', 'FEE044', 'FEO065', 'FEO070', 'FEO072', 'MEE067', 'MEE068', 'MEE073', 'MEO069']
+[2025-06-30 16:50:13.902052] MAIN: Initializing Power Set Encoder with max_speakers=10
+[2025-06-30 16:50:13.902063] MAIN: Creating SEND model...
+[2025-06-30 16:50:14.040985] MAIN: Splitting data for federated learning...
+INFO:data_processing:Starting data processing for clients...
+INFO:data_processing:Found 4 unique speakers: {'MEO069': 0, 'MEE068': 1, 'MEE067': 2, 'FEO065': 3}
+INFO:data_processing:Processing meetings for overlapping segments...
+INFO:data_processing:Processing meeting EN2001a with 6 samples
+INFO:data_processing:Adding non-overlapping segments...
+INFO:data_processing:Finding real overlapping segments...
+INFO:data_processing:Creating artificial overlapping segments...
+INFO:data_processing:Simulating overlapping speech with 6 segments...
+INFO:data_processing:Starting simulation with 6 segments
+INFO:data_processing:Processing 15 combinations
+INFO:data_processing:Successfully created 15 overlapping segments
+INFO:data_processing:Meeting EN2001a statistics:
+INFO:data_processing:  - Original segments: 6
+INFO:data_processing:  - Natural overlaps: 0
+INFO:data_processing:  - Artificial overlaps: 15
+INFO:data_processing:
+Overall Dataset Statistics:
+INFO:data_processing:Total meetings processed: 1
+INFO:data_processing:Total original segments: 6
+INFO:data_processing:Total natural overlaps: 0
+INFO:data_processing:Total artificial overlaps: 15
+INFO:data_processing:Total segments: 21
+INFO:data_processing:Natural overlap ratio: 0.00%
+INFO:data_processing:Artificial overlap ratio: 250.00%
+INFO:data_processing:
+Balancing dataset...
+INFO:data_processing:
+Balanced Dataset Statistics:
+INFO:data_processing:Non-overlapping samples: 6
+INFO:data_processing:Natural overlapping samples: 0
+INFO:data_processing:Artificial overlapping samples: 6
+INFO:data_processing:Total balanced samples: 12
+INFO:data_processing:
+Splitting 12 samples among 2 clients...
+INFO:data_processing:Creating data loaders for clients...
+INFO:data_processing:
+Processing client 0 with 6 samples
+INFO:data_processing:Client 0 sample distribution:
+INFO:data_processing:  - Non-overlapping: 3
+INFO:data_processing:  - Natural overlaps: 0
+INFO:data_processing:  - Artificial overlaps: 3
+INFO:data_processing:All sequence lengths for client 0: {1001}
+INFO:data_processing:Created data loaders for client 0
+INFO:data_processing:
+Processing client 1 with 6 samples
+INFO:data_processing:Client 1 sample distribution:
+INFO:data_processing:  - Non-overlapping: 3
+INFO:data_processing:  - Natural overlaps: 0
+INFO:data_processing:  - Artificial overlaps: 3
+INFO:data_processing:All sequence lengths for client 1: {1001}
+INFO:data_processing:Created data loaders for client 1
+INFO:data_processing:
+Data processing completed successfully
+[2025-06-30 16:50:14.655472] MAIN: Split data among 2 clients
+[2025-06-30 16:50:14.655504] MAIN: Computing speaker embeddings for train set...
+Starting federated learning simulation...
+Available GPUs: 1, GPUs per client: 1
+WARNING :   DEPRECATED FEATURE: flwr.simulation.start_simulation() is deprecated.
+	Instead, use the `flwr run` CLI command to start a local simulation in your Flower app, as shown for example below:
+
+		$ flwr new  # Create a new Flower app from a template
+
+		$ flwr run  # Run the Flower app in Simulation Mode
+
+	Using `start_simulation()` is deprecated.
+
+            This is a deprecated feature. It will be removed
+            entirely in future versions of Flower.
+        
+WARNING:flwr:DEPRECATED FEATURE: flwr.simulation.start_simulation() is deprecated.
+	Instead, use the `flwr run` CLI command to start a local simulation in your Flower app, as shown for example below:
+
+		$ flwr new  # Create a new Flower app from a template
+
+		$ flwr run  # Run the Flower app in Simulation Mode
+
+	Using `start_simulation()` is deprecated.
+
+            This is a deprecated feature. It will be removed
+            entirely in future versions of Flower.
+        
+INFO :      Starting Flower simulation, config: num_rounds=3, no round_timeout
+INFO:flwr:Starting Flower simulation, config: num_rounds=3, no round_timeout
+2025-06-30 16:50:17,560	INFO worker.py:1771 -- Started a local Ray instance.
+INFO :      Flower VCE: Ray initialized with resources: {'accelerator_type:A100': 1.0, 'node:__internal_head__': 1.0, 'CPU': 2.0, 'object_store_memory': 26793854976.0, 'node:172.28.0.12': 1.0, 'memory': 53587709952.0, 'GPU': 1.0}
+INFO:flwr:Flower VCE: Ray initialized with resources: {'accelerator_type:A100': 1.0, 'node:__internal_head__': 1.0, 'CPU': 2.0, 'object_store_memory': 26793854976.0, 'node:172.28.0.12': 1.0, 'memory': 53587709952.0, 'GPU': 1.0}
+INFO :      Optimize your simulation with Flower VCE: https://flower.ai/docs/framework/how-to-run-simulations.html
+INFO:flwr:Optimize your simulation with Flower VCE: https://flower.ai/docs/framework/how-to-run-simulations.html
+INFO :      Flower VCE: Resources for each Virtual Client: {'num_cpus': 1, 'num_gpus': 1}
+INFO:flwr:Flower VCE: Resources for each Virtual Client: {'num_cpus': 1, 'num_gpus': 1}
+INFO :      Flower VCE: Creating VirtualClientEngineActorPool with 1 actors
+INFO:flwr:Flower VCE: Creating VirtualClientEngineActorPool with 1 actors
+INFO :      [INIT]
+INFO:flwr:[INIT]
+INFO :      Using initial global parameters provided by strategy
+INFO:flwr:Using initial global parameters provided by strategy
+INFO :      Starting evaluation of initial global parameters
+INFO:flwr:Starting evaluation of initial global parameters
+INFO :      Evaluation returned no results (`None`)
+INFO:flwr:Evaluation returned no results (`None`)
+INFO :      
+INFO:flwr:
+INFO :      [ROUND 1]
+INFO:flwr:[ROUND 1]
+INFO :      configure_fit: strategy sampled 2 clients (out of 2)
+INFO:flwr:configure_fit: strategy sampled 2 clients (out of 2)
+(pid=5929) 2025-06-30 16:50:19.121151: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:477] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+(pid=5929) WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+(pid=5929) E0000 00:00:1751302219.143101    5929 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+(pid=5929) E0000 00:00:1751302219.150221    5929 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+(ClientAppActor pid=5929) /usr/local/lib/python3.11/dist-packages/jupyter_client/connect.py:28: DeprecationWarning: Jupyter is migrating its paths to use standard platformdirs
+(ClientAppActor pid=5929) given by the platformdirs library.  To remove this warning and
+(ClientAppActor pid=5929) see the appropriate new directories, set the environment variable
+(ClientAppActor pid=5929) `JUPYTER_PLATFORM_DIRS=1` and then run `jupyter --paths`.
+(ClientAppActor pid=5929) The use of platformdirs will be the default in `jupyter_core` v6
+(ClientAppActor pid=5929)   from jupyter_core.paths import jupyter_data_dir, jupyter_runtime_dir, secure_write
+(ClientAppActor pid=5929) /content/FL_SEND/data_processing.py:11: UserWarning: Module 'speechbrain.pretrained' was deprecated, redirecting to 'speechbrain.inference'. Please update your script. This is a change from SpeechBrain 1.0. See: https://github.com/speechbrain/speechbrain/releases/tag/v1.0.0
+(ClientAppActor pid=5929)   from speechbrain.pretrained import EncoderClassifier
+(ClientAppActor pid=5929) /usr/local/lib/python3.11/dist-packages/pyannote/core/notebook.py:134: MatplotlibDeprecationWarning: The get_cmap function was deprecated in Matplotlib 3.7 and will be removed in 3.11. Use ``matplotlib.colormaps[name]`` or ``matplotlib.colormaps.get_cmap()`` or ``pyplot.get_cmap()`` instead.
+(ClientAppActor pid=5929)   cm = get_cmap("Set1")
+(ClientAppActor pid=5929) /usr/local/lib/python3.11/dist-packages/speechbrain/utils/autocast.py:188: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
+(ClientAppActor pid=5929)   wrapped_fwd = torch.cuda.amp.custom_fwd(fwd, cast_inputs=cast_inputs)
+(ClientAppActor pid=5929) [client_fn] Got cid from context.node_config['partition-id']: 1
+(ClientAppActor pid=5929) [2025-06-30 16:50:25.493219] MAIN: Creating client 1
+(ClientAppActor pid=5929) [2025-06-30 16:50:25.648088] MAIN: Client 1 created and ready
+(ClientAppActor pid=5929) [2025-06-30 16:50:25.648147] SENDClient: Initializing client 138778077080528
+(ClientAppActor pid=5929) [2025-06-30 16:50:30.099412] SENDClient: Initialization complete for client 138778077080528
+(ClientAppActor pid=5929) [DEBUG] SENDClient: train_loader size: 1
+(ClientAppActor pid=5929) [DEBUG] SENDClient: val_loader size: 1
+(ClientAppActor pid=5929) === CLIENT LOG: fit started ===
+(ClientAppActor pid=5929) [DEBUG] fit: train_loader size: 1
+(ClientAppActor pid=5929) [DEBUG] fit: number of batches: 1
+(ClientAppActor pid=5929) === aaa ===
+(ClientAppActor pid=5929) === bbb ===
+(ClientAppActor pid=5929) === CLIENT LOG: fit started ===
+(ClientAppActor pid=5929) [2025-06-30 16:50:30.143448] SENDClient: Starting fit for client 138778077080528
+(ClientAppActor pid=5929) [2025-06-30 16:50:30.222474] SENDClient: First batch in fit for client 138778077080528 (epoch 1/2)
+(ClientAppActor pid=5929) Batch 0, Loss: 7.1327
+(ClientAppActor pid=5929) Batch 0, labels shape: torch.Size([4004]), unique labels: tensor([-100,    4,    5,    8], device='cuda:0')
+(ClientAppActor pid=5929) Batch 0, outputs shape: torch.Size([4004, 1024]), unique preds: tensor([   0,    1,   18,   20,   47,   53,   72,   80,   82,   83,   91,   95,
+(ClientAppActor pid=5929)          107,  112,  113,  114,  125,  127,  141,  151,  153,  154,  186,  189,
+(ClientAppActor pid=5929)          212,  244,  245,  258,  265,  267,  269,  294,  300,  302,  312,  344,
+(ClientAppActor pid=5929)          347,  356,  365,  369,  376,  386,  417,  426,  433,  434,  440,  443,
+(ClientAppActor pid=5929)          448,  452,  461,  463,  468,  472,  473,  479,  496,  499,  504,  506,
+(ClientAppActor pid=5929)          523,  531,  546,  559,  575,  577,  578,  580,  589,  590,  618,  625,
+(ClientAppActor pid=5929)          635,  636,  642,  655,  660,  661,  686,  691,  694,  698,  699,  709,
+(ClientAppActor pid=5929)          727,  740,  745,  746,  751,  770,  777,  782,  793,  798,  802,  812,
+(ClientAppActor pid=5929)          814,  820,  843,  857,  861,  876,  877,  890,  895,  901,  905,  906,
+(ClientAppActor pid=5929)          914,  918,  926,  933,  954,  972,  979,  981,  999, 1000, 1001, 1002,
+(ClientAppActor pid=5929)         1006], device='cuda:0')
+(ClientAppActor pid=5929) [DER DEBUG] Frame 0: label=8, pred=820, true_bits=[0, 0, 0, 0, 0, 0, 1, 0, 0, 0], pred_bits=[1, 1, 0, 0, 1, 1, 0, 1, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1: label=8, pred=417, true_bits=[0, 0, 0, 0, 0, 0, 1, 0, 0, 0], pred_bits=[0, 1, 1, 0, 1, 0, 0, 0, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2: label=8, pred=417, true_bits=[0, 0, 0, 0, 0, 0, 1, 0, 0, 0], pred_bits=[0, 1, 1, 0, 1, 0, 0, 0, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 3: label=8, pred=417, true_bits=[0, 0, 0, 0, 0, 0, 1, 0, 0, 0], pred_bits=[0, 1, 1, 0, 1, 0, 0, 0, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 4: label=8, pred=417, true_bits=[0, 0, 0, 0, 0, 0, 1, 0, 0, 0], pred_bits=[0, 1, 1, 0, 1, 0, 0, 0, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 5: label=8, pred=417, true_bits=[0, 0, 0, 0, 0, 0, 1, 0, 0, 0], pred_bits=[0, 1, 1, 0, 1, 0, 0, 0, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 6: label=8, pred=83, true_bits=[0, 0, 0, 0, 0, 0, 1, 0, 0, 0], pred_bits=[0, 0, 0, 1, 0, 1, 0, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 7: label=8, pred=83, true_bits=[0, 0, 0, 0, 0, 0, 1, 0, 0, 0], pred_bits=[0, 0, 0, 1, 0, 1, 0, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 8: label=8, pred=83, true_bits=[0, 0, 0, 0, 0, 0, 1, 0, 0, 0], pred_bits=[0, 0, 0, 1, 0, 1, 0, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 9: label=8, pred=369, true_bits=[0, 0, 0, 0, 0, 0, 1, 0, 0, 0], pred_bits=[0, 1, 0, 1, 1, 1, 0, 0, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] speaker_id_list (bit mapping): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+(ClientAppActor pid=5929) [DER DEBUG] Unique label values: {np.int64(8), np.int64(4), np.int64(5)}
+(ClientAppActor pid=5929) [DER DEBUG] Unique pred values: {np.int64(523), np.int64(531), np.int64(20), np.int64(546), np.int64(53), np.int64(575), np.int64(578), np.int64(72), np.int64(590), np.int64(80), np.int64(83), np.int64(91), np.int64(95), np.int64(107), np.int64(112), np.int64(625), np.int64(114), np.int64(113), np.int64(635), np.int64(642), np.int64(655), np.int64(660), np.int64(661), np.int64(151), np.int64(153), np.int64(154), np.int64(694), np.int64(698), np.int64(186), np.int64(709), np.int64(212), np.int64(746), np.int64(244), np.int64(770), np.int64(258), np.int64(777), np.int64(267), np.int64(782), np.int64(793), np.int64(798), np.int64(294), np.int64(300), np.int64(302), np.int64(820), np.int64(312), np.int64(843), np.int64(344), np.int64(857), np.int64(347), np.int64(861), np.int64(356), np.int64(365), np.int64(369), np.int64(376), np.int64(901), np.int64(905), np.int64(906), np.int64(914), np.int64(918), np.int64(417), np.int64(933), np.int64(426), np.int64(433), np.int64(434), np.int64(954), np.int64(443), np.int64(448), np.int64(972), np.int64(461), np.int64(979), np.int64(472), np.int64(479), np.int64(999), np.int64(1000), np.int64(1001), np.int64(496), np.int64(499), np.int64(504), np.int64(506)}
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (labels): min=1, max=2, mean=1.78
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (preds): min=2, max=8, mean=4.80
+(ClientAppActor pid=5929) [DER DEBUG] Reference segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_6'})), (<Segment(1, 2)>, '_', frozenset({'speaker_6'})), (<Segment(2, 3)>, '_', frozenset({'speaker_6'})), (<Segment(3, 4)>, '_', frozenset({'speaker_6'})), (<Segment(4, 5)>, '_', frozenset({'speaker_6'})), (<Segment(5, 6)>, '_', frozenset({'speaker_6'})), (<Segment(6, 7)>, '_', frozenset({'speaker_6'})), (<Segment(7, 8)>, '_', frozenset({'speaker_6'})), (<Segment(8, 9)>, '_', frozenset({'speaker_6'})), (<Segment(9, 10)>, '_', frozenset({'speaker_6'}))]
+(ClientAppActor pid=5929) [DER DEBUG] Hypothesis segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_4', 'speaker_7', 'speaker_1'})), (<Segment(1, 2)>, '_', frozenset({'speaker_2', 'speaker_9', 'speaker_1', 'speaker_4'})), (<Segment(2, 3)>, '_', frozenset({'speaker_2', 'speaker_9', 'speaker_1', 'speaker_4'})), (<Segment(3, 4)>, '_', frozenset({'speaker_2', 'speaker_9', 'speaker_1', 'speaker_4'})), (<Segment(4, 5)>, '_', frozenset({'speaker_2', 'speaker_9', 'speaker_1', 'speaker_4'})), (<Segment(5, 6)>, '_', frozenset({'speaker_2', 'speaker_9', 'speaker_1', 'speaker_4'})), (<Segment(6, 7)>, '_', frozenset({'speaker_3', 'speaker_5', 'speaker_8', 'speaker_9'})), (<Segment(7, 8)>, '_', frozenset({'speaker_3', 'speaker_5', 'speaker_8', 'speaker_9'})), (<Segment(8, 9)>, '_', frozenset({'speaker_3', 'speaker_5', 'speaker_8', 'speaker_9'})), (<Segment(9, 10)>, '_', frozenset({'speaker_5', 'speaker_4', 'speaker_9', 'speaker_3', 'speaker_1'}))]
+(ClientAppActor pid=5929) /usr/local/lib/python3.11/dist-packages/pyannote/metrics/utils.py:200: UserWarning: 'uem' was approximated by the union of 'reference' and 'hypothesis' extents.
+(ClientAppActor pid=5929)   warnings.warn(
+(ClientAppActor pid=5929) [DER DEBUG] DER calculation: valid frames used = 4004, DER = 0.8250194855806703
+(ClientAppActor pid=5929) [DEBUG] Epoch 1/2 unique labels: [-100    4    5    8]
+(ClientAppActor pid=5929) [DEBUG] Epoch 1/2 unique predictions: [   0    1   18   20   47   53   72   80   82   83   91   95  107  112
+(ClientAppActor pid=5929)   113  114  125  127  141  151  153  154  186  189  212  244  245  258
+(ClientAppActor pid=5929)   265  267  269  294  300  302  312  344  347  356  365  369  376  386
+(ClientAppActor pid=5929)   417  426  433  434  440  443  448  452  461  463  468  472  473  479
+(ClientAppActor pid=5929)   496  499  504  506  523  531  546  559  575  577  578  580  589  590
+(ClientAppActor pid=5929)   618  625  635  636  642  655  660  661  686  691  694  698  699  709
+(ClientAppActor pid=5929)   727  740  745  746  751  770  777  782  793  798  802  812  814  820
+(ClientAppActor pid=5929)   843  857  861  876  877  890  895  901  905  906  914  918  926  933
+(ClientAppActor pid=5929)   954  972  979  981  999 1000 1001 1002 1006]
+(ClientAppActor pid=5929) [2025-06-30 16:50:39.557766] SENDClient: Epoch 1/2 summary for client 138778077080528: min_loss=7.132731914520264, max_loss=7.132731914520264, mean_loss=7.132731914520264, acc=0.0, DER=0.8250194855806703
+(ClientAppActor pid=5929) [2025-06-30 16:50:39.559872] SENDClient: First batch in fit for client 138778077080528 (epoch 2/2)
+(ClientAppActor pid=5929) Batch 0, Loss: 4435.0107
+(ClientAppActor pid=5929) Batch 0, labels shape: torch.Size([4004]), unique labels: tensor([-100,    4,    5,    8], device='cuda:0')
+(ClientAppActor pid=5929) Batch 0, outputs shape: torch.Size([4004, 1024]), unique preds: tensor([   5,   31,   63,   83,  115,  137,  140,  142,  215,  223,  237,  251,
+(ClientAppActor pid=5929)          321,  343,  389,  425,  434,  467,  506,  539,  546,  564,  591,  640,
+(ClientAppActor pid=5929)          642,  698,  700,  709,  737,  746,  794,  795,  797,  814,  870,  880,
+(ClientAppActor pid=5929)          886,  892,  893,  901,  936,  941,  962, 1000, 1002, 1003],
+(ClientAppActor pid=5929)        device='cuda:0')
+(ClientAppActor pid=5929) [DER DEBUG] Frame 0: label=5, pred=137, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 0, 1, 0, 0, 0, 1, 0, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1: label=5, pred=83, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 0, 0, 1, 0, 1, 0, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2: label=5, pred=83, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 0, 0, 1, 0, 1, 0, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 3: label=5, pred=870, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 1, 0, 1, 1, 0, 0, 1, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 4: label=5, pred=83, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 0, 0, 1, 0, 1, 0, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 5: label=5, pred=746, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 1, 1, 1, 0, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 6: label=5, pred=83, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 0, 0, 1, 0, 1, 0, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 7: label=5, pred=83, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 0, 0, 1, 0, 1, 0, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 8: label=5, pred=83, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 0, 0, 1, 0, 1, 0, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 9: label=5, pred=83, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 0, 0, 1, 0, 1, 0, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] speaker_id_list (bit mapping): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+(ClientAppActor pid=5929) [DER DEBUG] Unique label values: {np.int64(8), np.int64(4), np.int64(5)}
+(ClientAppActor pid=5929) [DER DEBUG] Unique pred values: {np.int64(642), np.int64(389), np.int64(901), np.int64(137), np.int64(140), np.int64(794), np.int64(797), np.int64(31), np.int64(936), np.int64(425), np.int64(941), np.int64(814), np.int64(564), np.int64(63), np.int64(321), np.int64(962), np.int64(709), np.int64(591), np.int64(83), np.int64(467), np.int64(343), np.int64(223), np.int64(870), np.int64(1000), np.int64(746), np.int64(1003), np.int64(1002), np.int64(237), np.int64(880), np.int64(886), np.int64(251), np.int64(893)}
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (labels): min=1, max=2, mean=1.78
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (preds): min=3, max=8, mean=4.40
+(ClientAppActor pid=5929) [DER DEBUG] Reference segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(1, 2)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(2, 3)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(3, 4)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(4, 5)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(5, 6)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(6, 7)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(7, 8)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(8, 9)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(9, 10)>, '_', frozenset({'speaker_7', 'speaker_9'}))]
+(ClientAppActor pid=5929) [DER DEBUG] Hypothesis segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_2', 'speaker_6', 'speaker_9'})), (<Segment(1, 2)>, '_', frozenset({'speaker_3', 'speaker_5', 'speaker_8', 'speaker_9'})), (<Segment(2, 3)>, '_', frozenset({'speaker_3', 'speaker_5', 'speaker_8', 'speaker_9'})), (<Segment(3, 4)>, '_', frozenset({'speaker_7', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_3', 'speaker_1'})), (<Segment(4, 5)>, '_', frozenset({'speaker_3', 'speaker_5', 'speaker_8', 'speaker_9'})), (<Segment(5, 6)>, '_', frozenset({'speaker_0', 'speaker_8', 'speaker_4', 'speaker_2', 'speaker_6', 'speaker_3'})), (<Segment(6, 7)>, '_', frozenset({'speaker_3', 'speaker_5', 'speaker_8', 'speaker_9'})), (<Segment(7, 8)>, '_', frozenset({'speaker_3', 'speaker_5', 'speaker_8', 'speaker_9'})), (<Segment(8, 9)>, '_', frozenset({'speaker_3', 'speaker_5', 'speaker_8', 'speaker_9'})), (<Segment(9, 10)>, '_', frozenset({'speaker_3', 'speaker_5', 'speaker_8', 'speaker_9'}))]
+(ClientAppActor pid=5929) [DER DEBUG] DER calculation: valid frames used = 4004, DER = 0.39984411535463754
+(ClientAppActor pid=5929) [DEBUG] Epoch 2/2 unique labels: [-100    4    5    8]
+(ClientAppActor pid=5929) [DEBUG] Epoch 2/2 unique predictions: [   5   31   63   83  115  137  140  142  215  223  237  251  321  343
+(ClientAppActor pid=5929)   389  425  434  467  506  539  546  564  591  640  642  698  700  709
+(ClientAppActor pid=5929)   737  746  794  795  797  814  870  880  886  892  893  901  936  941
+(ClientAppActor pid=5929)   962 1000 1002 1003]
+(ClientAppActor pid=5929) [2025-06-30 16:50:48.324113] SENDClient: Epoch 2/2 summary for client 138778077080528: min_loss=4435.0107421875, max_loss=4435.0107421875, mean_loss=4435.0107421875, acc=0.0, DER=0.39984411535463754
+(ClientAppActor pid=5929) [2025-06-30 16:50:48.324161] SENDClient: Finished fit for client 138778077080528, total time: 18.10 sec
+(ClientAppActor pid=5929) === CLIENT LOG: fit finished ===
+(ClientAppActor pid=5929) === CLIENT LOG: train_loader length: 1 ===
+(ClientAppActor pid=5929) [client_fn] Got cid from context.node_config['partition-id']: 0
+(ClientAppActor pid=5929) [2025-06-30 16:50:49.283394] MAIN: Creating client 0
+(ClientAppActor pid=5929) [2025-06-30 16:50:49.403002] MAIN: Client 0 created and ready
+(ClientAppActor pid=5929) [2025-06-30 16:50:49.403063] SENDClient: Initializing client 138777714433040
+(ClientAppActor pid=5929) [2025-06-30 16:50:49.403582] SENDClient: Initialization complete for client 138777714433040
+(ClientAppActor pid=5929) [DEBUG] SENDClient: train_loader size: 1
+(ClientAppActor pid=5929) [DEBUG] SENDClient: val_loader size: 1
+(ClientAppActor pid=5929) === CLIENT LOG: fit started ===
+(ClientAppActor pid=5929) [DEBUG] fit: train_loader size: 1
+(ClientAppActor pid=5929) [DEBUG] fit: number of batches: 1
+(ClientAppActor pid=5929) === aaa ===
+(ClientAppActor pid=5929) === bbb ===
+(ClientAppActor pid=5929) === CLIENT LOG: fit started ===
+(ClientAppActor pid=5929) [2025-06-30 16:50:49.435790] SENDClient: Starting fit for client 138777714433040
+(ClientAppActor pid=5929) [2025-06-30 16:50:49.508779] SENDClient: First batch in fit for client 138777714433040 (epoch 1/2)
+(ClientAppActor pid=5929) Batch 0, Loss: 7.1836
+(ClientAppActor pid=5929) Batch 0, labels shape: torch.Size([4004]), unique labels: tensor([-100,    1,    3,    5,    9], device='cuda:0')
+(ClientAppActor pid=5929) Batch 0, outputs shape: torch.Size([4004, 1024]), unique preds: tensor([  10,   19,   54,   81,   86,   88,  114,  128,  137,  138,  142,  145,
+(ClientAppActor pid=5929)          153,  158,  161,  171,  175,  181,  186,  189,  204,  205,  207,  227,
+(ClientAppActor pid=5929)          234,  235,  258,  265,  277,  285,  287,  293,  310,  312,  314,  332,
+(ClientAppActor pid=5929)          335,  347,  386,  409,  416,  425,  426,  439,  440,  442,  458,  479,
+(ClientAppActor pid=5929)          494,  505,  506,  522,  539,  542,  546,  573,  574,  580,  586,  588,
+(ClientAppActor pid=5929)          589,  595,  602,  613,  617,  618,  620,  647,  663,  678,  694,  707,
+(ClientAppActor pid=5929)          709,  720,  727,  744,  747,  751,  757,  770,  777,  782,  786,  807,
+(ClientAppActor pid=5929)          835,  876,  877,  886,  888,  895,  901,  906,  918,  934,  936,  951,
+(ClientAppActor pid=5929)          966,  972,  999, 1013, 1022], device='cuda:0')
+(ClientAppActor pid=5929) [DER DEBUG] Frame 0: label=5, pred=744, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 1, 1, 1, 0, 1, 0, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1: label=5, pred=142, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 0, 1, 0, 0, 0, 1, 1, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2: label=5, pred=442, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 1, 1, 0, 1, 1, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 3: label=5, pred=425, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 1, 1, 0, 1, 0, 1, 0, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 4: label=5, pred=744, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 1, 1, 1, 0, 1, 0, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 5: label=5, pred=744, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 1, 1, 1, 0, 1, 0, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 6: label=5, pred=744, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 1, 1, 1, 0, 1, 0, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 7: label=5, pred=744, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 1, 1, 1, 0, 1, 0, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 8: label=5, pred=142, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 0, 1, 0, 0, 0, 1, 1, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 9: label=5, pred=744, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 1, 1, 1, 0, 1, 0, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] speaker_id_list (bit mapping): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+(ClientAppActor pid=5929) [DER DEBUG] Unique label values: {np.int64(9), np.int64(3), np.int64(5), np.int64(1)}
+(ClientAppActor pid=5929) [DER DEBUG] Unique pred values: {np.int64(10), np.int64(522), np.int64(19), np.int64(539), np.int64(542), np.int64(546), np.int64(54), np.int64(573), np.int64(574), np.int64(580), np.int64(586), np.int64(588), np.int64(589), np.int64(81), np.int64(595), np.int64(86), np.int64(88), np.int64(602), np.int64(613), np.int64(618), np.int64(620), np.int64(114), np.int64(647), np.int64(138), np.int64(142), np.int64(145), np.int64(663), np.int64(153), np.int64(161), np.int64(678), np.int64(694), np.int64(189), np.int64(707), np.int64(709), np.int64(204), np.int64(205), np.int64(207), np.int64(720), np.int64(227), np.int64(744), np.int64(234), np.int64(235), np.int64(751), np.int64(757), np.int64(770), np.int64(258), np.int64(777), np.int64(265), np.int64(782), np.int64(786), np.int64(287), np.int64(310), np.int64(312), np.int64(314), np.int64(835), np.int64(332), np.int64(335), np.int64(347), np.int64(886), np.int64(888), np.int64(895), np.int64(386), np.int64(901), np.int64(906), np.int64(918), np.int64(409), np.int64(934), np.int64(936), np.int64(425), np.int64(426), np.int64(951), np.int64(439), np.int64(442), np.int64(966), np.int64(458), np.int64(479), np.int64(999), np.int64(494), np.int64(505), np.int64(506)}
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (labels): min=1, max=2, mean=1.82
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (preds): min=2, max=9, mean=5.20
+(ClientAppActor pid=5929) [DER DEBUG] Reference segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(1, 2)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(2, 3)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(3, 4)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(4, 5)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(5, 6)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(6, 7)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(7, 8)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(8, 9)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(9, 10)>, '_', frozenset({'speaker_7', 'speaker_9'}))]
+(ClientAppActor pid=5929) [DER DEBUG] Hypothesis segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_0', 'speaker_4', 'speaker_2', 'speaker_6', 'speaker_3'})), (<Segment(1, 2)>, '_', frozenset({'speaker_2', 'speaker_7', 'speaker_6', 'speaker_8'})), (<Segment(2, 3)>, '_', frozenset({'speaker_5', 'speaker_8', 'speaker_4', 'speaker_2', 'speaker_6', 'speaker_1'})), (<Segment(3, 4)>, '_', frozenset({'speaker_4', 'speaker_2', 'speaker_9', 'speaker_6', 'speaker_1'})), (<Segment(4, 5)>, '_', frozenset({'speaker_0', 'speaker_4', 'speaker_2', 'speaker_6', 'speaker_3'})), (<Segment(5, 6)>, '_', frozenset({'speaker_0', 'speaker_4', 'speaker_2', 'speaker_6', 'speaker_3'})), (<Segment(6, 7)>, '_', frozenset({'speaker_0', 'speaker_4', 'speaker_2', 'speaker_6', 'speaker_3'})), (<Segment(7, 8)>, '_', frozenset({'speaker_0', 'speaker_4', 'speaker_2', 'speaker_6', 'speaker_3'})), (<Segment(8, 9)>, '_', frozenset({'speaker_2', 'speaker_7', 'speaker_6', 'speaker_8'})), (<Segment(9, 10)>, '_', frozenset({'speaker_0', 'speaker_4', 'speaker_2', 'speaker_6', 'speaker_3'}))]
+(ClientAppActor pid=5929) [DER DEBUG] DER calculation: valid frames used = 4004, DER = 0.861301840153804
+(ClientAppActor pid=5929) [DEBUG] Epoch 1/2 unique labels: [-100    1    3    5    9]
+(ClientAppActor pid=5929) [DEBUG] Epoch 1/2 unique predictions: [  10   19   54   81   86   88  114  128  137  138  142  145  153  158
+(ClientAppActor pid=5929)   161  171  175  181  186  189  204  205  207  227  234  235  258  265
+(ClientAppActor pid=5929)   277  285  287  293  310  312  314  332  335  347  386  409  416  425
+(ClientAppActor pid=5929)   426  439  440  442  458  479  494  505  506  522  539  542  546  573
+(ClientAppActor pid=5929)   574  580  586  588  589  595  602  613  617  618  620  647  663  678
+(ClientAppActor pid=5929)   694  707  709  720  727  744  747  751  757  770  777  782  786  807
+(ClientAppActor pid=5929)   835  876  877  886  888  895  901  906  918  934  936  951  966  972
+(ClientAppActor pid=5929)   999 1013 1022]
+(ClientAppActor pid=5929) [2025-06-30 16:51:00.526595] SENDClient: Epoch 1/2 summary for client 138777714433040: min_loss=7.183608055114746, max_loss=7.183608055114746, mean_loss=7.183608055114746, acc=0.0, DER=0.861301840153804
+(ClientAppActor pid=5929) [2025-06-30 16:51:00.528144] SENDClient: First batch in fit for client 138777714433040 (epoch 2/2)
+(ClientAppActor pid=5929) Batch 0, Loss: 2905.5422
+(ClientAppActor pid=5929) Batch 0, labels shape: torch.Size([4004]), unique labels: tensor([-100,    1,    3,    5,    9], device='cuda:0')
+(ClientAppActor pid=5929) Batch 0, outputs shape: torch.Size([4004, 1024]), unique preds: tensor([   1,    3,    9,   61,  104,  123,  126,  157,  192,  204,  205,  207,
+(ClientAppActor pid=5929)          220,  250,  291,  333,  347,  348,  436,  458,  466,  472,  481,  486,
+(ClientAppActor pid=5929)          506,  508,  546,  573,  580,  588,  602,  613,  618,  709,  713,  717,
+(ClientAppActor pid=5929)          724,  727,  744,  777,  793,  819,  901,  918,  999, 1014, 1015, 1018],
+(ClientAppActor pid=5929)        device='cuda:0')
+(ClientAppActor pid=5929) [DER DEBUG] Frame 0: label=3, pred=777, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 1], pred_bits=[1, 1, 0, 0, 0, 0, 1, 0, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1: label=3, pred=777, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 1], pred_bits=[1, 1, 0, 0, 0, 0, 1, 0, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2: label=3, pred=777, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 1], pred_bits=[1, 1, 0, 0, 0, 0, 1, 0, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 3: label=3, pred=481, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 1], pred_bits=[0, 1, 1, 1, 1, 0, 0, 0, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 4: label=3, pred=348, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 1], pred_bits=[0, 1, 0, 1, 0, 1, 1, 1, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 5: label=3, pred=709, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 1], pred_bits=[1, 0, 1, 1, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 6: label=3, pred=588, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 1], pred_bits=[1, 0, 0, 1, 0, 0, 1, 1, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 7: label=3, pred=481, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 1], pred_bits=[0, 1, 1, 1, 1, 0, 0, 0, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 8: label=3, pred=348, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 1], pred_bits=[0, 1, 0, 1, 0, 1, 1, 1, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 9: label=3, pred=207, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 1], pred_bits=[0, 0, 1, 1, 0, 0, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] speaker_id_list (bit mapping): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+(ClientAppActor pid=5929) [DER DEBUG] Unique label values: {np.int64(1), np.int64(3), np.int64(5), np.int64(9)}
+(ClientAppActor pid=5929) [DER DEBUG] Unique pred values: {np.int64(901), np.int64(777), np.int64(793), np.int64(157), np.int64(546), np.int64(291), np.int64(819), np.int64(436), np.int64(573), np.int64(61), np.int64(192), np.int64(709), np.int64(458), np.int64(588), np.int64(333), np.int64(717), np.int64(207), np.int64(204), np.int64(205), np.int64(466), np.int64(727), np.int64(472), np.int64(602), np.int64(347), np.int64(220), np.int64(348), np.int64(481), np.int64(613), np.int64(486), np.int64(744), np.int64(104), np.int64(250), np.int64(1014), np.int64(1015), np.int64(1018), np.int64(123), np.int64(508), np.int64(126)}
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (labels): min=1, max=2, mean=1.82
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (preds): min=2, max=9, mean=4.84
+(ClientAppActor pid=5929) [DER DEBUG] Reference segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_8', 'speaker_9'})), (<Segment(1, 2)>, '_', frozenset({'speaker_8', 'speaker_9'})), (<Segment(2, 3)>, '_', frozenset({'speaker_8', 'speaker_9'})), (<Segment(3, 4)>, '_', frozenset({'speaker_8', 'speaker_9'})), (<Segment(4, 5)>, '_', frozenset({'speaker_8', 'speaker_9'})), (<Segment(5, 6)>, '_', frozenset({'speaker_8', 'speaker_9'})), (<Segment(6, 7)>, '_', frozenset({'speaker_8', 'speaker_9'})), (<Segment(7, 8)>, '_', frozenset({'speaker_8', 'speaker_9'})), (<Segment(8, 9)>, '_', frozenset({'speaker_8', 'speaker_9'})), (<Segment(9, 10)>, '_', frozenset({'speaker_8', 'speaker_9'}))]
+(ClientAppActor pid=5929) [DER DEBUG] Hypothesis segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_6', 'speaker_0', 'speaker_1', 'speaker_9'})), (<Segment(1, 2)>, '_', frozenset({'speaker_6', 'speaker_0', 'speaker_1', 'speaker_9'})), (<Segment(2, 3)>, '_', frozenset({'speaker_6', 'speaker_0', 'speaker_1', 'speaker_9'})), (<Segment(3, 4)>, '_', frozenset({'speaker_4', 'speaker_2', 'speaker_9', 'speaker_3', 'speaker_1'})), (<Segment(4, 5)>, '_', frozenset({'speaker_5', 'speaker_7', 'speaker_6', 'speaker_3', 'speaker_1'})), (<Segment(5, 6)>, '_', frozenset({'speaker_7', 'speaker_0', 'speaker_2', 'speaker_9', 'speaker_3'})), (<Segment(6, 7)>, '_', frozenset({'speaker_6', 'speaker_3', 'speaker_7', 'speaker_0'})), (<Segment(7, 8)>, '_', frozenset({'speaker_4', 'speaker_2', 'speaker_9', 'speaker_3', 'speaker_1'})), (<Segment(8, 9)>, '_', frozenset({'speaker_5', 'speaker_7', 'speaker_6', 'speaker_3', 'speaker_1'})), (<Segment(9, 10)>, '_', frozenset({'speaker_7', 'speaker_8', 'speaker_2', 'speaker_9', 'speaker_6', 'speaker_3'}))]
+(ClientAppActor pid=5929) [DER DEBUG] DER calculation: valid frames used = 4004, DER = 0.8025267783575941
+(ClientAppActor pid=5929) [DEBUG] Epoch 2/2 unique labels: [-100    1    3    5    9]
+(ClientAppActor pid=5929) [DEBUG] Epoch 2/2 unique predictions: [   1    3    9   61  104  123  126  157  192  204  205  207  220  250
+(ClientAppActor pid=5929)   291  333  347  348  436  458  466  472  481  486  506  508  546  573
+(ClientAppActor pid=5929)   580  588  602  613  618  709  713  717  724  727  744  777  793  819
+(ClientAppActor pid=5929)   901  918  999 1014 1015 1018]
+(ClientAppActor pid=5929) [2025-06-30 16:51:11.450538] SENDClient: Epoch 2/2 summary for client 138777714433040: min_loss=2905.542236328125, max_loss=2905.542236328125, mean_loss=2905.542236328125, acc=0.0, DER=0.8025267783575941
+(ClientAppActor pid=5929) [2025-06-30 16:51:11.450587] SENDClient: Finished fit for client 138777714433040, total time: 21.94 sec
+(ClientAppActor pid=5929) === CLIENT LOG: fit finished ===
+(ClientAppActor pid=5929) === CLIENT LOG: train_loader length: 1 ===
+INFO :      aggregate_fit: received 2 results and 0 failures
+INFO:flwr:aggregate_fit: received 2 results and 0 failures
+INFO :      configure_evaluate: strategy sampled 2 clients (out of 2)
+INFO:flwr:configure_evaluate: strategy sampled 2 clients (out of 2)
+(ClientAppActor pid=5929) [client_fn] Got cid from context.node_config['partition-id']: 1
+(ClientAppActor pid=5929) [2025-06-30 16:51:12.684976] MAIN: Creating client 1
+(ClientAppActor pid=5929) [2025-06-30 16:51:12.803511] MAIN: Client 1 created and ready
+(ClientAppActor pid=5929) [2025-06-30 16:51:12.803573] SENDClient: Initializing client 138777376057232
+(ClientAppActor pid=5929) [2025-06-30 16:51:12.804063] SENDClient: Initialization complete for client 138777376057232
+(ClientAppActor pid=5929) [DEBUG] SENDClient: train_loader size: 1
+(ClientAppActor pid=5929) [DEBUG] SENDClient: val_loader size: 1
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate started ===
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate started ===
+(ClientAppActor pid=5929) [2025-06-30 16:51:12.834613] SENDClient: Starting evaluate for client 138777376057232
+(ClientAppActor pid=5929) [2025-06-30 16:51:12.902325] SENDClient: First batch in evaluate for client 138777376057232
+(ClientAppActor pid=5929) Eval batch 0, labels shape: torch.Size([2002]), unique labels: [-100    1    2]
+(ClientAppActor pid=5929) Eval batch 0, outputs shape: torch.Size([2002, 1024]), unique preds: [  1   5   8 918 975 999]
+(ClientAppActor pid=5929) [2025-06-30 16:51:14.250766] SENDClient: Eval summary for client 138777376057232: min_loss=37.3792, max_loss=37.3792, mean_loss=37.3792
+(ClientAppActor pid=5929) [2025-06-30 16:51:14.250854] SENDClient: Finished evaluate for client 138777376057232, total time: 1.35 sec
+(ClientAppActor pid=5929) [DER DEBUG] Frame 0: label=2, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1: label=2, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2: label=2, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 3: label=2, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 4: label=2, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 5: label=2, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 6: label=2, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 7: label=2, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 8: label=2, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 9: label=2, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] speaker_id_list (bit mapping): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+(ClientAppActor pid=5929) [DER DEBUG] Unique label values: {np.int64(1), np.int64(2)}
+(ClientAppActor pid=5929) [DER DEBUG] Unique pred values: {np.int64(8), np.int64(999), np.int64(5), np.int64(975)}
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (labels): min=1, max=1, mean=1.00
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (preds): min=1, max=8, mean=5.36
+(ClientAppActor pid=5929) [DER DEBUG] Reference segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_8'})), (<Segment(1, 2)>, '_', frozenset({'speaker_8'})), (<Segment(2, 3)>, '_', frozenset({'speaker_8'})), (<Segment(3, 4)>, '_', frozenset({'speaker_8'})), (<Segment(4, 5)>, '_', frozenset({'speaker_8'})), (<Segment(5, 6)>, '_', frozenset({'speaker_8'})), (<Segment(6, 7)>, '_', frozenset({'speaker_8'})), (<Segment(7, 8)>, '_', frozenset({'speaker_8'})), (<Segment(8, 9)>, '_', frozenset({'speaker_8'})), (<Segment(9, 10)>, '_', frozenset({'speaker_8'}))]
+(ClientAppActor pid=5929) [DER DEBUG] Hypothesis segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(1, 2)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(2, 3)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(3, 4)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(4, 5)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(5, 6)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(6, 7)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(7, 8)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(8, 9)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(9, 10)>, '_', frozenset({'speaker_7', 'speaker_9'}))]
+(ClientAppActor pid=5929) [DER DEBUG] DER calculation: valid frames used = 2002, DER = 0.3459227467811159
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate finished ===
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate finished ===
+(ClientAppActor pid=5929) [client_fn] Got cid from context.node_config['partition-id']: 0
+(ClientAppActor pid=5929) [2025-06-30 16:51:15.421580] MAIN: Creating client 0
+(ClientAppActor pid=5929) [2025-06-30 16:51:15.539288] MAIN: Client 0 created and ready
+(ClientAppActor pid=5929) [2025-06-30 16:51:15.539354] SENDClient: Initializing client 138774962321680
+(ClientAppActor pid=5929) [2025-06-30 16:51:15.539826] SENDClient: Initialization complete for client 138774962321680
+(ClientAppActor pid=5929) [DEBUG] SENDClient: train_loader size: 1
+(ClientAppActor pid=5929) [DEBUG] SENDClient: val_loader size: 1
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate started ===
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate started ===
+(ClientAppActor pid=5929) [2025-06-30 16:51:15.570323] SENDClient: Starting evaluate for client 138774962321680
+(ClientAppActor pid=5929) [2025-06-30 16:51:15.637805] SENDClient: First batch in evaluate for client 138774962321680
+(ClientAppActor pid=5929) Eval batch 0, labels shape: torch.Size([2002]), unique labels: [-100    1    4]
+(ClientAppActor pid=5929) Eval batch 0, outputs shape: torch.Size([2002, 1024]), unique preds: [137 176 234 275 313 709 720]
+(ClientAppActor pid=5929) [2025-06-30 16:51:16.984770] SENDClient: Eval summary for client 138774962321680: min_loss=50.9084, max_loss=50.9084, mean_loss=50.9084
+(ClientAppActor pid=5929) [2025-06-30 16:51:16.984856] SENDClient: Finished evaluate for client 138774962321680, total time: 1.35 sec
+(ClientAppActor pid=5929) [DER DEBUG] Frame 0: label=4, pred=234, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[0, 0, 1, 1, 1, 0, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1: label=4, pred=234, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[0, 0, 1, 1, 1, 0, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2: label=4, pred=234, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[0, 0, 1, 1, 1, 0, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 3: label=4, pred=234, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[0, 0, 1, 1, 1, 0, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 4: label=4, pred=234, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[0, 0, 1, 1, 1, 0, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 5: label=4, pred=234, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[0, 0, 1, 1, 1, 0, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 6: label=4, pred=234, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[0, 0, 1, 1, 1, 0, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 7: label=4, pred=234, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[0, 0, 1, 1, 1, 0, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 8: label=4, pred=234, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[0, 0, 1, 1, 1, 0, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 9: label=4, pred=234, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[0, 0, 1, 1, 1, 0, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] speaker_id_list (bit mapping): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+(ClientAppActor pid=5929) [DER DEBUG] Unique label values: {np.int64(1), np.int64(4)}
+(ClientAppActor pid=5929) [DER DEBUG] Unique pred values: {np.int64(720), np.int64(234)}
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (labels): min=1, max=1, mean=1.00
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (preds): min=4, max=5, mean=4.97
+(ClientAppActor pid=5929) [DER DEBUG] Reference segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_7'})), (<Segment(1, 2)>, '_', frozenset({'speaker_7'})), (<Segment(2, 3)>, '_', frozenset({'speaker_7'})), (<Segment(3, 4)>, '_', frozenset({'speaker_7'})), (<Segment(4, 5)>, '_', frozenset({'speaker_7'})), (<Segment(5, 6)>, '_', frozenset({'speaker_7'})), (<Segment(6, 7)>, '_', frozenset({'speaker_7'})), (<Segment(7, 8)>, '_', frozenset({'speaker_7'})), (<Segment(8, 9)>, '_', frozenset({'speaker_7'})), (<Segment(9, 10)>, '_', frozenset({'speaker_7'}))]
+(ClientAppActor pid=5929) [DER DEBUG] Hypothesis segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_8', 'speaker_4', 'speaker_2', 'speaker_6', 'speaker_3'})), (<Segment(1, 2)>, '_', frozenset({'speaker_8', 'speaker_4', 'speaker_2', 'speaker_6', 'speaker_3'})), (<Segment(2, 3)>, '_', frozenset({'speaker_8', 'speaker_4', 'speaker_2', 'speaker_6', 'speaker_3'})), (<Segment(3, 4)>, '_', frozenset({'speaker_8', 'speaker_4', 'speaker_2', 'speaker_6', 'speaker_3'})), (<Segment(4, 5)>, '_', frozenset({'speaker_8', 'speaker_4', 'speaker_2', 'speaker_6', 'speaker_3'})), (<Segment(5, 6)>, '_', frozenset({'speaker_8', 'speaker_4', 'speaker_2', 'speaker_6', 'speaker_3'})), (<Segment(6, 7)>, '_', frozenset({'speaker_8', 'speaker_4', 'speaker_2', 'speaker_6', 'speaker_3'})), (<Segment(7, 8)>, '_', frozenset({'speaker_8', 'speaker_4', 'speaker_2', 'speaker_6', 'speaker_3'})), (<Segment(8, 9)>, '_', frozenset({'speaker_8', 'speaker_4', 'speaker_2', 'speaker_6', 'speaker_3'})), (<Segment(9, 10)>, '_', frozenset({'speaker_8', 'speaker_4', 'speaker_2', 'speaker_6', 'speaker_3'}))]
+INFO :      aggregate_evaluate: received 2 results and 0 failures
+INFO:flwr:aggregate_evaluate: received 2 results and 0 failures
+WARNING :   No evaluate_metrics_aggregation_fn provided
+WARNING:flwr:No evaluate_metrics_aggregation_fn provided
+INFO :      
+INFO:flwr:
+INFO :      [ROUND 2]
+INFO:flwr:[ROUND 2]
+INFO :      configure_fit: strategy sampled 2 clients (out of 2)
+INFO:flwr:configure_fit: strategy sampled 2 clients (out of 2)
+(ClientAppActor pid=5929) [DER DEBUG] DER calculation: valid frames used = 2002, DER = 0.11739130434782609
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate finished ===
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate finished ===
+(ClientAppActor pid=5929) [client_fn] Got cid from context.node_config['partition-id']: 1
+(ClientAppActor pid=5929) [2025-06-30 16:51:17.694900] MAIN: Creating client 1
+(ClientAppActor pid=5929) [2025-06-30 16:51:17.812495] MAIN: Client 1 created and ready
+(ClientAppActor pid=5929) [2025-06-30 16:51:17.812550] SENDClient: Initializing client 138777714436560
+(ClientAppActor pid=5929) [2025-06-30 16:51:17.813015] SENDClient: Initialization complete for client 138777714436560
+(ClientAppActor pid=5929) [DEBUG] SENDClient: train_loader size: 1
+(ClientAppActor pid=5929) [DEBUG] SENDClient: val_loader size: 1
+(ClientAppActor pid=5929) === CLIENT LOG: fit started ===
+(ClientAppActor pid=5929) [DEBUG] fit: train_loader size: 1
+(ClientAppActor pid=5929) [DEBUG] fit: number of batches: 1
+(ClientAppActor pid=5929) === aaa ===
+(ClientAppActor pid=5929) === bbb ===
+(ClientAppActor pid=5929) === CLIENT LOG: fit started ===
+(ClientAppActor pid=5929) [2025-06-30 16:51:17.844750] SENDClient: Starting fit for client 138777714436560
+(ClientAppActor pid=5929) [2025-06-30 16:51:17.914215] SENDClient: First batch in fit for client 138777714436560 (epoch 1/2)
+(ClientAppActor pid=5929) Batch 0, Loss: 116.1542
+(ClientAppActor pid=5929) Batch 0, labels shape: torch.Size([4004]), unique labels: tensor([-100,    4,    5,    8], device='cuda:0')
+(ClientAppActor pid=5929) Batch 0, outputs shape: torch.Size([4004, 1024]), unique preds: tensor([   0,    1,    8,   16,   18,   48,   66,   79,   83,   84,   86,  111,
+(ClientAppActor pid=5929)          114,  115,  119,  121,  127,  130,  136,  137,  139,  158,  173,  211,
+(ClientAppActor pid=5929)          230,  245,  246,  259,  275,  284,  294,  313,  333,  339,  371,  386,
+(ClientAppActor pid=5929)          404,  417,  434,  443,  452,  459,  460,  468,  472,  484,  500,  505,
+(ClientAppActor pid=5929)          506,  509,  524,  536,  575,  595,  608,  617,  618,  620,  627,  685,
+(ClientAppActor pid=5929)          690,  699,  700,  724,  793,  835,  870,  893,  918,  967,  972,  979,
+(ClientAppActor pid=5929)          990, 1013, 1022], device='cuda:0')
+(ClientAppActor pid=5929) [DER DEBUG] Frame 0: label=5, pred=452, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 1, 1, 1, 0, 0, 0, 1, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1: label=5, pred=83, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 0, 0, 1, 0, 1, 0, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2: label=5, pred=371, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 1, 0, 1, 1, 1, 0, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 3: label=5, pred=83, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 0, 0, 1, 0, 1, 0, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 4: label=5, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 5: label=5, pred=115, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 0, 0, 1, 1, 1, 0, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 6: label=5, pred=83, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 0, 0, 1, 0, 1, 0, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 7: label=5, pred=83, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 0, 0, 1, 0, 1, 0, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 8: label=5, pred=83, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 0, 0, 1, 0, 1, 0, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 9: label=5, pred=452, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 1, 1, 1, 0, 0, 0, 1, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] speaker_id_list (bit mapping): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+(ClientAppActor pid=5929) [DER DEBUG] Unique label values: {np.int64(8), np.int64(4), np.int64(5)}
+(ClientAppActor pid=5929) [DER DEBUG] Unique pred values: {np.int64(1), np.int64(130), np.int64(259), np.int64(8), np.int64(136), np.int64(524), np.int64(18), np.int64(404), np.int64(918), np.int64(536), np.int64(417), np.int64(48), np.int64(313), np.int64(699), np.int64(443), np.int64(700), np.int64(575), np.int64(66), np.int64(835), np.int64(452), np.int64(967), np.int64(460), np.int64(79), np.int64(83), np.int64(979), np.int64(595), np.int64(84), np.int64(724), np.int64(86), np.int64(339), np.int64(990), np.int64(484), np.int64(870), np.int64(230), np.int64(618), np.int64(620), np.int64(111), np.int64(371), np.int64(115), np.int64(245), np.int64(500), np.int64(119), np.int64(505), np.int64(506), np.int64(893), np.int64(1022)}
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (labels): min=1, max=2, mean=1.78
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (preds): min=1, max=9, mean=4.55
+(ClientAppActor pid=5929) [DER DEBUG] Reference segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(1, 2)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(2, 3)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(3, 4)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(4, 5)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(5, 6)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(6, 7)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(7, 8)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(8, 9)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(9, 10)>, '_', frozenset({'speaker_7', 'speaker_9'}))]
+(ClientAppActor pid=5929) [DER DEBUG] Hypothesis segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_2', 'speaker_3', 'speaker_7', 'speaker_1'})), (<Segment(1, 2)>, '_', frozenset({'speaker_3', 'speaker_5', 'speaker_8', 'speaker_9'})), (<Segment(2, 3)>, '_', frozenset({'speaker_5', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_3', 'speaker_1'})), (<Segment(3, 4)>, '_', frozenset({'speaker_3', 'speaker_5', 'speaker_8', 'speaker_9'})), (<Segment(4, 5)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(5, 6)>, '_', frozenset({'speaker_5', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_3'})), (<Segment(6, 7)>, '_', frozenset({'speaker_3', 'speaker_5', 'speaker_8', 'speaker_9'})), (<Segment(7, 8)>, '_', frozenset({'speaker_3', 'speaker_5', 'speaker_8', 'speaker_9'})), (<Segment(8, 9)>, '_', frozenset({'speaker_3', 'speaker_5', 'speaker_8', 'speaker_9'})), (<Segment(9, 10)>, '_', frozenset({'speaker_2', 'speaker_3', 'speaker_7', 'speaker_1'}))]
+(ClientAppActor pid=5929) [DER DEBUG] DER calculation: valid frames used = 4004, DER = 0.6991426344505066
+(ClientAppActor pid=5929) [DEBUG] Epoch 1/2 unique labels: [-100    4    5    8]
+(ClientAppActor pid=5929) [DEBUG] Epoch 1/2 unique predictions: [   0    1    8   16   18   48   66   79   83   84   86  111  114  115
+(ClientAppActor pid=5929)   119  121  127  130  136  137  139  158  173  211  230  245  246  259
+(ClientAppActor pid=5929)   275  284  294  313  333  339  371  386  404  417  434  443  452  459
+(ClientAppActor pid=5929)   460  468  472  484  500  505  506  509  524  536  575  595  608  617
+(ClientAppActor pid=5929)   618  620  627  685  690  699  700  724  793  835  870  893  918  967
+(ClientAppActor pid=5929)   972  979  990 1013 1022]
+(ClientAppActor pid=5929) [2025-06-30 16:51:26.609238] SENDClient: Epoch 1/2 summary for client 138777714436560: min_loss=116.1541519165039, max_loss=116.1541519165039, mean_loss=116.1541519165039, acc=0.0, DER=0.6991426344505066
+(ClientAppActor pid=5929) [2025-06-30 16:51:26.610772] SENDClient: First batch in fit for client 138777714436560 (epoch 2/2)
+(ClientAppActor pid=5929) Batch 0, Loss: 23596.0371
+(ClientAppActor pid=5929) Batch 0, labels shape: torch.Size([4004]), unique labels: tensor([-100,    4,    5,    8], device='cuda:0')
+(ClientAppActor pid=5929) Batch 0, outputs shape: torch.Size([4004, 1024]), unique preds: tensor([ 31,  43,  83,  99, 126, 138, 158, 174, 176, 211, 234, 275, 302, 313,
+(ClientAppActor pid=5929)         334, 477, 509, 564, 618, 709, 710, 713, 870, 877, 892, 893, 957, 988],
+(ClientAppActor pid=5929)        device='cuda:0')
+(ClientAppActor pid=5929) [DER DEBUG] Frame 0: label=5, pred=710, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 1, 1, 0, 0, 0, 1, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1: label=5, pred=709, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 1, 1, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2: label=5, pred=709, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 1, 1, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 3: label=5, pred=334, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 1, 0, 1, 0, 0, 1, 1, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 4: label=5, pred=564, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 0, 1, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 5: label=5, pred=564, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 0, 1, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 6: label=5, pred=710, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 1, 1, 0, 0, 0, 1, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 7: label=5, pred=709, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 1, 1, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 8: label=5, pred=83, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 0, 0, 1, 0, 1, 0, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 9: label=5, pred=564, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 0, 1, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] speaker_id_list (bit mapping): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+(ClientAppActor pid=5929) [DER DEBUG] Unique label values: {np.int64(8), np.int64(4), np.int64(5)}
+(ClientAppActor pid=5929) [DER DEBUG] Unique pred values: {np.int64(509), np.int64(138), np.int64(275), np.int64(158), np.int64(31), np.int64(43), np.int64(174), np.int64(302), np.int64(176), np.int64(564), np.int64(313), np.int64(957), np.int64(709), np.int64(710), np.int64(713), np.int64(334), np.int64(83), np.int64(211), np.int64(988), np.int64(477), np.int64(99), np.int64(618), np.int64(234), np.int64(877), np.int64(892), np.int64(893)}
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (labels): min=1, max=2, mean=1.78
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (preds): min=3, max=8, mean=4.98
+(ClientAppActor pid=5929) [DER DEBUG] Reference segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(1, 2)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(2, 3)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(3, 4)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(4, 5)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(5, 6)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(6, 7)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(7, 8)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(8, 9)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(9, 10)>, '_', frozenset({'speaker_7', 'speaker_9'}))]
+(ClientAppActor pid=5929) [DER DEBUG] Hypothesis segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_7', 'speaker_0', 'speaker_8', 'speaker_2', 'speaker_3'})), (<Segment(1, 2)>, '_', frozenset({'speaker_7', 'speaker_0', 'speaker_2', 'speaker_9', 'speaker_3'})), (<Segment(2, 3)>, '_', frozenset({'speaker_7', 'speaker_0', 'speaker_2', 'speaker_9', 'speaker_3'})), (<Segment(3, 4)>, '_', frozenset({'speaker_7', 'speaker_8', 'speaker_6', 'speaker_3', 'speaker_1'})), (<Segment(4, 5)>, '_', frozenset({'speaker_7', 'speaker_5', 'speaker_0', 'speaker_4'})), (<Segment(5, 6)>, '_', frozenset({'speaker_7', 'speaker_5', 'speaker_0', 'speaker_4'})), (<Segment(6, 7)>, '_', frozenset({'speaker_7', 'speaker_0', 'speaker_8', 'speaker_2', 'speaker_3'})), (<Segment(7, 8)>, '_', frozenset({'speaker_7', 'speaker_0', 'speaker_2', 'speaker_9', 'speaker_3'})), (<Segment(8, 9)>, '_', frozenset({'speaker_3', 'speaker_5', 'speaker_8', 'speaker_9'})), (<Segment(9, 10)>, '_', frozenset({'speaker_7', 'speaker_5', 'speaker_0', 'speaker_4'}))]
+(ClientAppActor pid=5929) [DER DEBUG] DER calculation: valid frames used = 4004, DER = 0.7583787996882307
+(ClientAppActor pid=5929) [DEBUG] Epoch 2/2 unique labels: [-100    4    5    8]
+(ClientAppActor pid=5929) [DEBUG] Epoch 2/2 unique predictions: [ 31  43  83  99 126 138 158 174 176 211 234 275 302 313 334 477 509 564
+(ClientAppActor pid=5929)  618 709 710 713 870 877 892 893 957 988]
+(ClientAppActor pid=5929) [2025-06-30 16:51:35.189633] SENDClient: Epoch 2/2 summary for client 138777714436560: min_loss=23596.037109375, max_loss=23596.037109375, mean_loss=23596.037109375, acc=0.0, DER=0.7583787996882307
+(ClientAppActor pid=5929) [2025-06-30 16:51:35.189681] SENDClient: Finished fit for client 138777714436560, total time: 17.28 sec
+(ClientAppActor pid=5929) === CLIENT LOG: fit finished ===
+(ClientAppActor pid=5929) === CLIENT LOG: train_loader length: 1 ===
+(ClientAppActor pid=5929) [client_fn] Got cid from context.node_config['partition-id']: 0
+(ClientAppActor pid=5929) [2025-06-30 16:51:36.074112] MAIN: Creating client 0
+(ClientAppActor pid=5929) [2025-06-30 16:51:36.192385] MAIN: Client 0 created and ready
+(ClientAppActor pid=5929) [2025-06-30 16:51:36.192459] SENDClient: Initializing client 138777387942672
+(ClientAppActor pid=5929) [2025-06-30 16:51:36.192961] SENDClient: Initialization complete for client 138777387942672
+(ClientAppActor pid=5929) [DEBUG] SENDClient: train_loader size: 1
+(ClientAppActor pid=5929) [DEBUG] SENDClient: val_loader size: 1
+(ClientAppActor pid=5929) === CLIENT LOG: fit started ===
+(ClientAppActor pid=5929) [DEBUG] fit: train_loader size: 1
+(ClientAppActor pid=5929) [DEBUG] fit: number of batches: 1
+(ClientAppActor pid=5929) === aaa ===
+(ClientAppActor pid=5929) === bbb ===
+(ClientAppActor pid=5929) === CLIENT LOG: fit started ===
+(ClientAppActor pid=5929) [2025-06-30 16:51:36.225411] SENDClient: Starting fit for client 138777387942672
+(ClientAppActor pid=5929) [2025-06-30 16:51:36.294556] SENDClient: First batch in fit for client 138777387942672 (epoch 1/2)
+(ClientAppActor pid=5929) Batch 0, Loss: 121.9363
+(ClientAppActor pid=5929) Batch 0, labels shape: torch.Size([4004]), unique labels: tensor([-100,    1,    3,    5,    9], device='cuda:0')
+(ClientAppActor pid=5929) Batch 0, outputs shape: torch.Size([4004, 1024]), unique preds: tensor([  8,  19,  83, 114, 116, 127, 134, 161, 179, 211, 229, 230, 272, 333,
+(ClientAppActor pid=5929)         370, 371, 525, 539, 575, 613, 727, 760, 777, 782, 886, 974],
+(ClientAppActor pid=5929)        device='cuda:0')
+(ClientAppActor pid=5929) [DER DEBUG] Frame 0: label=9, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 1, 0, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1: label=9, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 1, 0, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2: label=9, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 1, 0, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 3: label=9, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 1, 0, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 4: label=9, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 1, 0, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 5: label=9, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 1, 0, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 6: label=9, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 1, 0, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 7: label=9, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 1, 0, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 8: label=9, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 1, 0, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 9: label=9, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 1, 0, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] speaker_id_list (bit mapping): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+(ClientAppActor pid=5929) [DER DEBUG] Unique label values: {np.int64(9), np.int64(3), np.int64(5), np.int64(1)}
+(ClientAppActor pid=5929) [DER DEBUG] Unique pred values: {np.int64(161), np.int64(613), np.int64(230), np.int64(229), np.int64(8), np.int64(525), np.int64(782), np.int64(272), np.int64(371), np.int64(19), np.int64(83), np.int64(760), np.int64(575)}
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (labels): min=1, max=2, mean=1.82
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (preds): min=1, max=7, mean=6.87
+(ClientAppActor pid=5929) [DER DEBUG] Reference segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_6', 'speaker_9'})), (<Segment(1, 2)>, '_', frozenset({'speaker_6', 'speaker_9'})), (<Segment(2, 3)>, '_', frozenset({'speaker_6', 'speaker_9'})), (<Segment(3, 4)>, '_', frozenset({'speaker_6', 'speaker_9'})), (<Segment(4, 5)>, '_', frozenset({'speaker_6', 'speaker_9'})), (<Segment(5, 6)>, '_', frozenset({'speaker_6', 'speaker_9'})), (<Segment(6, 7)>, '_', frozenset({'speaker_6', 'speaker_9'})), (<Segment(7, 8)>, '_', frozenset({'speaker_6', 'speaker_9'})), (<Segment(8, 9)>, '_', frozenset({'speaker_6', 'speaker_9'})), (<Segment(9, 10)>, '_', frozenset({'speaker_6', 'speaker_9'}))]
+(ClientAppActor pid=5929) [DER DEBUG] Hypothesis segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(1, 2)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(2, 3)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(3, 4)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(4, 5)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(5, 6)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(6, 7)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(7, 8)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(8, 9)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(9, 10)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'}))]
+(ClientAppActor pid=5929) [DER DEBUG] DER calculation: valid frames used = 4004, DER = 0.720955781378742
+(ClientAppActor pid=5929) [DEBUG] Epoch 1/2 unique labels: [-100    1    3    5    9]
+(ClientAppActor pid=5929) [DEBUG] Epoch 1/2 unique predictions: [  8  19  83 114 116 127 134 161 179 211 229 230 272 333 370 371 525 539
+(ClientAppActor pid=5929)  575 613 727 760 777 782 886 974]
+(ClientAppActor pid=5929) [2025-06-30 16:51:47.009133] SENDClient: Epoch 1/2 summary for client 138777387942672: min_loss=121.93630981445312, max_loss=121.93630981445312, mean_loss=121.93630981445312, acc=0.0, DER=0.720955781378742
+(ClientAppActor pid=5929) [2025-06-30 16:51:47.010664] SENDClient: First batch in fit for client 138777387942672 (epoch 2/2)
+(ClientAppActor pid=5929) Batch 0, Loss: 20988.3262
+(ClientAppActor pid=5929) Batch 0, labels shape: torch.Size([4004]), unique labels: tensor([-100,    1,    3,    5,    9], device='cuda:0')
+(ClientAppActor pid=5929) Batch 0, outputs shape: torch.Size([4004, 1024]), unique preds: tensor([313, 477, 500, 575, 877], device='cuda:0')
+(ClientAppActor pid=5929) [DER DEBUG] Frame 0: label=5, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1: label=5, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2: label=5, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 3: label=5, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 4: label=5, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 5: label=5, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 6: label=5, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 7: label=5, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 8: label=5, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 9: label=5, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] speaker_id_list (bit mapping): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+(ClientAppActor pid=5929) [DER DEBUG] Unique label values: {np.int64(9), np.int64(3), np.int64(5), np.int64(1)}
+(ClientAppActor pid=5929) [DER DEBUG] Unique pred values: {np.int64(877), np.int64(500), np.int64(313), np.int64(477), np.int64(575)}
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (labels): min=1, max=2, mean=1.82
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (preds): min=5, max=7, mean=7.00
+(ClientAppActor pid=5929) [DER DEBUG] Reference segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(1, 2)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(2, 3)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(3, 4)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(4, 5)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(5, 6)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(6, 7)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(7, 8)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(8, 9)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(9, 10)>, '_', frozenset({'speaker_7', 'speaker_9'}))]
+(ClientAppActor pid=5929) [DER DEBUG] Hypothesis segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(1, 2)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(2, 3)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(3, 4)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(4, 5)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(5, 6)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(6, 7)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(7, 8)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(8, 9)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(9, 10)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'}))]
+(ClientAppActor pid=5929) [DER DEBUG] DER calculation: valid frames used = 4004, DER = 0.7234276297720407
+(ClientAppActor pid=5929) [DEBUG] Epoch 2/2 unique labels: [-100    1    3    5    9]
+(ClientAppActor pid=5929) [DEBUG] Epoch 2/2 unique predictions: [313 477 500 575 877]
+(ClientAppActor pid=5929) [2025-06-30 16:51:58.129928] SENDClient: Epoch 2/2 summary for client 138777387942672: min_loss=20988.326171875, max_loss=20988.326171875, mean_loss=20988.326171875, acc=0.0, DER=0.7234276297720407
+(ClientAppActor pid=5929) [2025-06-30 16:51:58.129980] SENDClient: Finished fit for client 138777387942672, total time: 21.84 sec
+(ClientAppActor pid=5929) === CLIENT LOG: fit finished ===
+(ClientAppActor pid=5929) === CLIENT LOG: train_loader length: 1 ===
+INFO :      aggregate_fit: received 2 results and 0 failures
+INFO:flwr:aggregate_fit: received 2 results and 0 failures
+INFO :      configure_evaluate: strategy sampled 2 clients (out of 2)
+INFO:flwr:configure_evaluate: strategy sampled 2 clients (out of 2)
+(ClientAppActor pid=5929) [client_fn] Got cid from context.node_config['partition-id']: 0
+(ClientAppActor pid=5929) [2025-06-30 16:51:59.197061] MAIN: Creating client 0
+(ClientAppActor pid=5929) [2025-06-30 16:51:59.316204] MAIN: Client 0 created and ready
+(ClientAppActor pid=5929) [2025-06-30 16:51:59.316260] SENDClient: Initializing client 138777714525456
+(ClientAppActor pid=5929) [2025-06-30 16:51:59.316718] SENDClient: Initialization complete for client 138777714525456
+(ClientAppActor pid=5929) [DEBUG] SENDClient: train_loader size: 1
+(ClientAppActor pid=5929) [DEBUG] SENDClient: val_loader size: 1
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate started ===
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate started ===
+(ClientAppActor pid=5929) [2025-06-30 16:51:59.348100] SENDClient: Starting evaluate for client 138777714525456
+(ClientAppActor pid=5929) [2025-06-30 16:51:59.417694] SENDClient: First batch in evaluate for client 138777714525456
+(ClientAppActor pid=5929) Eval batch 0, labels shape: torch.Size([2002]), unique labels: [-100    1    4]
+(ClientAppActor pid=5929) Eval batch 0, outputs shape: torch.Size([2002, 1024]), unique preds: [474 575 892]
+(ClientAppActor pid=5929) [2025-06-30 16:52:00.785328] SENDClient: Eval summary for client 138777714525456: min_loss=463.1153, max_loss=463.1153, mean_loss=463.1153
+(ClientAppActor pid=5929) [2025-06-30 16:52:00.785410] SENDClient: Finished evaluate for client 138777714525456, total time: 1.37 sec
+(ClientAppActor pid=5929) [DER DEBUG] Frame 0: label=4, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1: label=4, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2: label=4, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 3: label=4, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 4: label=4, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 5: label=4, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 6: label=4, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 7: label=4, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 8: label=4, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 9: label=4, pred=575, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[1, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] speaker_id_list (bit mapping): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+(ClientAppActor pid=5929) [DER DEBUG] Unique label values: {np.int64(1), np.int64(4)}
+(ClientAppActor pid=5929) [DER DEBUG] Unique pred values: {np.int64(892), np.int64(575)}
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (labels): min=1, max=1, mean=1.00
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (preds): min=7, max=7, mean=7.00
+(ClientAppActor pid=5929) [DER DEBUG] Reference segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_7'})), (<Segment(1, 2)>, '_', frozenset({'speaker_7'})), (<Segment(2, 3)>, '_', frozenset({'speaker_7'})), (<Segment(3, 4)>, '_', frozenset({'speaker_7'})), (<Segment(4, 5)>, '_', frozenset({'speaker_7'})), (<Segment(5, 6)>, '_', frozenset({'speaker_7'})), (<Segment(6, 7)>, '_', frozenset({'speaker_7'})), (<Segment(7, 8)>, '_', frozenset({'speaker_7'})), (<Segment(8, 9)>, '_', frozenset({'speaker_7'})), (<Segment(9, 10)>, '_', frozenset({'speaker_7'}))]
+(ClientAppActor pid=5929) [DER DEBUG] Hypothesis segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(1, 2)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(2, 3)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(3, 4)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(4, 5)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(5, 6)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(6, 7)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(7, 8)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(8, 9)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'})), (<Segment(9, 10)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_7'}))]
+(ClientAppActor pid=5929) [DER DEBUG] DER calculation: valid frames used = 2002, DER = 0.12391304347826088
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate finished ===
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate finished ===
+(ClientAppActor pid=5929) [client_fn] Got cid from context.node_config['partition-id']: 1
+(ClientAppActor pid=5929) [2025-06-30 16:52:01.447864] MAIN: Creating client 1
+(ClientAppActor pid=5929) [2025-06-30 16:52:01.565831] MAIN: Client 1 created and ready
+(ClientAppActor pid=5929) [2025-06-30 16:52:01.565895] SENDClient: Initializing client 138777388784656
+(ClientAppActor pid=5929) [2025-06-30 16:52:01.566400] SENDClient: Initialization complete for client 138777388784656
+(ClientAppActor pid=5929) [DEBUG] SENDClient: train_loader size: 1
+(ClientAppActor pid=5929) [DEBUG] SENDClient: val_loader size: 1
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate started ===
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate started ===
+(ClientAppActor pid=5929) [2025-06-30 16:52:01.596718] SENDClient: Starting evaluate for client 138777388784656
+(ClientAppActor pid=5929) [2025-06-30 16:52:01.664419] SENDClient: First batch in evaluate for client 138777388784656
+(ClientAppActor pid=5929) Eval batch 0, labels shape: torch.Size([2002]), unique labels: [-100    1    2]
+(ClientAppActor pid=5929) Eval batch 0, outputs shape: torch.Size([2002, 1024]), unique preds: [  5 300]
+(ClientAppActor pid=5929) [2025-06-30 16:52:03.022399] SENDClient: Eval summary for client 138777388784656: min_loss=451.3157, max_loss=451.3157, mean_loss=451.3157
+(ClientAppActor pid=5929) [2025-06-30 16:52:03.022479] SENDClient: Finished evaluate for client 138777388784656, total time: 1.36 sec
+(ClientAppActor pid=5929) [DER DEBUG] Frame 0: label=2, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1: label=2, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2: label=2, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 3: label=2, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 4: label=2, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 5: label=2, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 6: label=2, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 7: label=2, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 8: label=2, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 9: label=2, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] speaker_id_list (bit mapping): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+(ClientAppActor pid=5929) [DER DEBUG] Unique label values: {np.int64(1), np.int64(2)}
+(ClientAppActor pid=5929) [DER DEBUG] Unique pred values: {np.int64(300), np.int64(5)}
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (labels): min=1, max=1, mean=1.00
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (preds): min=2, max=4, mean=2.22
+(ClientAppActor pid=5929) [DER DEBUG] Reference segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_8'})), (<Segment(1, 2)>, '_', frozenset({'speaker_8'})), (<Segment(2, 3)>, '_', frozenset({'speaker_8'})), (<Segment(3, 4)>, '_', frozenset({'speaker_8'})), (<Segment(4, 5)>, '_', frozenset({'speaker_8'})), (<Segment(5, 6)>, '_', frozenset({'speaker_8'})), (<Segment(6, 7)>, '_', frozenset({'speaker_8'})), (<Segment(7, 8)>, '_', frozenset({'speaker_8'})), (<Segment(8, 9)>, '_', frozenset({'speaker_8'})), (<Segment(9, 10)>, '_', frozenset({'speaker_8'}))]
+(ClientAppActor pid=5929) [DER DEBUG] Hypothesis segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(1, 2)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(2, 3)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(3, 4)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(4, 5)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(5, 6)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(6, 7)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(7, 8)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(8, 9)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(9, 10)>, '_', frozenset({'speaker_7', 'speaker_9'}))]
+INFO :      aggregate_evaluate: received 2 results and 0 failures
+INFO:flwr:aggregate_evaluate: received 2 results and 0 failures
+INFO :      
+INFO:flwr:
+INFO :      [ROUND 3]
+INFO:flwr:[ROUND 3]
+INFO :      configure_fit: strategy sampled 2 clients (out of 2)
+INFO:flwr:configure_fit: strategy sampled 2 clients (out of 2)
+(ClientAppActor pid=5929) [DER DEBUG] DER calculation: valid frames used = 2002, DER = 0.22832618025751072
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate finished ===
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate finished ===
+(ClientAppActor pid=5929) [client_fn] Got cid from context.node_config['partition-id']: 0
+(ClientAppActor pid=5929) [2025-06-30 16:52:04.176012] MAIN: Creating client 0
+(ClientAppActor pid=5929) [2025-06-30 16:52:04.294125] MAIN: Client 0 created and ready
+(ClientAppActor pid=5929) [2025-06-30 16:52:04.294187] SENDClient: Initializing client 138777374193424
+(ClientAppActor pid=5929) [2025-06-30 16:52:04.294628] SENDClient: Initialization complete for client 138777374193424
+(ClientAppActor pid=5929) [DEBUG] SENDClient: train_loader size: 1
+(ClientAppActor pid=5929) [DEBUG] SENDClient: val_loader size: 1
+(ClientAppActor pid=5929) === CLIENT LOG: fit started ===
+(ClientAppActor pid=5929) [DEBUG] fit: train_loader size: 1
+(ClientAppActor pid=5929) [DEBUG] fit: number of batches: 1
+(ClientAppActor pid=5929) === aaa ===
+(ClientAppActor pid=5929) === bbb ===
+(ClientAppActor pid=5929) === CLIENT LOG: fit started ===
+(ClientAppActor pid=5929) [2025-06-30 16:52:04.326520] SENDClient: Starting fit for client 138777374193424
+(ClientAppActor pid=5929) [2025-06-30 16:52:04.395231] SENDClient: First batch in fit for client 138777374193424 (epoch 1/2)
+(ClientAppActor pid=5929) Batch 0, Loss: 463.2690
+(ClientAppActor pid=5929) Batch 0, labels shape: torch.Size([4004]), unique labels: tensor([-100,    1,    3,    5,    9], device='cuda:0')
+(ClientAppActor pid=5929) Batch 0, outputs shape: torch.Size([4004, 1024]), unique preds: tensor([  0,   1,   4,   5,  19,  79,  85, 113, 157, 168, 205, 234, 254, 305,
+(ClientAppActor pid=5929)         333, 484, 496, 504, 531, 538, 575, 578, 635, 646, 676, 686, 709, 720,
+(ClientAppActor pid=5929)         722, 740, 745, 794, 818, 852, 892, 901, 935, 988], device='cuda:0')
+(ClientAppActor pid=5929) [DER DEBUG] Frame 0: label=1, pred=709, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[1, 0, 1, 1, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1: label=1, pred=709, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[1, 0, 1, 1, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2: label=1, pred=676, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[1, 0, 1, 0, 1, 0, 0, 1, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 3: label=1, pred=709, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[1, 0, 1, 1, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 4: label=1, pred=676, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[1, 0, 1, 0, 1, 0, 0, 1, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 5: label=1, pred=709, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[1, 0, 1, 1, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 6: label=1, pred=722, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[1, 0, 1, 1, 0, 1, 0, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 7: label=1, pred=745, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[1, 0, 1, 1, 1, 0, 1, 0, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 8: label=1, pred=794, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[1, 1, 0, 0, 0, 1, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 9: label=1, pred=709, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[1, 0, 1, 1, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] speaker_id_list (bit mapping): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+(ClientAppActor pid=5929) [DER DEBUG] Unique label values: {np.int64(1), np.int64(3), np.int64(5), np.int64(9)}
+(ClientAppActor pid=5929) [DER DEBUG] Unique pred values: {np.int64(0), np.int64(1), np.int64(4), np.int64(901), np.int64(646), np.int64(5), np.int64(531), np.int64(538), np.int64(794), np.int64(157), np.int64(676), np.int64(168), np.int64(686), np.int64(305), np.int64(818), np.int64(578), np.int64(709), np.int64(205), np.int64(333), np.int64(79), np.int64(720), np.int64(722), np.int64(852), np.int64(85), np.int64(988), np.int64(484), np.int64(740), np.int64(745), np.int64(234), np.int64(496), np.int64(113), np.int64(635), np.int64(892), np.int64(254)}
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (labels): min=1, max=2, mean=1.82
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (preds): min=0, max=7, mean=4.58
+(ClientAppActor pid=5929) [DER DEBUG] Reference segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_9'})), (<Segment(1, 2)>, '_', frozenset({'speaker_9'})), (<Segment(2, 3)>, '_', frozenset({'speaker_9'})), (<Segment(3, 4)>, '_', frozenset({'speaker_9'})), (<Segment(4, 5)>, '_', frozenset({'speaker_9'})), (<Segment(5, 6)>, '_', frozenset({'speaker_9'})), (<Segment(6, 7)>, '_', frozenset({'speaker_9'})), (<Segment(7, 8)>, '_', frozenset({'speaker_9'})), (<Segment(8, 9)>, '_', frozenset({'speaker_9'})), (<Segment(9, 10)>, '_', frozenset({'speaker_9'}))]
+(ClientAppActor pid=5929) [DER DEBUG] Hypothesis segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_7', 'speaker_0', 'speaker_2', 'speaker_9', 'speaker_3'})), (<Segment(1, 2)>, '_', frozenset({'speaker_7', 'speaker_0', 'speaker_2', 'speaker_9', 'speaker_3'})), (<Segment(2, 3)>, '_', frozenset({'speaker_2', 'speaker_7', 'speaker_0', 'speaker_4'})), (<Segment(3, 4)>, '_', frozenset({'speaker_7', 'speaker_0', 'speaker_2', 'speaker_9', 'speaker_3'})), (<Segment(4, 5)>, '_', frozenset({'speaker_2', 'speaker_7', 'speaker_0', 'speaker_4'})), (<Segment(5, 6)>, '_', frozenset({'speaker_7', 'speaker_0', 'speaker_2', 'speaker_9', 'speaker_3'})), (<Segment(6, 7)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_2', 'speaker_3'})), (<Segment(7, 8)>, '_', frozenset({'speaker_0', 'speaker_4', 'speaker_2', 'speaker_9', 'speaker_6', 'speaker_3'})), (<Segment(8, 9)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_6', 'speaker_1'})), (<Segment(9, 10)>, '_', frozenset({'speaker_7', 'speaker_0', 'speaker_2', 'speaker_9', 'speaker_3'}))]
+(ClientAppActor pid=5929) [DER DEBUG] DER calculation: valid frames used = 4004, DER = 0.7962098324636089
+(ClientAppActor pid=5929) [DEBUG] Epoch 1/2 unique labels: [-100    1    3    5    9]
+(ClientAppActor pid=5929) [DEBUG] Epoch 1/2 unique predictions: [  0   1   4   5  19  79  85 113 157 168 205 234 254 305 333 484 496 504
+(ClientAppActor pid=5929)  531 538 575 578 635 646 676 686 709 720 722 740 745 794 818 852 892 901
+(ClientAppActor pid=5929)  935 988]
+(ClientAppActor pid=5929) [2025-06-30 16:52:15.116423] SENDClient: Epoch 1/2 summary for client 138777374193424: min_loss=463.26898193359375, max_loss=463.26898193359375, mean_loss=463.26898193359375, acc=0.008241758241758242, DER=0.7962098324636089
+(ClientAppActor pid=5929) [2025-06-30 16:52:15.117966] SENDClient: First batch in fit for client 138777374193424 (epoch 2/2)
+(ClientAppActor pid=5929) Batch 0, Loss: 8146.4346
+(ClientAppActor pid=5929) Batch 0, labels shape: torch.Size([4004]), unique labels: tensor([-100,    1,    3,    5,    9], device='cuda:0')
+(ClientAppActor pid=5929) Batch 0, outputs shape: torch.Size([4004, 1024]), unique preds: tensor([ 18,  37,  98, 126, 135, 140, 143, 175, 179, 204, 278, 291, 313, 332,
+(ClientAppActor pid=5929)         334, 383, 466, 512, 563, 575, 602, 613, 618, 709, 711, 719, 732, 763,
+(ClientAppActor pid=5929)         793, 794, 807, 889, 892, 893, 941, 952, 984], device='cuda:0')
+(ClientAppActor pid=5929) [DER DEBUG] Frame 0: label=3, pred=37, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 1], pred_bits=[0, 0, 0, 0, 1, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1: label=3, pred=613, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 1], pred_bits=[1, 0, 0, 1, 1, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2: label=3, pred=807, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 1], pred_bits=[1, 1, 0, 0, 1, 0, 0, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 3: label=3, pred=313, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 1], pred_bits=[0, 1, 0, 0, 1, 1, 1, 0, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 4: label=3, pred=613, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 1], pred_bits=[1, 0, 0, 1, 1, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 5: label=3, pred=794, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 1], pred_bits=[1, 1, 0, 0, 0, 1, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 6: label=3, pred=613, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 1], pred_bits=[1, 0, 0, 1, 1, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 7: label=3, pred=613, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 1], pred_bits=[1, 0, 0, 1, 1, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 8: label=3, pred=37, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 1], pred_bits=[0, 0, 0, 0, 1, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 9: label=3, pred=143, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 1], pred_bits=[0, 0, 1, 0, 0, 0, 1, 1, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] speaker_id_list (bit mapping): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+(ClientAppActor pid=5929) [DER DEBUG] Unique label values: {np.int64(1), np.int64(3), np.int64(5), np.int64(9)}
+(ClientAppActor pid=5929) [DER DEBUG] Unique pred values: {np.int64(512), np.int64(135), np.int64(143), np.int64(18), np.int64(278), np.int64(793), np.int64(794), np.int64(291), np.int64(37), np.int64(807), np.int64(941), np.int64(175), np.int64(563), np.int64(179), np.int64(952), np.int64(313), np.int64(575), np.int64(709), np.int64(711), np.int64(204), np.int64(332), np.int64(334), np.int64(719), np.int64(466), np.int64(984), np.int64(732), np.int64(613), np.int64(618), np.int64(889), np.int64(763), np.int64(892), np.int64(893), np.int64(126), np.int64(383)}
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (labels): min=1, max=2, mean=1.82
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (preds): min=1, max=8, mean=4.71
+(ClientAppActor pid=5929) [DER DEBUG] Reference segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_8', 'speaker_9'})), (<Segment(1, 2)>, '_', frozenset({'speaker_8', 'speaker_9'})), (<Segment(2, 3)>, '_', frozenset({'speaker_8', 'speaker_9'})), (<Segment(3, 4)>, '_', frozenset({'speaker_8', 'speaker_9'})), (<Segment(4, 5)>, '_', frozenset({'speaker_8', 'speaker_9'})), (<Segment(5, 6)>, '_', frozenset({'speaker_8', 'speaker_9'})), (<Segment(6, 7)>, '_', frozenset({'speaker_8', 'speaker_9'})), (<Segment(7, 8)>, '_', frozenset({'speaker_8', 'speaker_9'})), (<Segment(8, 9)>, '_', frozenset({'speaker_8', 'speaker_9'})), (<Segment(9, 10)>, '_', frozenset({'speaker_8', 'speaker_9'}))]
+(ClientAppActor pid=5929) [DER DEBUG] Hypothesis segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_7', 'speaker_9', 'speaker_4'})), (<Segment(1, 2)>, '_', frozenset({'speaker_7', 'speaker_0', 'speaker_4', 'speaker_9', 'speaker_3'})), (<Segment(2, 3)>, '_', frozenset({'speaker_0', 'speaker_8', 'speaker_4', 'speaker_9', 'speaker_7', 'speaker_1'})), (<Segment(3, 4)>, '_', frozenset({'speaker_5', 'speaker_4', 'speaker_9', 'speaker_6', 'speaker_1'})), (<Segment(4, 5)>, '_', frozenset({'speaker_7', 'speaker_0', 'speaker_4', 'speaker_9', 'speaker_3'})), (<Segment(5, 6)>, '_', frozenset({'speaker_5', 'speaker_0', 'speaker_8', 'speaker_6', 'speaker_1'})), (<Segment(6, 7)>, '_', frozenset({'speaker_7', 'speaker_0', 'speaker_4', 'speaker_9', 'speaker_3'})), (<Segment(7, 8)>, '_', frozenset({'speaker_7', 'speaker_0', 'speaker_4', 'speaker_9', 'speaker_3'})), (<Segment(8, 9)>, '_', frozenset({'speaker_7', 'speaker_9', 'speaker_4'})), (<Segment(9, 10)>, '_', frozenset({'speaker_8', 'speaker_2', 'speaker_9', 'speaker_6', 'speaker_7'}))]
+(ClientAppActor pid=5929) [DER DEBUG] DER calculation: valid frames used = 4004, DER = 0.7525405108486679
+(ClientAppActor pid=5929) [DEBUG] Epoch 2/2 unique labels: [-100    1    3    5    9]
+(ClientAppActor pid=5929) [DEBUG] Epoch 2/2 unique predictions: [ 18  37  98 126 135 140 143 175 179 204 278 291 313 332 334 383 466 512
+(ClientAppActor pid=5929)  563 575 602 613 618 709 711 719 732 763 793 794 807 889 892 893 941 952
+(ClientAppActor pid=5929)  984]
+(ClientAppActor pid=5929) [2025-06-30 16:52:26.048854] SENDClient: Epoch 2/2 summary for client 138777374193424: min_loss=8146.4345703125, max_loss=8146.4345703125, mean_loss=8146.4345703125, acc=0.0, DER=0.7525405108486679
+(ClientAppActor pid=5929) [2025-06-30 16:52:26.048914] SENDClient: Finished fit for client 138777374193424, total time: 21.65 sec
+(ClientAppActor pid=5929) === CLIENT LOG: fit finished ===
+(ClientAppActor pid=5929) === CLIENT LOG: train_loader length: 1 ===
+(ClientAppActor pid=5929) [client_fn] Got cid from context.node_config['partition-id']: 1
+(ClientAppActor pid=5929) [2025-06-30 16:52:26.888359] MAIN: Creating client 1
+(ClientAppActor pid=5929) [2025-06-30 16:52:27.008383] MAIN: Client 1 created and ready
+(ClientAppActor pid=5929) [2025-06-30 16:52:27.008440] SENDClient: Initializing client 138777710945232
+(ClientAppActor pid=5929) [2025-06-30 16:52:27.008938] SENDClient: Initialization complete for client 138777710945232
+(ClientAppActor pid=5929) [DEBUG] SENDClient: train_loader size: 1
+(ClientAppActor pid=5929) [DEBUG] SENDClient: val_loader size: 1
+(ClientAppActor pid=5929) === CLIENT LOG: fit started ===
+(ClientAppActor pid=5929) [DEBUG] fit: train_loader size: 1
+(ClientAppActor pid=5929) [DEBUG] fit: number of batches: 1
+(ClientAppActor pid=5929) === aaa ===
+(ClientAppActor pid=5929) === bbb ===
+(ClientAppActor pid=5929) === CLIENT LOG: fit started ===
+(ClientAppActor pid=5929) [2025-06-30 16:52:27.041253] SENDClient: Starting fit for client 138777710945232
+(ClientAppActor pid=5929) [2025-06-30 16:52:27.112444] SENDClient: First batch in fit for client 138777710945232 (epoch 1/2)
+(ClientAppActor pid=5929) Batch 0, Loss: 123.9089
+(ClientAppActor pid=5929) Batch 0, labels shape: torch.Size([4004]), unique labels: tensor([-100,    4,    5,    8], device='cuda:0')
+(ClientAppActor pid=5929) Batch 0, outputs shape: torch.Size([4004, 1024]), unique preds: tensor([  1,   4,   5, 118, 146, 538, 580, 611, 713, 933, 945, 971],
+(ClientAppActor pid=5929)        device='cuda:0')
+(ClientAppActor pid=5929) [DER DEBUG] Frame 15: label=5, pred=538, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 0, 1, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 18: label=5, pred=538, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 0, 1, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 19: label=5, pred=538, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 0, 1, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 34: label=5, pred=1, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 43: label=5, pred=538, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 0, 1, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 49: label=5, pred=538, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 0, 1, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 51: label=5, pred=538, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 0, 1, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 69: label=5, pred=538, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 0, 1, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 75: label=5, pred=713, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 1, 1, 0, 0, 1, 0, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 80: label=5, pred=538, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1], pred_bits=[1, 0, 0, 0, 0, 1, 1, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] speaker_id_list (bit mapping): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+(ClientAppActor pid=5929) [DER DEBUG] Unique label values: {np.int64(8), np.int64(4), np.int64(5)}
+(ClientAppActor pid=5929) [DER DEBUG] Unique pred values: {np.int64(1), np.int64(611), np.int64(4), np.int64(5), np.int64(713), np.int64(118), np.int64(538)}
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (labels): min=1, max=2, mean=1.78
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (preds): min=1, max=5, mean=2.11
+(ClientAppActor pid=5929) [DER DEBUG] Reference segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(1, 2)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(2, 3)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(3, 4)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(4, 5)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(5, 6)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(6, 7)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(7, 8)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(8, 9)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(9, 10)>, '_', frozenset({'speaker_7', 'speaker_9'}))]
+(ClientAppActor pid=5929) [DER DEBUG] Hypothesis segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(1, 2)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(2, 3)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(3, 4)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(4, 5)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(5, 6)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(6, 7)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(7, 8)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(8, 9)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(9, 10)>, '_', frozenset({'speaker_7', 'speaker_9'}))]
+(ClientAppActor pid=5929) [DER DEBUG] DER calculation: valid frames used = 4004, DER = 0.2665627435697584
+(ClientAppActor pid=5929) [DEBUG] Epoch 1/2 unique labels: [-100    4    5    8]
+(ClientAppActor pid=5929) [DEBUG] Epoch 1/2 unique predictions: [  1   4   5 118 146 538 580 611 713 933 945 971]
+(ClientAppActor pid=5929) [2025-06-30 16:52:35.902691] SENDClient: Epoch 1/2 summary for client 138777710945232: min_loss=123.90892028808594, max_loss=123.90892028808594, mean_loss=123.90892028808594, acc=0.46353646353646355, DER=0.2665627435697584
+(ClientAppActor pid=5929) [2025-06-30 16:52:35.904198] SENDClient: First batch in fit for client 138777710945232 (epoch 2/2)
+(ClientAppActor pid=5929) Batch 0, Loss: 10229.1592
+(ClientAppActor pid=5929) Batch 0, labels shape: torch.Size([4004]), unique labels: tensor([-100,    4,    5,    8], device='cuda:0')
+(ClientAppActor pid=5929) Batch 0, outputs shape: torch.Size([4004, 1024]), unique preds: tensor([5], device='cuda:0')
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2002: label=4, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2003: label=4, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2004: label=4, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2005: label=4, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2006: label=4, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2007: label=4, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2008: label=4, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2009: label=4, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2010: label=4, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2011: label=4, pred=5, true_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
+(ClientAppActor pid=5929) [DER DEBUG] speaker_id_list (bit mapping): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+(ClientAppActor pid=5929) [DER DEBUG] Unique label values: {np.int64(8), np.int64(4), np.int64(5)}
+(ClientAppActor pid=5929) [DER DEBUG] Unique pred values: {np.int64(5)}
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (labels): min=1, max=2, mean=1.78
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (preds): min=2, max=2, mean=2.00
+(ClientAppActor pid=5929) [DER DEBUG] Reference segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(1, 2)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(2, 3)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(3, 4)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(4, 5)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(5, 6)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(6, 7)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(7, 8)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(8, 9)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(9, 10)>, '_', frozenset({'speaker_7', 'speaker_9'}))]
+(ClientAppActor pid=5929) [DER DEBUG] Hypothesis segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(1, 2)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(2, 3)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(3, 4)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(4, 5)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(5, 6)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(6, 7)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(7, 8)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(8, 9)>, '_', frozenset({'speaker_7', 'speaker_9'})), (<Segment(9, 10)>, '_', frozenset({'speaker_7', 'speaker_9'}))]
+(ClientAppActor pid=5929) [DER DEBUG] DER calculation: valid frames used = 4004, DER = 0.21979734996102884
+(ClientAppActor pid=5929) [DEBUG] Epoch 2/2 unique labels: [-100    4    5    8]
+(ClientAppActor pid=5929) [DEBUG] Epoch 2/2 unique predictions: [5]
+(ClientAppActor pid=5929) [2025-06-30 16:52:44.465958] SENDClient: Epoch 2/2 summary for client 138777710945232: min_loss=10229.1591796875, max_loss=10229.1591796875, mean_loss=10229.1591796875, acc=0.5, DER=0.21979734996102884
+(ClientAppActor pid=5929) [2025-06-30 16:52:44.466007] SENDClient: Finished fit for client 138777710945232, total time: 17.36 sec
+(ClientAppActor pid=5929) === CLIENT LOG: fit finished ===
+(ClientAppActor pid=5929) === CLIENT LOG: train_loader length: 1 ===
+INFO :      aggregate_fit: received 2 results and 0 failures
+INFO:flwr:aggregate_fit: received 2 results and 0 failures
+INFO :      configure_evaluate: strategy sampled 2 clients (out of 2)
+INFO:flwr:configure_evaluate: strategy sampled 2 clients (out of 2)
+(ClientAppActor pid=5929) [client_fn] Got cid from context.node_config['partition-id']: 1
+(ClientAppActor pid=5929) [2025-06-30 16:52:45.482661] MAIN: Creating client 1
+(ClientAppActor pid=5929) [2025-06-30 16:52:45.600284] MAIN: Client 1 created and ready
+(ClientAppActor pid=5929) [2025-06-30 16:52:45.600342] SENDClient: Initializing client 138777385860304
+(ClientAppActor pid=5929) [2025-06-30 16:52:45.600875] SENDClient: Initialization complete for client 138777385860304
+(ClientAppActor pid=5929) [DEBUG] SENDClient: train_loader size: 1
+(ClientAppActor pid=5929) [DEBUG] SENDClient: val_loader size: 1
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate started ===
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate started ===
+(ClientAppActor pid=5929) [2025-06-30 16:52:45.631000] SENDClient: Starting evaluate for client 138777385860304
+(ClientAppActor pid=5929) [2025-06-30 16:52:45.700666] SENDClient: First batch in evaluate for client 138777385860304
+(ClientAppActor pid=5929) Eval batch 0, labels shape: torch.Size([2002]), unique labels: [-100    1    2]
+(ClientAppActor pid=5929) Eval batch 0, outputs shape: torch.Size([2002, 1024]), unique preds: [  4   9  36  86 155 258]
+(ClientAppActor pid=5929) [2025-06-30 16:52:47.054439] SENDClient: Eval summary for client 138777385860304: min_loss=41.2555, max_loss=41.2555, mean_loss=41.2555
+(ClientAppActor pid=5929) [2025-06-30 16:52:47.054521] SENDClient: Finished evaluate for client 138777385860304, total time: 1.36 sec
+(ClientAppActor pid=5929) [DER DEBUG] Frame 0: label=2, pred=155, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 1, 0, 0, 1, 1, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1: label=2, pred=155, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 1, 0, 0, 1, 1, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 2: label=2, pred=155, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 1, 0, 0, 1, 1, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 3: label=2, pred=155, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 1, 0, 0, 1, 1, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 4: label=2, pred=155, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 1, 0, 0, 1, 1, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 5: label=2, pred=155, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 0, 1, 0, 0, 1, 1, 0, 1, 1]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 6: label=2, pred=258, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 1, 0, 0, 0, 0, 0, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 7: label=2, pred=258, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 1, 0, 0, 0, 0, 0, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 8: label=2, pred=258, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 1, 0, 0, 0, 0, 0, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 9: label=2, pred=258, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 1, 0], pred_bits=[0, 1, 0, 0, 0, 0, 0, 0, 1, 0]
+(ClientAppActor pid=5929) [DER DEBUG] speaker_id_list (bit mapping): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+(ClientAppActor pid=5929) [DER DEBUG] Unique label values: {np.int64(1), np.int64(2)}
+(ClientAppActor pid=5929) [DER DEBUG] Unique pred values: {np.int64(258), np.int64(155)}
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (labels): min=1, max=1, mean=1.00
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (preds): min=2, max=5, mean=3.21
+(ClientAppActor pid=5929) [DER DEBUG] Reference segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_8'})), (<Segment(1, 2)>, '_', frozenset({'speaker_8'})), (<Segment(2, 3)>, '_', frozenset({'speaker_8'})), (<Segment(3, 4)>, '_', frozenset({'speaker_8'})), (<Segment(4, 5)>, '_', frozenset({'speaker_8'})), (<Segment(5, 6)>, '_', frozenset({'speaker_8'})), (<Segment(6, 7)>, '_', frozenset({'speaker_8'})), (<Segment(7, 8)>, '_', frozenset({'speaker_8'})), (<Segment(8, 9)>, '_', frozenset({'speaker_8'})), (<Segment(9, 10)>, '_', frozenset({'speaker_8'}))]
+(ClientAppActor pid=5929) [DER DEBUG] Hypothesis segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_5', 'speaker_8', 'speaker_2', 'speaker_9', 'speaker_6'})), (<Segment(1, 2)>, '_', frozenset({'speaker_5', 'speaker_8', 'speaker_2', 'speaker_9', 'speaker_6'})), (<Segment(2, 3)>, '_', frozenset({'speaker_5', 'speaker_8', 'speaker_2', 'speaker_9', 'speaker_6'})), (<Segment(3, 4)>, '_', frozenset({'speaker_5', 'speaker_8', 'speaker_2', 'speaker_9', 'speaker_6'})), (<Segment(4, 5)>, '_', frozenset({'speaker_5', 'speaker_8', 'speaker_2', 'speaker_9', 'speaker_6'})), (<Segment(5, 6)>, '_', frozenset({'speaker_5', 'speaker_8', 'speaker_2', 'speaker_9', 'speaker_6'})), (<Segment(6, 7)>, '_', frozenset({'speaker_1', 'speaker_8'})), (<Segment(7, 8)>, '_', frozenset({'speaker_1', 'speaker_8'})), (<Segment(8, 9)>, '_', frozenset({'speaker_1', 'speaker_8'})), (<Segment(9, 10)>, '_', frozenset({'speaker_1', 'speaker_8'}))]
+(ClientAppActor pid=5929) [DER DEBUG] DER calculation: valid frames used = 2002, DER = 0.36394849785407724
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate finished ===
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate finished ===
+(ClientAppActor pid=5929) [client_fn] Got cid from context.node_config['partition-id']: 0
+(ClientAppActor pid=5929) [2025-06-30 16:52:48.203658] MAIN: Creating client 0
+(ClientAppActor pid=5929) [2025-06-30 16:52:48.323156] MAIN: Client 0 created and ready
+(ClientAppActor pid=5929) [2025-06-30 16:52:48.323217] SENDClient: Initializing client 138777711667088
+(ClientAppActor pid=5929) [2025-06-30 16:52:48.323673] SENDClient: Initialization complete for client 138777711667088
+(ClientAppActor pid=5929) [DEBUG] SENDClient: train_loader size: 1
+(ClientAppActor pid=5929) [DEBUG] SENDClient: val_loader size: 1
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate started ===
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate started ===
+(ClientAppActor pid=5929) [2025-06-30 16:52:48.353777] SENDClient: Starting evaluate for client 138777711667088
+(ClientAppActor pid=5929) [2025-06-30 16:52:48.422283] SENDClient: First batch in evaluate for client 138777711667088
+(ClientAppActor pid=5929) Eval batch 0, labels shape: torch.Size([2002]), unique labels: [-100    1    4]
+(ClientAppActor pid=5929) Eval batch 0, outputs shape: torch.Size([2002, 1024]), unique preds: [  4 275]
+(ClientAppActor pid=5929) [2025-06-30 16:52:49.779827] SENDClient: Eval summary for client 138777711667088: min_loss=146.4751, max_loss=146.4751, mean_loss=146.4751
+(ClientAppActor pid=5929) [2025-06-30 16:52:49.779915] SENDClient: Finished evaluate for client 138777711667088, total time: 1.36 sec
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1001: label=1, pred=4, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1002: label=1, pred=4, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1003: label=1, pred=4, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1004: label=1, pred=4, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1005: label=1, pred=4, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1006: label=1, pred=4, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1007: label=1, pred=4, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1008: label=1, pred=4, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1009: label=1, pred=4, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] Frame 1010: label=1, pred=4, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[0, 0, 0, 0, 0, 0, 0, 1, 0, 0]
+(ClientAppActor pid=5929) [DER DEBUG] speaker_id_list (bit mapping): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+(ClientAppActor pid=5929) [DER DEBUG] Unique label values: {np.int64(1), np.int64(4)}
+(ClientAppActor pid=5929) [DER DEBUG] Unique pred values: {np.int64(4)}
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (labels): min=1, max=1, mean=1.00
+(ClientAppActor pid=5929) [DER DEBUG] Active speakers per frame (preds): min=1, max=1, mean=1.00
+(ClientAppActor pid=5929) [DER DEBUG] Reference segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_7'})), (<Segment(1, 2)>, '_', frozenset({'speaker_7'})), (<Segment(2, 3)>, '_', frozenset({'speaker_7'})), (<Segment(3, 4)>, '_', frozenset({'speaker_7'})), (<Segment(4, 5)>, '_', frozenset({'speaker_7'})), (<Segment(5, 6)>, '_', frozenset({'speaker_7'})), (<Segment(6, 7)>, '_', frozenset({'speaker_7'})), (<Segment(7, 8)>, '_', frozenset({'speaker_7'})), (<Segment(8, 9)>, '_', frozenset({'speaker_7'})), (<Segment(9, 10)>, '_', frozenset({'speaker_7'}))]
+(ClientAppActor pid=5929) [DER DEBUG] Hypothesis segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_7'})), (<Segment(1, 2)>, '_', frozenset({'speaker_7'})), (<Segment(2, 3)>, '_', frozenset({'speaker_7'})), (<Segment(3, 4)>, '_', frozenset({'speaker_7'})), (<Segment(4, 5)>, '_', frozenset({'speaker_7'})), (<Segment(5, 6)>, '_', frozenset({'speaker_7'})), (<Segment(6, 7)>, '_', frozenset({'speaker_7'})), (<Segment(7, 8)>, '_', frozenset({'speaker_7'})), (<Segment(8, 9)>, '_', frozenset({'speaker_7'})), (<Segment(9, 10)>, '_', frozenset({'speaker_7'}))]
+INFO :      aggregate_evaluate: received 2 results and 0 failures
+INFO:flwr:aggregate_evaluate: received 2 results and 0 failures
+INFO :      
+INFO:flwr:
+INFO :      [SUMMARY]
+INFO:flwr:[SUMMARY]
+INFO :      Run finished 3 round(s) in 151.84s
+INFO:flwr:Run finished 3 round(s) in 151.84s
+INFO :      	History (loss, distributed):
+INFO:flwr:	History (loss, distributed):
+INFO :      		round 1: 44.1438045501709
+INFO:flwr:		round 1: 44.1438045501709
+INFO :      		round 2: 457.21546936035156
+INFO:flwr:		round 2: 457.21546936035156
+INFO :      		round 3: 93.86531257629395
+INFO:flwr:		round 3: 93.86531257629395
+INFO :      
+INFO:flwr:
+(ClientAppActor pid=5929) [DER DEBUG] DER calculation: valid frames used = 2002, DER = 0.08260869565217391
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate finished ===
+(ClientAppActor pid=5929) === CLIENT LOG: evaluate finished ===
+
+==================== TESTING STARTED ====================
+
+Test predictions shape: (828,), unique: [ 47 233 275 369 613 773 859 886 926 947 979]
+Test labels shape: (828,), unique: [-100    1    2    4]
+[DER DEBUG] Frame 0: label=1, pred=859, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[1, 1, 0, 1, 0, 1, 1, 0, 1, 1]
+[DER DEBUG] Frame 1: label=1, pred=859, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[1, 1, 0, 1, 0, 1, 1, 0, 1, 1]
+[DER DEBUG] Frame 2: label=1, pred=859, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[1, 1, 0, 1, 0, 1, 1, 0, 1, 1]
+[DER DEBUG] Frame 3: label=1, pred=859, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[1, 1, 0, 1, 0, 1, 1, 0, 1, 1]
+[DER DEBUG] Frame 4: label=1, pred=859, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[1, 1, 0, 1, 0, 1, 1, 0, 1, 1]
+[DER DEBUG] Frame 5: label=1, pred=859, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[1, 1, 0, 1, 0, 1, 1, 0, 1, 1]
+[DER DEBUG] Frame 6: label=1, pred=859, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[1, 1, 0, 1, 0, 1, 1, 0, 1, 1]
+[DER DEBUG] Frame 7: label=1, pred=859, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[1, 1, 0, 1, 0, 1, 1, 0, 1, 1]
+[DER DEBUG] Frame 8: label=1, pred=859, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[1, 1, 0, 1, 0, 1, 1, 0, 1, 1]
+[DER DEBUG] Frame 9: label=1, pred=859, true_bits=[0, 0, 0, 0, 0, 0, 0, 0, 0, 1], pred_bits=[1, 1, 0, 1, 0, 1, 1, 0, 1, 1]
+[DER DEBUG] speaker_id_list (bit mapping): ['FEE041', 'FEE043', 'FEE044', 'FEO065', 'FEO070', 'FEO072', 'MEE067', 'MEE068', 'MEE073', 'MEO069']
+[DER DEBUG] Unique label values: {np.int64(1), np.int64(2), np.int64(4)}
+[DER DEBUG] Unique pred values: {np.int64(773), np.int64(233), np.int64(47), np.int64(369), np.int64(275), np.int64(979), np.int64(947), np.int64(886), np.int64(859), np.int64(926)}
+[DER DEBUG] Active speakers per frame (labels): min=1, max=1, mean=1.00
+[DER DEBUG] Active speakers per frame (preds): min=4, max=7, mean=6.15
+[DER DEBUG] Reference segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_MEO069'})), (<Segment(1, 2)>, '_', frozenset({'speaker_MEO069'})), (<Segment(2, 3)>, '_', frozenset({'speaker_MEO069'})), (<Segment(3, 4)>, '_', frozenset({'speaker_MEO069'})), (<Segment(4, 5)>, '_', frozenset({'speaker_MEO069'})), (<Segment(5, 6)>, '_', frozenset({'speaker_MEO069'})), (<Segment(6, 7)>, '_', frozenset({'speaker_MEO069'})), (<Segment(7, 8)>, '_', frozenset({'speaker_MEO069'})), (<Segment(8, 9)>, '_', frozenset({'speaker_MEO069'})), (<Segment(9, 10)>, '_', frozenset({'speaker_MEO069'}))]
+[DER DEBUG] Hypothesis segments (first 10): [(<Segment(0, 1)>, '_', frozenset({'speaker_MEE067', 'speaker_FEO065', 'speaker_MEO069', 'speaker_FEO072', 'speaker_FEE041', 'speaker_MEE073', 'speaker_FEE043'})), (<Segment(1, 2)>, '_', frozenset({'speaker_MEE067', 'speaker_FEO065', 'speaker_MEO069', 'speaker_FEO072', 'speaker_FEE041', 'speaker_MEE073', 'speaker_FEE043'})), (<Segment(2, 3)>, '_', frozenset({'speaker_MEE067', 'speaker_FEO065', 'speaker_MEO069', 'speaker_FEO072', 'speaker_FEE041', 'speaker_MEE073', 'speaker_FEE043'})), (<Segment(3, 4)>, '_', frozenset({'speaker_MEE067', 'speaker_FEO065', 'speaker_MEO069', 'speaker_FEO072', 'speaker_FEE041', 'speaker_MEE073', 'speaker_FEE043'})), (<Segment(4, 5)>, '_', frozenset({'speaker_MEE067', 'speaker_FEO065', 'speaker_MEO069', 'speaker_FEO072', 'speaker_FEE041', 'speaker_MEE073', 'speaker_FEE043'})), (<Segment(5, 6)>, '_', frozenset({'speaker_MEE067', 'speaker_FEO065', 'speaker_MEO069', 'speaker_FEO072', 'speaker_FEE041', 'speaker_MEE073', 'speaker_FEE043'})), (<Segment(6, 7)>, '_', frozenset({'speaker_MEE067', 'speaker_FEO065', 'speaker_MEO069', 'speaker_FEO072', 'speaker_FEE041', 'speaker_MEE073', 'speaker_FEE043'})), (<Segment(7, 8)>, '_', frozenset({'speaker_MEE067', 'speaker_FEO065', 'speaker_MEO069', 'speaker_FEO072', 'speaker_FEE041', 'speaker_MEE073', 'speaker_FEE043'})), (<Segment(8, 9)>, '_', frozenset({'speaker_MEE067', 'speaker_FEO065', 'speaker_MEO069', 'speaker_FEO072', 'speaker_FEE041', 'speaker_MEE073', 'speaker_FEE043'})), (<Segment(9, 10)>, '_', frozenset({'speaker_MEE067', 'speaker_FEO065', 'speaker_MEO069', 'speaker_FEO072', 'speaker_FEE041', 'speaker_MEE073', 'speaker_FEE043'}))]
+/usr/local/lib/python3.11/dist-packages/pyannote/metrics/utils.py:200: UserWarning: 'uem' was approximated by the union of 'reference' and 'hypothesis' extents.
+  warnings.warn(
+[DER DEBUG] DER calculation: valid frames used = 828, DER = 0.6749049429657795
+
+==================== TESTING FINISHED ====================
+
+Final Test Loss: 6.3586
+Final DER: 0.6749
+Final Test Loss: 6.3586
+Final DER: 0.6749
+
+===== SAVING FINAL RESULTS TO FILE =====
+Results will be saved to: /content/logs/experiment_6recs_2clients_2epochs_3rounds_20250630_165250.txt
+Experiment: experiment_6recs_2clients_2epochs_3rounds_20250630_165250
+Num records: 6
+Num clients: 2
+Num epochs: 2
+Num rounds: 3
+Datetime: 20250630_165250
+Final Test Loss: 6.3586
+Final DER: 0.6749
+Results saved to /content/logs/experiment_6recs_2clients_2epochs_3rounds_20250630_165250.txt
+Process completed.
