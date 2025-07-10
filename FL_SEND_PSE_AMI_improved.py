@@ -389,7 +389,14 @@ class SENDClient(NumPyClient):
             pred_bits = self.power_set_encoder.decode(pred)
             if speaker_id_list is None:
                 speaker_id_list = list(range(len(true_bits)))
-            # Используем frozenset для корректной работы pyannote
+            n_speakers = len(speaker_id_list)
+            # Truncate bit vectors to match speaker_id_list length
+            if len(true_bits) > n_speakers or len(pred_bits) > n_speakers:
+                if debug:
+                    print(f"[WARNING] decoded bits longer than speaker_id_list! Truncating to {n_speakers}.")
+            true_bits = true_bits[:n_speakers]
+            pred_bits = pred_bits[:n_speakers]
+            # Build reference and hypothesis speaker sets
             ref_speakers = frozenset(f"speaker_{speaker_id_list[idx]}" for idx, bit in enumerate(true_bits) if bit == 1)
             hyp_speakers = frozenset(f"speaker_{speaker_id_list[idx]}" for idx, bit in enumerate(pred_bits) if bit == 1)
             reference[Segment(i, i+1)] = ref_speakers
