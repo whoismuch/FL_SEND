@@ -104,99 +104,89 @@ class FSMNLayer(nn.Module):
 
 class SENDModel(nn.Module):
     """Speaker Embedding-aware Neural Diarization model with Power-Set Encoding."""
-    def __init__(self, input_dim: int = 80, hidden_dim: int = 512, num_classes: int = 16):
+    def __init__(self, input_dim: int = 80, hidden_dim: int = 512, num_classes: int = 16, dropout_p: float = 0.1):
         super().__init__()
-        
         # Speech Encoder (FSMN)
         self.speech_encoder = nn.ModuleList([
-            FSMNLayer(input_dim if i == 0 else hidden_dim, hidden_dim, stride=2**i)
-            for i in range(8)  # 8 FSMN layers
+            nn.Sequential(
+                FSMNLayer(input_dim if i == 0 else hidden_dim, hidden_dim, stride=2**i),
+                nn.Dropout(dropout_p)
+            ) for i in range(8)
         ])
-        
-        # Speaker Encoder (MLP)
+        # Speaker Encoder (MLP) with Dropout after each activation
         self.speaker_encoder = nn.Sequential(
-            nn.Linear(192, hidden_dim),  # ECAPA-TDNN output size is 192
+            nn.Linear(192, hidden_dim),
             nn.ReLU(),
+            nn.Dropout(dropout_p),
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim)
+            nn.Dropout(dropout_p),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.Dropout(dropout_p)
         )
-        
         # CI Scorer (Context-Independent)
-        self.ci_scorer = nn.Linear(hidden_dim, 1)  # Dot product with speaker embeddings
-        
+        self.ci_scorer = nn.Linear(hidden_dim, 1)
         # CD Scorer (Context-Dependent)
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=hidden_dim,
             nhead=4,
             dim_feedforward=hidden_dim * 4,
-            dropout=0.1,
+            dropout=dropout_p,
             batch_first=True
         )
         self.cd_scorer = nn.TransformerEncoder(encoder_layer, num_layers=4)
-        
-        # Post-Net (FSMN)
+        # Post-Net (FSMN) with Dropout after each layer
         self.post_net = nn.ModuleList([
-            FSMNLayer(hidden_dim, hidden_dim, stride=2**i)
-            for i in range(6)  # 6 FSMN layers
+            nn.Sequential(
+                FSMNLayer(hidden_dim, hidden_dim, stride=2**i),
+                nn.Dropout(dropout_p)
+            ) for i in range(6)
         ])
-        
         # Final classification
         self.classifier = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
-            nn.Dropout(0.1),
+            nn.Dropout(dropout_p),
             nn.Linear(hidden_dim, num_classes)
         )
-        
         # Adapter for combining CI and CD scores
         self.combine_adapter = None
-        
+
     def forward(self, x: torch.Tensor, speaker_embeddings: torch.Tensor) -> torch.Tensor:
         # x shape: (batch_size, sequence_length, input_dim)
         # speaker_embeddings shape: (batch_size, num_speakers, 192)
         batch_size, seq_len, _ = x.shape
         num_speakers = speaker_embeddings.size(1)
-        
-        # Process audio features through Speech Encoder
-        for fsmn in self.speech_encoder:
-            x = fsmn(x)  # (batch_size, sequence_length, hidden_dim)
-        
-        # Process speaker embeddings
-        speaker_features = self.speaker_encoder(speaker_embeddings)  # (batch_size, num_speakers, hidden_dim)
-        
+        # Process audio features through Speech Encoder (with Dropout)
+        for fsmn_dropout in self.speech_encoder:
+            x = fsmn_dropout(x)
+        # Process speaker embeddings (with Dropout)
+        speaker_features = self.speaker_encoder(speaker_embeddings)
         # CI Scoring
         ci_scores = []
         for i in range(num_speakers):
             # Dot product between audio features and speaker embeddings
-            score = torch.matmul(x, speaker_features[:, i].unsqueeze(-1)).squeeze(-1)  # (batch_size, sequence_length)
+            score = torch.matmul(x, speaker_features[:, i].unsqueeze(-1)).squeeze(-1)
             ci_scores.append(score)
-        ci_scores = torch.stack(ci_scores, dim=1)  # (batch_size, num_speakers, sequence_length)
-        ci_scores = ci_scores.transpose(1, 2)  # (batch_size, sequence_length, num_speakers)
-        
+        ci_scores = torch.stack(ci_scores, dim=1)
+        ci_scores = ci_scores.transpose(1, 2)
         # CD Scoring
-        cd_scores = self.cd_scorer(x)  # (batch_size, sequence_length, hidden_dim)
-        
+        cd_scores = self.cd_scorer(x)
         # Combine CI and CD scores
         combined = torch.cat([
-            ci_scores,  # (batch_size, sequence_length, num_speakers)
-            cd_scores  # (batch_size, sequence_length, hidden_dim)
-        ], dim=2)  # (batch_size, sequence_length, num_speakers + hidden_dim)
-        
+            ci_scores,
+            cd_scores
+        ], dim=2)
         # Create adapter if it doesn't exist or dimensions have changed
         if self.combine_adapter is None or self.combine_adapter.in_features != combined.size(-1):
-            self.combine_adapter = nn.Linear(combined.size(-1), self.post_net[0].input_dim).to(combined.device)
-        
+            self.combine_adapter = nn.Linear(combined.size(-1), self.post_net[0][0].input_dim).to(combined.device)
         # Adapt dimensions before Post-Net
         combined = self.combine_adapter(combined)
-        
-        # Process through Post-Net
-        for fsmn in self.post_net:
-            combined = fsmn(combined)
-        
+        # Process through Post-Net (with Dropout)
+        for fsmn_dropout in self.post_net:
+            combined = fsmn_dropout(combined)
         # Final classification
-        out = self.classifier(combined)  # (batch_size, sequence_length, num_classes)
-        
+        out = self.classifier(combined)
         return out
 
 class OverlappingSpeechDataset(Dataset):
