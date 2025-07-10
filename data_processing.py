@@ -141,7 +141,7 @@ def simulate_overlapping_speech(
     logger.info(f"Successfully created {len(overlapping_segments)} overlapping segments")
     return np.array(overlapping_segments), power_set_labels
 
-def split_data_for_clients(grouped_data, num_clients, speaker_encoder, min_overlap_ratio=0.3):
+def split_data_for_clients(grouped_data, num_clients, speaker_encoder, min_overlap_ratio=0.3, speaker_to_idx=None):
     """Split grouped data among clients.
     
     Args:
@@ -149,18 +149,18 @@ def split_data_for_clients(grouped_data, num_clients, speaker_encoder, min_overl
         num_clients: Number of clients to split data among
         speaker_encoder: Speaker encoder model
         min_overlap_ratio: Minimum ratio of overlapping samples to total samples
+        speaker_to_idx: Optional global mapping from speaker_id to index
     """
     try:
         logger.info("Starting data processing for clients...")
-        
-        # Create speaker ID to index mapping
-        speaker_to_idx = {}
-        for meeting_id, samples in grouped_data.items():
-            for sample in samples:
-                speaker_id = sample["speaker_id"]
-                if speaker_id not in speaker_to_idx:
-                    speaker_to_idx[speaker_id] = len(speaker_to_idx)
-        
+        # Use provided mapping or create local one
+        if speaker_to_idx is None:
+            speaker_to_idx = {}
+            for meeting_id, samples in grouped_data.items():
+                for sample in samples:
+                    speaker_id = sample["speaker_id"]
+                    if speaker_id not in speaker_to_idx:
+                        speaker_to_idx[speaker_id] = len(speaker_to_idx)
         logger.info(f"[DEBUG] Speaker to index mapping (speaker_to_idx): {speaker_to_idx}")
         
         # Convert grouped data to list of samples
