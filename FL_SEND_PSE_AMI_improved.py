@@ -83,25 +83,21 @@ class FSMNLayer(nn.Module):
         self.stride = stride
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
-        self.linear = nn.Linear(input_dim, hidden_dim)
-        self.memory = nn.Linear(input_dim, hidden_dim)
-        # Add input adaptation layer if needed
         if input_dim != hidden_dim:
             self.input_lin = nn.Linear(input_dim, hidden_dim)
         else:
             self.input_lin = None
+        self.linear = nn.Linear(hidden_dim, hidden_dim)
+        self.memory = nn.Linear(hidden_dim, hidden_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x shape: (batch_size, seq_len, input_dim)
-        batch_size, seq_len, current_dim = x.shape
-        # Adapt input dimension if needed
         if self.input_lin is not None:
             x = self.input_lin(x)
-        # Linear projection
+        # Now x shape: (batch_size, seq_len, hidden_dim)
         h = self.linear(x)  # (batch_size, seq_len, hidden_dim)
-        # Memory mechanism
         memory = torch.zeros_like(h)
-        for i in range(seq_len):
+        for i in range(x.shape[1]):
             start_idx = max(0, i - self.stride)
             memory[:, i] = self.memory(x[:, start_idx:i+1].mean(dim=1))
         return h + memory
