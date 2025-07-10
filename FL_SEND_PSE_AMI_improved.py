@@ -489,24 +489,43 @@ def main():
         dataset = load_dataset("edinburghcstr/ami", "ihm")
         print(f"[{datetime.now()}] MAIN: Dataset loaded successfully")
         
-        # Take a small subset for testing
-        test_size = 6
-        epochs = 2
-        num_rounds = 3
-        print(f"[{datetime.now()}] MAIN: Using subset of {test_size} samples for testing")
-        
-        # Group data by meeting ID for all splits
-        print(f"[{datetime.now()}] MAIN: Grouping data by meeting ID...")
-        grouped_train = group_by_meeting(dataset["train"].select(range(test_size)))
-        grouped_validation = group_by_meeting(dataset["validation"].select(range(test_size)))
-        grouped_test = group_by_meeting(dataset["test"].select(range(test_size)))
-        print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_train)} meetings from training set")
-        print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_validation)} meetings from validation set")
-        print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_test)} meetings from test set")
-        
+        # Smart split for small dataset
+        print(f"[{datetime.now()}] MAIN: Performing smart split for small dataset...")
+        all_samples = list(dataset["train"]) + list(dataset["validation"]) + list(dataset["test"])
+        train_samples, val_samples, test_samples = smart_split(all_samples, train_size=6, val_size=3, test_size=3, seed=42)
+        # Group by meeting_id as before
+        def group_by_meeting_from_samples(samples):
+            grouped = defaultdict(list)
+            for sample in samples:
+                grouped[sample["meeting_id"]].append(sample)
+            return dict(grouped)
+        grouped_train = group_by_meeting_from_samples(train_samples)
+        grouped_validation = group_by_meeting_from_samples(val_samples)
+        grouped_test = group_by_meeting_from_samples(test_samples)
+        print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_train)} meetings from training set (smart split)")
+        print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_validation)} meetings from validation set (smart split)")
+        print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_test)} meetings from test set (smart split)")
+
+        # Filter val/test so all speakers are present in train
+        train_speakers = set(sample["speaker_id"] for samples in grouped_train.values() for sample in samples)
+        def filter_split(grouped_split, split_name):
+            filtered = {}
+            removed = 0
+            total = 0
+            for meeting_id, samples in grouped_split.items():
+                filtered_samples = [s for s in samples if s["speaker_id"] in train_speakers]
+                removed += len(samples) - len(filtered_samples)
+                total += len(samples)
+                if filtered_samples:
+                    filtered[meeting_id] = filtered_samples
+            print(f"[{datetime.now()}] MAIN: Filtered {removed} of {total} samples from {split_name} (unknown speakers)")
+            return filtered
+        filtered_validation = filter_split(grouped_validation, "validation")
+        filtered_test = filter_split(grouped_test, "test")
+
         # Build global speaker mapping and check splits
-        speaker_to_idx = get_global_speaker_mapping(grouped_train, grouped_validation, grouped_test)
-        check_no_unknown_speakers(grouped_train, grouped_validation, grouped_test)
+        speaker_to_idx = get_global_speaker_mapping(grouped_train, filtered_validation, filtered_test)
+        check_no_unknown_speakers(grouped_train, filtered_validation, filtered_test)
         speaker_id_list = sorted(speaker_to_idx.keys())
         num_speakers = len(speaker_id_list)
         num_classes = 2 ** num_speakers
@@ -515,7 +534,7 @@ def main():
         
         # Prepare DataLoaders for all splits
         train_loader, val_loader, test_loader = prepare_data_loaders(
-            grouped_train, grouped_validation, grouped_test, speaker_encoder, batch_size=4, speaker_to_idx=speaker_to_idx
+            grouped_train, filtered_validation, filtered_test, speaker_encoder, batch_size=4, speaker_to_idx=speaker_to_idx
         )
         
         # Initialize Power Set Encoder
