@@ -533,6 +533,11 @@ def main():
         print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_train)} meetings from training set (smart split)")
         print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_validation)} meetings from validation set (smart split)")
         print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_test)} meetings from test set (smart split)")
+        # Print number of samples in each split
+        num_train_samples = sum(len(samples) for samples in grouped_train.values())
+        num_val_samples = sum(len(samples) for samples in grouped_validation.values())
+        num_test_samples = sum(len(samples) for samples in grouped_test.values())
+        print(f"[{datetime.now()}] MAIN: Number of samples - train: {num_train_samples}, val: {num_val_samples}, test: {num_test_samples}")
 
         # Filter val/test so all speakers are present in train
         train_speakers = set(sample["speaker_id"] for samples in grouped_train.values() for sample in samples)
