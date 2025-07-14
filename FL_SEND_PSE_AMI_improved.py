@@ -665,17 +665,21 @@ def main():
         print(f"Final DER: {der:.4f}")
 
         # === LOG FINAL RESULTS TO FILE ===
-        # Ensure logs directory exists (Colab compatible, no __file__)
-        logs_dir = os.path.abspath(os.path.join(os.getcwd(), '../logs'))
-        os.makedirs(logs_dir, exist_ok=True)
         # Use actual experiment parameters, not hardcoded values
         dt_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-        exp_filename = f"experiment_{test_size}recs_{num_clients}clients_{epochs}epochs_{num_rounds}rounds_{dt_str}"
-        exp_filepath = os.path.join(logs_dir, exp_filename + ".txt")
-        metrics_prefix = os.path.join(logs_dir, f"metrics_{test_size}recs_{num_clients}clients_{epochs}epochs_{num_rounds}rounds_{dt_str}")
+        dt_str_human = datetime.now().strftime("%Y-%m-%d-%H-%M")
+        exp_tag = f"exp_{test_size}size_{epochs}epochs_{num_rounds}rounds_{num_clients}clients_{dt_str_human}"
+        # Artifact directories for logs and plots
+        artifact_logs_dir = os.path.join("out_artifacts", "logs", exp_tag)
+        artifact_plots_dir = os.path.join("out_artifacts", "plots", exp_tag)
+        os.makedirs(artifact_logs_dir, exist_ok=True)
+        os.makedirs(artifact_plots_dir, exist_ok=True)
+        # File paths for logs and metrics (simple names)
+        exp_filename = "experiment.txt"
+        exp_filepath = os.path.join(artifact_logs_dir, exp_filename)
         # Prepare lines for logging
         result_lines = [
-            f"Experiment: {exp_filename}",
+            f"Experiment: {exp_tag}",
             f"Num records: {test_size}",
             f"Num clients: {num_clients}",
             f"Num epochs: {epochs}",
@@ -684,7 +688,7 @@ def main():
             f"Final Test Loss: {test_loss:.4f}",
             f"Final DER: {der:.4f}",
         ]
-        # Save to file and print to console
+        # Save to file and print to console (only artifact directory)
         print("\n===== SAVING FINAL RESULTS TO FILE =====")
         print(f"Results will be saved to: {exp_filepath}")
         for line in result_lines:
@@ -697,27 +701,8 @@ def main():
         except Exception as e:
             print(f"[ERROR] Could not save results to file: {e}")
 
-        # Print Ray/Flower client logs after simulation
-        import glob
-        def print_ray_logs():
-            ray_log_dir = "/tmp/ray/session_latest/logs/"
-            if os.path.exists(ray_log_dir):
-                log_files = glob.glob(os.path.join(ray_log_dir, "*.out"))
-                if not log_files:
-                    print("No Ray log files found.")
-                for f in log_files:
-                    print(f"\n===== {f} =====")
-                    try:
-                        with open(f, "r") as logf:
-                            content = logf.read()[-5000:]
-                            print(content)
-                    except Exception as e:
-                        print(f"Could not read {f}: {e}")
-            else:
-                print("Ray log directory not found.")
-
         # After simulation and final evaluation, plot and save metrics
-        def plot_client_epoch_metrics(client_epoch_metrics, metrics_prefix):
+        def plot_client_epoch_metrics(client_epoch_metrics):
             for cid, rounds in client_epoch_metrics.items():
                 # For each client, aggregate metrics per round (use last epoch of each round)
                 round_train_loss = []
@@ -736,7 +721,8 @@ def main():
                 plt.ylabel('Loss')
                 plt.title(f'Client {cid} Loss per Round')
                 plt.tight_layout()
-                plt.savefig(f"{metrics_prefix}_client{cid}_loss_per_round.png")
+                plot_path = os.path.join(artifact_plots_dir, f"client{cid}_loss_per_round.png")
+                plt.savefig(plot_path)
                 plt.close()
                 # Plot DER per round
                 plt.figure(figsize=(8, 5))
@@ -745,11 +731,12 @@ def main():
                 plt.ylabel('DER')
                 plt.title(f'Client {cid} DER per Round')
                 plt.tight_layout()
-                plt.savefig(f"{metrics_prefix}_client{cid}_der_per_round.png")
+                plot_path = os.path.join(artifact_plots_dir, f"client{cid}_der_per_round.png")
+                plt.savefig(plot_path)
                 plt.close()
             # Now, per-epoch plots are removed in favor of per-round plots only
 
-        def plot_round_metrics(round_metrics, metrics_prefix):
+        def plot_round_metrics(round_metrics):
             rounds = [rm['round']+1 for rm in round_metrics]
             mean_loss = [rm['mean_loss'] for rm in round_metrics]
             mean_der = [rm['mean_der'] for rm in round_metrics]
@@ -760,7 +747,8 @@ def main():
             plt.ylabel('Loss')
             plt.title('Mean Train Loss per Round (all clients)')
             plt.tight_layout()
-            plt.savefig(f"{metrics_prefix}_mean_loss_per_round.png")
+            plot_path = os.path.join(artifact_plots_dir, "mean_loss_per_round.png")
+            plt.savefig(plot_path)
             plt.close()
             # Plot mean DER per round
             plt.figure(figsize=(8, 5))
@@ -769,7 +757,8 @@ def main():
             plt.ylabel('DER')
             plt.title('Mean DER per Round (all clients)')
             plt.tight_layout()
-            plt.savefig(f"{metrics_prefix}_mean_der_per_round.png")
+            plot_path = os.path.join(artifact_plots_dir, "mean_der_per_round.png")
+            plt.savefig(plot_path)
             plt.close()
             # Optionally: plot per-client loss/der per round
             for metric_name in ['train_loss', 'der']:
@@ -785,12 +774,13 @@ def main():
                 plt.title(f'{metric_name.replace("_", " ").title()} per Round (per client)')
                 plt.legend()
                 plt.tight_layout()
-                plt.savefig(f"{metrics_prefix}_{metric_name}_per_round_per_client.png")
+                plot_path = os.path.join(artifact_plots_dir, f"{metric_name}_per_round_per_client.png")
+                plt.savefig(plot_path)
                 plt.close()
 
         # Call plotting after experiment
-        plot_client_epoch_metrics(client_epoch_metrics, metrics_prefix)
-        plot_round_metrics(round_metrics, metrics_prefix)
+        plot_client_epoch_metrics(client_epoch_metrics)
+        plot_round_metrics(round_metrics)
 
     except KeyboardInterrupt:
         print("\nProcess interrupted by user. Cleaning up...")
