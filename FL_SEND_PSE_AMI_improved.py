@@ -38,6 +38,7 @@ from data_processing import (
     compute_speaker_embeddings
 )
 import time
+import argparse
 
 
 
@@ -456,6 +457,20 @@ def start_client(client: SENDClient, server_address: str):
         logger.error(f"Client error: {str(e)}")
 
 def main():
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Federated Learning for Overlapping Speech Diarization")
+    parser.add_argument('--test_size', type=int, default=6, help='Number of samples to use for testing')
+    parser.add_argument('--epochs', type=int, default=2, help='Number of epochs for local training')
+    parser.add_argument('--num_rounds', type=int, default=3, help='Number of federated learning rounds')
+    parser.add_argument('--num_clients', type=int, default=2, help='Number of federated clients')
+    args = parser.parse_args()
+
+    # Assign arguments to variables
+    test_size = args.test_size
+    epochs = args.epochs
+    num_rounds = args.num_rounds
+    num_clients = args.num_clients
+
     print("MAIN STARTED")
     print(f"[{datetime.now()}] MAIN: Starting main()")
     try:
@@ -478,9 +493,6 @@ def main():
         print(f"[{datetime.now()}] MAIN: Dataset loaded successfully")
         
         # Take a small subset for testing
-        test_size = 6
-        epochs = 2
-        num_rounds = 3
         print(f"[{datetime.now()}] MAIN: Using subset of {test_size} samples for testing")
         
         # Group data by meeting ID for all splits
@@ -520,7 +532,6 @@ def main():
         
         # Split data for federated learning with fewer clients
         print(f"[{datetime.now()}] MAIN: Splitting data for federated learning...")
-        num_clients = 2  # reduce number of clients for testing
         client_data = split_data_for_clients(grouped_train, num_clients, speaker_encoder)
         
         # Validate client data
