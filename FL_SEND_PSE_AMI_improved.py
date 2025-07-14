@@ -719,35 +719,35 @@ def main():
         # After simulation and final evaluation, plot and save metrics
         def plot_client_epoch_metrics(client_epoch_metrics, metrics_prefix):
             for cid, rounds in client_epoch_metrics.items():
-                # For each client, concatenate all epochs from all rounds
-                all_train_loss = []
-                all_der = []
-                epoch_labels = []
+                # For each client, aggregate metrics per round (use last epoch of each round)
+                round_train_loss = []
+                round_der = []
+                round_labels = []
                 for rnd, epoch_list in rounds.items():
-                    for eidx, em in enumerate(epoch_list):
-                        all_train_loss.append(em.get('train_loss'))
-                        all_der.append(em.get('der'))
-                        epoch_labels.append(f"r{rnd+1}e{eidx+1}")
-                # Plot loss
-                plt.figure(figsize=(12, 5))
-                plt.plot(epoch_labels, all_train_loss, marker='o', label='Train Loss')
-                plt.xlabel('Epoch (round+epoch)')
+                    if epoch_list:
+                        last_epoch = epoch_list[-1]
+                        round_train_loss.append(last_epoch.get('train_loss'))
+                        round_der.append(last_epoch.get('der'))
+                        round_labels.append(f"Round {rnd+1}")
+                # Plot loss per round
+                plt.figure(figsize=(8, 5))
+                plt.plot(round_labels, round_train_loss, marker='o', label='Train Loss')
+                plt.xlabel('Round')
                 plt.ylabel('Loss')
-                plt.title(f'Client {cid} Loss per Epoch')
-                plt.xticks(rotation=45)
+                plt.title(f'Client {cid} Loss per Round')
                 plt.tight_layout()
-                plt.savefig(f"{metrics_prefix}_client{cid}_loss.png")
+                plt.savefig(f"{metrics_prefix}_client{cid}_loss_per_round.png")
                 plt.close()
-                # Plot DER
-                plt.figure(figsize=(12, 5))
-                plt.plot(epoch_labels, all_der, marker='o', label='DER')
-                plt.xlabel('Epoch (round+epoch)')
+                # Plot DER per round
+                plt.figure(figsize=(8, 5))
+                plt.plot(round_labels, round_der, marker='o', label='DER')
+                plt.xlabel('Round')
                 plt.ylabel('DER')
-                plt.title(f'Client {cid} DER per Epoch')
-                plt.xticks(rotation=45)
+                plt.title(f'Client {cid} DER per Round')
                 plt.tight_layout()
-                plt.savefig(f"{metrics_prefix}_client{cid}_der.png")
+                plt.savefig(f"{metrics_prefix}_client{cid}_der_per_round.png")
                 plt.close()
+            # Now, per-epoch plots are removed in favor of per-round plots only
 
         def plot_round_metrics(round_metrics, metrics_prefix):
             rounds = [rm['round']+1 for rm in round_metrics]
