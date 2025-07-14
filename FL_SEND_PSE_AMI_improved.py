@@ -707,16 +707,16 @@ def main():
                 # For each client, aggregate metrics per round (use last epoch of each round)
                 round_train_loss = []
                 round_der = []
-                round_labels = []
+                round_numbers = []
                 for rnd, epoch_list in rounds.items():
                     if epoch_list:
                         last_epoch = epoch_list[-1]
                         round_train_loss.append(last_epoch.get('train_loss'))
                         round_der.append(last_epoch.get('der'))
-                        round_labels.append(f"Round {rnd+1}")
+                        round_numbers.append(rnd + 1)  # Use integer round number for x-axis
                 # Plot loss per round
                 plt.figure(figsize=(8, 5))
-                plt.plot(round_labels, round_train_loss, marker='o', label='Train Loss')
+                plt.plot(round_numbers, round_train_loss, marker='o', label='Train Loss')
                 plt.xlabel('Round')
                 plt.ylabel('Loss')
                 plt.title(f'Client {cid} Loss per Round')
@@ -726,7 +726,7 @@ def main():
                 plt.close()
                 # Plot DER per round
                 plt.figure(figsize=(8, 5))
-                plt.plot(round_labels, round_der, marker='o', label='DER')
+                plt.plot(round_numbers, round_der, marker='o', label='DER')
                 plt.xlabel('Round')
                 plt.ylabel('DER')
                 plt.title(f'Client {cid} DER per Round')
