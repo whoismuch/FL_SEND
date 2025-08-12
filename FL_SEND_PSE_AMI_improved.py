@@ -541,6 +541,58 @@ def main():
         
         print(f"[{datetime.now()}] MAIN: Split data among {len(client_data)} clients")
         
+        # Calculate and display actual training samples information
+        total_training_samples = 0
+        total_training_frames = 0
+        client_samples_info = []
+        
+        for client_idx, (train_loader, val_loader) in enumerate(client_data):
+            # Get actual number of samples and frames for this client
+            client_train_samples = len(train_loader.dataset)
+            client_val_samples = len(val_loader.dataset)
+            client_total_samples = client_train_samples + client_val_samples
+            
+            # Calculate actual frames from the dataset
+            client_frames = 0
+            if client_train_samples > 0:
+                # Get actual frame count from first sample
+                first_sample = train_loader.dataset[0]
+                if isinstance(first_sample, tuple) and len(first_sample) > 0:
+                    feature = first_sample[0]  # First element should be features
+                    if hasattr(feature, 'shape') and len(feature.shape) > 0:
+                        frames_per_sample = feature.shape[0]
+                        client_frames = client_total_samples * frames_per_sample
+                    else:
+                        client_frames = client_total_samples * 100  # Fallback estimate
+                else:
+                    client_frames = client_total_samples * 100  # Fallback estimate
+            else:
+                client_frames = 0
+            
+            total_training_samples += client_total_samples
+            total_training_frames += client_frames
+            
+            client_samples_info.append({
+                'client_id': client_idx,
+                'train_samples': client_train_samples,
+                'val_samples': client_val_samples,
+                'total_samples': client_total_samples,
+                'actual_frames': client_frames
+            })
+            
+            print(f"[{datetime.now()}] MAIN: Client {client_idx}: {client_train_samples} train samples, {client_val_samples} val samples, {client_total_samples} total samples, {client_frames} frames")
+        
+        print(f"[{datetime.now()}] MAIN: Total training samples across all clients: {total_training_samples}")
+        print(f"[{datetime.now()}] MAIN: Total training frames across all clients: {total_training_frames}")
+        
+        # Additional information about data distribution
+        if total_training_samples > 0:
+            avg_frames_per_sample = total_training_frames / total_training_samples
+            print(f"[{datetime.now()}] MAIN: Average frames per sample: {avg_frames_per_sample:.1f}")
+            print(f"[{datetime.now()}] MAIN: Note: test_size={test_size} refers to number of meeting recordings, not individual training samples")
+            print(f"[{datetime.now()}] MAIN: Each meeting recording contains multiple audio segments, each segment becomes multiple training samples")
+            print(f"[{datetime.now()}] MAIN: Each training sample contains multiple frames (time steps) for sequence learning")
+        
         # Compute speaker embeddings for train set
         print(f"[{datetime.now()}] MAIN: Computing speaker embeddings for train set...")
         speaker_to_embedding = compute_speaker_embeddings(grouped_train, speaker_encoder)
@@ -681,14 +733,34 @@ def main():
         # Prepare lines for logging
         result_lines = [
             f"Experiment: {exp_tag}",
-            f"Num records: {test_size}",
+            f"Num records (meetings): {test_size}",
             f"Num clients: {num_clients}",
             f"Num epochs: {epochs}",
             f"Num rounds: {num_rounds}",
             f"Datetime: {dt_str}",
+            f"",
+            f"=== TRAINING DATA STATISTICS ===",
+            f"Total training samples across all clients: {total_training_samples}",
+            f"Estimated total training frames across all clients: {total_training_frames}",
+            f"",
+        ]
+        
+        # Add per-client sample information
+        for client_info in client_samples_info:
+            result_lines.extend([
+                f"Client {client_info['client_id']}:",
+                f"  - Train samples: {client_info['train_samples']}",
+                f"  - Validation samples: {client_info['val_samples']}",
+                f"  - Total samples: {client_info['total_samples']}",
+                f"  - Actual frames: {client_info['actual_frames']}",
+                f""
+            ])
+        
+        result_lines.extend([
+            f"=== FINAL RESULTS ===",
             f"Final Test Loss: {test_loss:.4f}",
             f"Final DER: {der:.4f}",
-        ]
+        ])
         # Save to file and print to console (only artifact directory)
         print("\n===== SAVING FINAL RESULTS TO FILE =====")
         print(f"Results will be saved to: {exp_filepath}")
