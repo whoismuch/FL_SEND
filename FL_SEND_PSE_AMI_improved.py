@@ -27,6 +27,7 @@ import seaborn as sns
 from tqdm import tqdm
 import json
 from datetime import datetime
+import pandas as pd
 from data_processing import (
     split_data_for_clients, 
     extract_features, 
@@ -781,6 +782,169 @@ def main():
         # Call plotting after experiment
         plot_client_epoch_metrics(client_epoch_metrics)
         plot_round_metrics(round_metrics)
+
+        # === SAVE METRICS TO CSV FILES ===
+        def save_metrics_to_csv(client_epoch_metrics, round_metrics, exp_tag, artifact_logs_dir):
+            """Save all metrics to CSV files for detailed analysis."""
+            print("\n===== SAVING METRICS TO CSV FILES =====")
+            
+            # 1. Detailed metrics per client per round per epoch
+            detailed_metrics = []
+            for cid, rounds in client_epoch_metrics.items():
+                for round_num, epoch_list in rounds.items():
+                    for epoch_idx, epoch_metrics in enumerate(epoch_list):
+                        detailed_metrics.append({
+                            'round': round_num + 1,  # Convert to 1-based indexing
+                            'client_id': cid,
+                            'epoch': epoch_idx + 1,
+                            'train_loss': epoch_metrics.get('train_loss'),
+                            'val_loss': epoch_metrics.get('val_loss'),
+                            'der': epoch_metrics.get('der'),
+                            'acc': epoch_metrics.get('acc')
+                        })
+            
+            if detailed_metrics:
+                detailed_df = pd.DataFrame(detailed_metrics)
+                detailed_csv_path = os.path.join(artifact_logs_dir, "detailed_metrics.csv")
+                detailed_df.to_csv(detailed_csv_path, index=False)
+                print(f"Detailed metrics saved to: {detailed_csv_path}")
+                print(f"Shape: {detailed_df.shape}")
+                print(f"Columns: {list(detailed_df.columns)}")
+            
+            # 2. Aggregated metrics per round (mean/std across clients)
+            if round_metrics:
+                round_summary = []
+                for rm in round_metrics:
+                    round_num = rm['round'] + 1
+                    client_metrics = rm['client_metrics']
+                    
+                    # Extract metrics for this round
+                    train_losses = [cm.get('train_loss') for cm in client_metrics.values() if 'train_loss' in cm]
+                    val_losses = [cm.get('val_loss') for cm in client_metrics.values() if 'val_loss' in cm]
+                    ders = [cm.get('der') for cm in client_metrics.values() if 'der' in cm]
+                    
+                    # Calculate statistics
+                    round_summary.append({
+                        'round': round_num,
+                        'mean_train_loss': np.mean(train_losses) if train_losses else None,
+                        'std_train_loss': np.std(train_losses) if len(train_losses) > 1 else None,
+                        'mean_val_loss': np.mean(val_losses) if val_losses else None,
+                        'std_val_loss': np.std(val_losses) if len(val_losses) > 1 else None,
+                        'mean_der': np.mean(ders) if ders else None,
+                        'std_der': np.std(ders) if len(ders) > 1 else None,
+                        'num_clients': len(client_metrics)
+                    })
+                
+                round_summary_df = pd.DataFrame(round_summary)
+                round_summary_csv_path = os.path.join(artifact_logs_dir, "round_summary.csv")
+                round_summary_df.to_csv(round_summary_csv_path, index=False)
+                print(f"Round summary saved to: {round_summary_csv_path}")
+                print(f"Shape: {round_summary_df.shape}")
+            
+            # 3. Final experiment results
+            final_results = [{
+                'experiment_tag': exp_tag,
+                'test_size': test_size,
+                'num_clients': num_clients,
+                'num_epochs': epochs,
+                'num_rounds': num_rounds,
+                'datetime': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                'final_test_loss': test_loss,
+                'final_der': der,
+                'device_used': str(device),
+                'gpu_count': torch.cuda.device_count() if torch.cuda.is_available() else 0
+            }]
+            
+            final_results_df = pd.DataFrame(final_results)
+            final_results_csv_path = os.path.join(artifact_logs_dir, "experiment_results.csv")
+            final_results_df.to_csv(final_results_csv_path, index=False)
+            print(f"Final results saved to: {final_results_csv_path}")
+            
+            # 4. Client performance comparison (last round metrics)
+            if round_metrics:
+                last_round = round_metrics[-1]
+                client_comparison = []
+                for cid, metrics in last_round['client_metrics'].items():
+                    client_comparison.append({
+                        'client_id': cid,
+                        'final_round': len(round_metrics),
+                        'final_train_loss': metrics.get('train_loss'),
+                        'final_val_loss': metrics.get('val_loss'),
+                        'final_der': metrics.get('der'),
+                        'final_acc': metrics.get('acc')
+                    })
+                
+                client_comparison_df = pd.DataFrame(client_comparison)
+                client_comparison_csv_path = os.path.join(artifact_logs_dir, "client_comparison.csv")
+                client_comparison_df.to_csv(client_comparison_csv_path, index=False)
+                print(f"Client comparison saved to: {client_comparison_csv_path}")
+            
+            print("All CSV files saved successfully!")
+            return detailed_df if detailed_metrics else None
+
+        # Save metrics to CSV
+        detailed_df = save_metrics_to_csv(client_epoch_metrics, round_metrics, exp_tag, artifact_logs_dir)
+
+        # === ADDITIONAL ANALYSIS CSV FILES ===
+        def create_epoch_progress_csv(client_epoch_metrics, exp_tag, artifact_logs_dir):
+            """Create CSV file showing training progress across epochs for each client."""
+            print("\n===== CREATING EPOCH PROGRESS ANALYSIS =====")
+            
+            epoch_progress = []
+            for cid, rounds in client_epoch_metrics.items():
+                for round_num, epoch_list in rounds.items():
+                    for epoch_idx, epoch_metrics in enumerate(epoch_list):
+                        epoch_progress.append({
+                            'client_id': cid,
+                            'round': round_num + 1,
+                            'epoch': epoch_idx + 1,
+                            'train_loss': epoch_metrics.get('train_loss'),
+                            'val_loss': epoch_metrics.get('val_loss'),
+                            'der': epoch_metrics.get('der'),
+                            'acc': epoch_metrics.get('acc'),
+                            'round_epoch': f"R{round_num + 1}E{epoch_idx + 1}"
+                        })
+            
+            if epoch_progress:
+                epoch_progress_df = pd.DataFrame(epoch_progress)
+                
+                # Sort by client, round, epoch for better readability
+                epoch_progress_df = epoch_progress_df.sort_values(['client_id', 'round', 'epoch'])
+                
+                epoch_progress_csv_path = os.path.join(artifact_logs_dir, "epoch_progress.csv")
+                epoch_progress_df.to_csv(epoch_progress_csv_path, index=False)
+                print(f"Epoch progress analysis saved to: {epoch_progress_csv_path}")
+                print(f"Shape: {epoch_progress_df.shape}")
+                
+                # Create pivot table for easier analysis
+                try:
+                    # Pivot for train loss
+                    train_loss_pivot = epoch_progress_df.pivot_table(
+                        values='train_loss', 
+                        index='round', 
+                        columns='client_id', 
+                        aggfunc='mean'
+                    )
+                    train_loss_pivot.to_csv(os.path.join(artifact_logs_dir, "train_loss_pivot.csv"))
+                    
+                    # Pivot for DER
+                    der_pivot = epoch_progress_df.pivot_table(
+                        values='der', 
+                        index='round', 
+                        columns='client_id', 
+                        aggfunc='mean'
+                    )
+                    der_pivot.to_csv(os.path.join(artifact_logs_dir, "der_pivot.csv"))
+                    
+                    print("Pivot tables created for train_loss and DER")
+                except Exception as e:
+                    print(f"Could not create pivot tables: {e}")
+                
+                return epoch_progress_df
+            return None
+
+        # Create epoch progress analysis
+        epoch_progress_df = create_epoch_progress_csv(client_epoch_metrics, exp_tag, artifact_logs_dir)
 
     except KeyboardInterrupt:
         print("\nProcess interrupted by user. Cleaning up...")
