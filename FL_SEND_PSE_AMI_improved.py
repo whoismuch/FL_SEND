@@ -667,8 +667,9 @@ def main():
         gpus_per_client = max(1, num_gpus // num_clients) if num_gpus > 0 else 0
         print(f"Available GPUs: {num_gpus}, GPUs per client: {gpus_per_client}")
         
-        # Start simulation
-        fl.simulation.start_simulation(
+        # Start simulation and get final parameters
+        print("\n==================== STARTING FEDERATED LEARNING ====================\n")
+        final_parameters = fl.simulation.start_simulation(
             client_fn=client_fn,
             num_clients=num_clients,
             config=fl.server.ServerConfig(num_rounds=num_rounds),
@@ -685,8 +686,41 @@ def main():
             }
         )
         
-        # Final evaluation on test set
-        print("\n==================== TESTING STARTED ====================\n")
+        # Update the model with final parameters from federated learning
+        if final_parameters is not None:
+            print("\n==================== UPDATING MODEL WITH FINAL PARAMETERS ====================\n")
+            # Store original parameters for comparison
+            original_params = {key: val.clone() for key, val in model.state_dict().items()}
+            
+            # Convert final parameters back to model state dict
+            final_state_dict = {}
+            for (key, _), param in zip(model.state_dict().items(), final_parameters):
+                final_state_dict[key] = torch.tensor(param, dtype=model.state_dict()[key].dtype)
+            
+            # Load final parameters into model
+            model.load_state_dict(final_state_dict)
+            print("Model updated with final federated learning parameters")
+            
+            # Verify that parameters actually changed
+            param_changed = False
+            changed_count = 0
+            total_params = len(model.state_dict())
+            
+            for key in model.state_dict():
+                if not torch.equal(original_params[key], model.state_dict()[key]):
+                    param_changed = True
+                    changed_count += 1
+            
+            if param_changed:
+                change_percentage = (changed_count / total_params) * 100
+                print(f"✓ Model parameters successfully updated - {changed_count}/{total_params} parameters changed ({change_percentage:.1f}%)")
+            else:
+                print("⚠ Warning: Model parameters appear unchanged - this may indicate an issue")
+        else:
+            print("Warning: No final parameters received from federated learning")
+        
+        # Final evaluation on test set with UPDATED model
+        print("\n==================== TESTING STARTED (UPDATED MODEL) ====================\n")
         model.eval()
         test_loss = 0.0
         all_predictions = []
@@ -760,6 +794,8 @@ def main():
             f"=== FINAL RESULTS ===",
             f"Final Test Loss: {test_loss:.4f}",
             f"Final DER: {der:.4f}",
+            f"Model Status: {'UPDATED with FL parameters' if final_parameters is not None else 'ORIGINAL (no FL parameters)'}",
+            f"Parameters Changed: {changed_count if 'changed_count' in locals() else 'N/A'}/{total_params if 'total_params' in locals() else 'N/A'} ({(changed_count/total_params*100) if 'changed_count' in locals() and 'total_params' in locals() else 'N/A':.1f}%)",
         ])
         # Save to file and print to console (only artifact directory)
         print("\n===== SAVING FINAL RESULTS TO FILE =====")
