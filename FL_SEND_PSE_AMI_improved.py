@@ -669,7 +669,7 @@ def main():
         
         # Start simulation and get final parameters
         print("\n==================== STARTING FEDERATED LEARNING ====================\n")
-        final_parameters = fl.simulation.start_simulation(
+        history = fl.simulation.start_simulation(
             client_fn=client_fn,
             num_clients=num_clients,
             config=fl.server.ServerConfig(num_rounds=num_rounds),
@@ -686,6 +686,41 @@ def main():
             }
         )
         
+        # Get final parameters from the strategy after simulation
+        # Try different ways to get the final parameters
+        final_parameters = None
+        
+        # Debug: Print information about what we received
+        print(f"\n=== DEBUG: Simulation Results ===")
+        print(f"History type: {type(history)}")
+        print(f"History attributes: {dir(history)}")
+        if hasattr(history, 'losses_distributed'):
+            print(f"History losses: {history.losses_distributed}")
+        if hasattr(history, 'metrics_distributed'):
+            print(f"History metrics: {history.metrics_distributed}")
+        print(f"Strategy type: {type(strategy)}")
+        print(f"Strategy attributes: {dir(strategy)}")
+        if hasattr(strategy, 'parameters'):
+            print(f"Strategy parameters: {strategy.parameters is not None}")
+        if hasattr(strategy, 'initial_parameters'):
+            print(f"Strategy initial_parameters: {strategy.initial_parameters is not None}")
+        print(f"=== END DEBUG ===\n")
+        
+        # Method 1: Try to get from strategy.parameters
+        if hasattr(strategy, 'parameters') and strategy.parameters is not None:
+            final_parameters = strategy.parameters
+            print("✓ Got final parameters from strategy.parameters")
+        
+        # Method 2: Try to get from strategy.initial_parameters (if no training occurred)
+        elif hasattr(strategy, 'initial_parameters') and strategy.initial_parameters is not None:
+            final_parameters = strategy.initial_parameters
+            print("⚠ Using initial parameters (no training occurred)")
+        
+        # Method 3: Check if we can extract from history
+        elif hasattr(history, 'losses_distributed') and len(history.losses_distributed) > 0:
+            print("⚠ History contains training data but no parameters accessible")
+            print("   This may indicate the simulation completed but parameters are not accessible")
+        
         # Update the model with final parameters from federated learning
         if final_parameters is not None:
             print("\n==================== UPDATING MODEL WITH FINAL PARAMETERS ====================\n")
@@ -694,30 +729,43 @@ def main():
             
             # Convert final parameters back to model state dict
             final_state_dict = {}
-            for (key, _), param in zip(model.state_dict().items(), final_parameters):
-                final_state_dict[key] = torch.tensor(param, dtype=model.state_dict()[key].dtype)
             
-            # Load final parameters into model
-            model.load_state_dict(final_state_dict)
-            print("Model updated with final federated learning parameters")
-            
-            # Verify that parameters actually changed
-            param_changed = False
-            changed_count = 0
-            total_params = len(model.state_dict())
-            
-            for key in model.state_dict():
-                if not torch.equal(original_params[key], model.state_dict()[key]):
-                    param_changed = True
-                    changed_count += 1
-            
-            if param_changed:
-                change_percentage = (changed_count / total_params) * 100
-                print(f"✓ Model parameters successfully updated - {changed_count}/{total_params} parameters changed ({change_percentage:.1f}%)")
-            else:
-                print("⚠ Warning: Model parameters appear unchanged - this may indicate an issue")
+            try:
+                # Convert Flower parameters back to numpy arrays
+                final_params_numpy = fl.common.parameters_to_ndarrays(final_parameters)
+                
+                for i, (key, _) in enumerate(model.state_dict().items()):
+                    if i < len(final_params_numpy):
+                        final_state_dict[key] = torch.tensor(final_params_numpy[i], dtype=model.state_dict()[key].dtype)
+                    else:
+                        print(f"Warning: Parameter {key} not found in final parameters")
+                        final_state_dict[key] = model.state_dict()[key].clone()
+                
+                # Load final parameters into model
+                model.load_state_dict(final_state_dict)
+                print("Model updated with final federated learning parameters")
+                
+                # Verify that parameters actually changed
+                param_changed = False
+                changed_count = 0
+                total_params = len(model.state_dict())
+                
+                for key in model.state_dict():
+                    if not torch.equal(original_params[key], model.state_dict()[key]):
+                        param_changed = True
+                        changed_count += 1
+                
+                if param_changed:
+                    change_percentage = (changed_count / total_params) * 100
+                    print(f"✓ Model parameters successfully updated - {changed_count}/{total_params} parameters changed ({change_percentage:.1f}%)")
+                else:
+                    print("⚠ Warning: Model parameters appear unchanged - this may indicate an issue")
+                    
+            except Exception as e:
+                print(f"Error updating model parameters: {e}")
+                raise RuntimeError(f"Failed to update model with final parameters: {e}")
         else:
-            print("Warning: No final parameters received from federated learning")
+            raise RuntimeError("No final parameters received from federated learning. Cannot continue without updated model parameters.")
         
         # Final evaluation on test set with UPDATED model
         print("\n==================== TESTING STARTED (UPDATED MODEL) ====================\n")
