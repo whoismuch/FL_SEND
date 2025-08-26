@@ -649,11 +649,34 @@ def main():
             round_metrics.append(round_info)
             return {}
 
+        # Create a custom strategy that captures final parameters and ensures fit is executed
+        class SaveFinalParams(fl.server.strategy.FedAvg):
+            def __init__(self, **kwargs):
+                super().__init__(**kwargs)
+                self.final_parameters = None  # сюда положим агрегированные веса
+                print(f"✓ SaveFinalParams strategy initialized")
+            
+            def aggregate_fit(self, server_round, results, failures):
+                print(f"✓ Round {server_round}: aggregate_fit called with {len(results)} results, {len(failures)} failures")
+                aggregated, metrics = super().aggregate_fit(server_round, results, failures)
+                if aggregated is not None:
+                    self.final_parameters = aggregated  # сохраним на сервере
+                    print(f"✓ Round {server_round}: Parameters aggregated and saved")
+                else:
+                    print(f"⚠ Round {server_round}: No parameters aggregated")
+                return aggregated, metrics
+            
+            def configure_fit(self, server_round, parameters, client_manager):
+                print(f"✓ Round {server_round}: configure_fit called")
+                return super().configure_fit(server_round, parameters, client_manager)
+        
         # Use this aggregation function in strategy
-        strategy = fl.server.strategy.FedAvg(
+        strategy = SaveFinalParams(
             min_available_clients=num_clients,
             min_fit_clients=num_clients,
             min_evaluate_clients=num_clients,
+            fraction_fit=1.0,  # важно: 100% клиентов должны участвовать в fit
+            fraction_evaluate=1.0,  # и в evaluate
             on_fit_config_fn=lambda _: {"epochs": epochs},
             on_evaluate_config_fn=lambda _: {"epochs": 1},
             initial_parameters=fl.common.ndarrays_to_parameters(
@@ -704,17 +727,21 @@ def main():
             print(f"Strategy parameters: {strategy.parameters is not None}")
         if hasattr(strategy, 'initial_parameters'):
             print(f"Strategy initial_parameters: {strategy.initial_parameters is not None}")
+        if hasattr(strategy, 'final_parameters'):
+            print(f"Strategy final_parameters: {strategy.final_parameters is not None}")
+        if hasattr(strategy, 'final_parameters') and strategy.final_parameters is not None:
+            print(f"Strategy final_parameters type: {type(strategy.final_parameters)}")
         print(f"=== END DEBUG ===\n")
         
-        # Method 1: Try to get from strategy.parameters
-        if hasattr(strategy, 'parameters') and strategy.parameters is not None:
+        # Method 1: Try to get from our custom strategy's final_parameters
+        if hasattr(strategy, 'final_parameters') and strategy.final_parameters is not None:
+            final_parameters = strategy.final_parameters
+            print("✓ Got final parameters from custom strategy's final_parameters")
+        
+        # Method 2: Try to get from strategy.parameters (fallback)
+        elif hasattr(strategy, 'parameters') and strategy.parameters is not None:
             final_parameters = strategy.parameters
             print("✓ Got final parameters from strategy.parameters")
-        
-        # Method 2: Try to get from strategy.initial_parameters (if no training occurred)
-        elif hasattr(strategy, 'initial_parameters') and strategy.initial_parameters is not None:
-            final_parameters = strategy.initial_parameters
-            print("⚠ Using initial parameters (no training occurred)")
         
         # Method 3: Check if we can extract from history
         elif hasattr(history, 'losses_distributed') and len(history.losses_distributed) > 0:
@@ -765,7 +792,11 @@ def main():
                 print(f"Error updating model parameters: {e}")
                 raise RuntimeError(f"Failed to update model with final parameters: {e}")
         else:
-            raise RuntimeError("No final parameters received from federated learning. Cannot continue without updated model parameters.")
+            raise RuntimeError(
+                "No final parameters received from federated learning. "
+                "The custom strategy should have captured the final parameters. "
+                "This indicates an implementation issue that needs to be investigated."
+            )
         
         # Final evaluation on test set with UPDATED model
         print("\n==================== TESTING STARTED (UPDATED MODEL) ====================\n")
