@@ -369,7 +369,7 @@ def split_data_for_clients(grouped_data, num_clients, speaker_encoder, min_overl
                 logger.info(f"  - Non-overlapping: {client_non_overlap}")
                 logger.info(f"  - Natural overlaps: {client_natural_overlap}")
                 logger.info(f"  - Artificial overlaps: {client_artificial_overlap}")
-                # Инициализация списков для хранения признаков и меток
+                # Initialize lists for storing features and labels
                 raw_features = []
                 raw_labels = []
                 speaker_ids = []
@@ -596,7 +596,7 @@ def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, 
         pred_bits = power_set_encoder.decode(pred)
         if speaker_id_list is None:
             speaker_id_list = list(range(len(true_bits)))
-        # Используем frozenset для корректной работы pyannote
+        # Use frozenset for correct pyannote operation
         ref_speakers = frozenset(f"speaker_{speaker_id_list[idx]}" for idx, bit in enumerate(true_bits) if bit == 1)
         hyp_speakers = frozenset(f"speaker_{speaker_id_list[idx]}" for idx, bit in enumerate(pred_bits) if bit == 1)
         reference[Segment(i, i+1)] = ref_speakers
@@ -751,6 +751,6 @@ class OverlappingSpeechDataset(Dataset):
         feature = torch.tensor(self.features[idx], dtype=torch.float32)
         label = torch.tensor(self.labels[idx], dtype=torch.long)
         sid = self.speaker_ids[idx]
-        # Для SEND-style: возвращаем embedding всех спикеров (матрицу)
+        # For SEND-style: return embeddings of all speakers (matrix)
         all_embeddings = torch.stack([self.speaker_to_embedding[s] for s in sorted(self.speaker_to_embedding.keys())]).float()
         return feature, all_embeddings, label 

@@ -653,14 +653,14 @@ def main():
         class SaveFinalParams(fl.server.strategy.FedAvg):
             def __init__(self, **kwargs):
                 super().__init__(**kwargs)
-                self.final_parameters = None  # сюда положим агрегированные веса
+                self.final_parameters = None  # aggregated weights
                 print(f"✓ SaveFinalParams strategy initialized")
             
             def aggregate_fit(self, server_round, results, failures):
                 print(f"✓ Round {server_round}: aggregate_fit called with {len(results)} results, {len(failures)} failures")
                 aggregated, metrics = super().aggregate_fit(server_round, results, failures)
                 if aggregated is not None:
-                    self.final_parameters = aggregated  # сохраним на сервере
+                    self.final_parameters = aggregated  # save on server
                     print(f"✓ Round {server_round}: Parameters aggregated and saved")
                 else:
                     print(f"⚠ Round {server_round}: No parameters aggregated")
@@ -675,8 +675,8 @@ def main():
             min_available_clients=num_clients,
             min_fit_clients=num_clients,
             min_evaluate_clients=num_clients,
-            fraction_fit=1.0,  # важно: 100% клиентов должны участвовать в fit
-            fraction_evaluate=1.0,  # и в evaluate
+            fraction_fit=1.0,  # important: 100% of clients must participate in fit
+            fraction_evaluate=1.0,  # and in evaluate
             on_fit_config_fn=lambda _: {"epochs": epochs},
             on_evaluate_config_fn=lambda _: {"epochs": 1},
             initial_parameters=fl.common.ndarrays_to_parameters(
