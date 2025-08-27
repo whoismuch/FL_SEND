@@ -592,21 +592,37 @@ def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, 
             label = int(label)
         if label == -100:
             continue
-        true_bits = power_set_encoder.decode(label)
-        pred_bits = power_set_encoder.decode(pred)
+        
+        # Decode to get indices of active speakers
+        true_indices = set(power_set_encoder.decode(label))  # e.g., {0, 2}
+        pred_indices = set(power_set_encoder.decode(pred))   # e.g., {1, 3}
+        
         if speaker_id_list is None:
-            speaker_id_list = list(range(len(true_bits)))
-        # Use frozenset for correct pyannote operation
-        ref_speakers = frozenset(f"speaker_{speaker_id_list[idx]}" for idx, bit in enumerate(true_bits) if bit == 1)
-        hyp_speakers = frozenset(f"speaker_{speaker_id_list[idx]}" for idx, bit in enumerate(pred_bits) if bit == 1)
-        reference[Segment(i, i+1)] = ref_speakers
-        hypothesis[Segment(i, i+1)] = hyp_speakers
+            speaker_id_list = list(range(power_set_encoder.max_speakers))
+        
+        # Limit indices to known speakers
+        n_speakers = len(speaker_id_list)
+        true_indices = {idx for idx in true_indices if idx < n_speakers}
+        pred_indices = {idx for idx in pred_indices if idx < n_speakers}
+        
+        # Create time segment for this frame
+        t0, t1 = i, i + 1
+        
+        # REFERENCE: Add one segment per active speaker
+        ref_speakers = frozenset(f"speaker_{speaker_id_list[idx]}" for idx in true_indices)
+        reference[Segment(t0, t1)] = ref_speakers
+        
+        # HYPOTHESIS: Same approach
+        hyp_speakers = frozenset(f"speaker_{speaker_id_list[idx]}" for idx in pred_indices)
+        hypothesis[Segment(t0, t1)] = hyp_speakers
+        
         unique_label_values.add(label)
         unique_pred_values.add(pred)
-        active_speakers_labels.append(sum(true_bits))
-        active_speakers_preds.append(sum(pred_bits))
-        if debug and mismatches < 10 and true_bits != pred_bits:
-            print(f"[DER DEBUG] Frame {i}: label={label}, pred={pred}, true_bits={true_bits}, pred_bits={pred_bits}")
+        active_speakers_labels.append(len(true_indices))  # Count of active speakers
+        active_speakers_preds.append(len(pred_indices))   # Count of active speakers
+        
+        if debug and mismatches < 10 and true_indices != pred_indices:
+            print(f"[DER DEBUG] Frame {i}: label={label}, pred={pred}, true_indices={true_indices}, pred_indices={pred_indices}")
             mismatches += 1
     if debug:
         print(f"[DER DEBUG] speaker_id_list (bit mapping): {speaker_id_list}")

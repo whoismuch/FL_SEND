@@ -364,51 +364,9 @@ class SENDClient(NumPyClient):
         )
     
     def calculate_der(self, predictions: List[int], labels: List[int], speaker_id_list: list = None, debug: bool = True) -> float:
-        """Calculate Diarization Error Rate with detailed logging and correct multi-speaker segments."""
-        from pyannote.core import Segment, Annotation
-        from pyannote.metrics.diarization import DiarizationErrorRate
-        reference = Annotation()
-        hypothesis = Annotation()
-        mismatches = 0
-        unique_label_values = set()
-        unique_pred_values = set()
-        active_speakers_labels = []
-        active_speakers_preds = []
-        for i, (pred, label) in enumerate(zip(predictions, labels)):
-            if label == -100:
-                continue
-            true_bits = self.power_set_encoder.decode(label)
-            pred_bits = self.power_set_encoder.decode(pred)
-            if speaker_id_list is None:
-                speaker_id_list = list(range(len(true_bits)))
-            n_speakers = len(speaker_id_list)
-            # Truncate bit vectors to match speaker_id_list length
-            true_bits = true_bits[:n_speakers]
-            pred_bits = pred_bits[:n_speakers]
-            # Build reference and hypothesis speaker sets
-            ref_speakers = frozenset(f"speaker_{speaker_id_list[idx]}" for idx, bit in enumerate(true_bits) if bit == 1)
-            hyp_speakers = frozenset(f"speaker_{speaker_id_list[idx]}" for idx, bit in enumerate(pred_bits) if bit == 1)
-            reference[Segment(i, i+1)] = ref_speakers
-            hypothesis[Segment(i, i+1)] = hyp_speakers
-            unique_label_values.add(label)
-            unique_pred_values.add(pred)
-            active_speakers_labels.append(sum(true_bits))
-            active_speakers_preds.append(sum(pred_bits))
-            if debug and mismatches < 10 and true_bits != pred_bits:
-                print(f"[DER DEBUG] Frame {i}: label={label}, pred={pred}, true_bits={true_bits}, pred_bits={pred_bits}")
-                mismatches += 1
-        if debug:
-            print(f"[DER DEBUG] speaker_id_list (bit mapping): {speaker_id_list}")
-            print(f"[DER DEBUG] Unique label values: {unique_label_values}")
-            print(f"[DER DEBUG] Unique pred values: {unique_pred_values}")
-            print(f"[DER DEBUG] Active speakers per frame (labels): min={min(active_speakers_labels)}, max={max(active_speakers_labels)}, mean={np.mean(active_speakers_labels):.2f}")
-            print(f"[DER DEBUG] Active speakers per frame (preds): min={min(active_speakers_preds)}, max={max(active_speakers_preds)}, mean={np.mean(active_speakers_preds):.2f}")
-            print(f"[DER DEBUG] Reference segments (first 10): {list(reference.itertracks(yield_label=True))[:10]}")
-            print(f"[DER DEBUG] Hypothesis segments (first 10): {list(hypothesis.itertracks(yield_label=True))[:10]}")
-        metric = DiarizationErrorRate()
-        der = metric(reference, hypothesis)
-        print(f"[DER DEBUG] DER calculation: valid frames used = {len(predictions)}, DER = {der}")
-        return der
+        """Calculate Diarization Error Rate using the common function from data_processing."""
+        from data_processing import calculate_der as common_calculate_der
+        return common_calculate_der(predictions, labels, self.power_set_encoder, speaker_id_list, debug)
 
 def find_available_port(start_port: int = 8080, max_attempts: int = 10) -> int:
     """Find an available port starting from start_port.
