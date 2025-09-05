@@ -608,13 +608,15 @@ def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, 
         # Create time segment for this frame
         t0, t1 = i, i + 1
         
-        # REFERENCE: Add one segment per active speaker
-        ref_speakers = frozenset(f"speaker_{speaker_id_list[idx]}" for idx in true_indices)
-        reference[Segment(t0, t1)] = ref_speakers
+        # REFERENCE: Add separate track for each active speaker
+        for track_idx, idx in enumerate(true_indices):
+            speaker_name = f"speaker_{speaker_id_list[idx]}"
+            reference[Segment(t0, t1), track_idx] = speaker_name
         
-        # HYPOTHESIS: Same approach
-        hyp_speakers = frozenset(f"speaker_{speaker_id_list[idx]}" for idx in pred_indices)
-        hypothesis[Segment(t0, t1)] = hyp_speakers
+        # HYPOTHESIS: Same approach - separate track for each active speaker
+        for track_idx, idx in enumerate(pred_indices):
+            speaker_name = f"speaker_{speaker_id_list[idx]}"
+            hypothesis[Segment(t0, t1), track_idx] = speaker_name
         
         unique_label_values.add(label)
         unique_pred_values.add(pred)
@@ -770,3 +772,6 @@ class OverlappingSpeechDataset(Dataset):
         # For SEND-style: return embeddings of all speakers (matrix)
         all_embeddings = torch.stack([self.speaker_to_embedding[s] for s in sorted(self.speaker_to_embedding.keys())]).float()
         return feature, all_embeddings, label 
+    
+
+
