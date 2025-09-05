@@ -5,7 +5,7 @@ Test script to verify that the DER calculation fix works correctly for overlappi
 
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from data_processing import calculate_der
 from FL_SEND_PSE_AMI_improved import PowerSetEncoder
