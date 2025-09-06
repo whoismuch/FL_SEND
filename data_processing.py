@@ -598,24 +598,27 @@ def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, 
         pred_indices = set(power_set_encoder.decode(pred))   # e.g., {1, 3}
         
         if speaker_id_list is None:
+            # Create stable speaker ID list based on max_speakers
             speaker_id_list = list(range(power_set_encoder.max_speakers))
         
-        # Limit indices to known speakers
-        n_speakers = len(speaker_id_list)
-        true_indices = {idx for idx in true_indices if idx < n_speakers}
-        pred_indices = {idx for idx in pred_indices if idx < n_speakers}
+        # Limit indices to valid speaker indices (0 to max_speakers-1)
+        max_valid_idx = power_set_encoder.max_speakers - 1
+        true_indices = {idx for idx in true_indices if 0 <= idx <= max_valid_idx}
+        pred_indices = {idx for idx in pred_indices if 0 <= idx <= max_valid_idx}
         
         # Create time segment for this frame
         t0, t1 = i, i + 1
         
         # REFERENCE: Add separate track for each active speaker
         for track_idx, idx in enumerate(true_indices):
-            speaker_name = f"speaker_{speaker_id_list[idx]}"
+            # Use speaker index directly as speaker name for consistency
+            speaker_name = f"speaker_{idx}"
             reference[Segment(t0, t1), track_idx] = speaker_name
         
         # HYPOTHESIS: Same approach - separate track for each active speaker
         for track_idx, idx in enumerate(pred_indices):
-            speaker_name = f"speaker_{speaker_id_list[idx]}"
+            # Use speaker index directly as speaker name for consistency
+            speaker_name = f"speaker_{idx}"
             hypothesis[Segment(t0, t1), track_idx] = speaker_name
         
         unique_label_values.add(label)
@@ -627,7 +630,8 @@ def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, 
             print(f"[DER DEBUG] Frame {i}: label={label}, pred={pred}, true_indices={true_indices}, pred_indices={pred_indices}")
             mismatches += 1
     if debug:
-        print(f"[DER DEBUG] speaker_id_list (bit mapping): {speaker_id_list}")
+        print(f"[DER DEBUG] Power set encoder max_speakers: {power_set_encoder.max_speakers}")
+        print(f"[DER DEBUG] Valid speaker indices: 0 to {power_set_encoder.max_speakers - 1}")
         print(f"[DER DEBUG] Unique label values: {unique_label_values}")
         print(f"[DER DEBUG] Unique pred values: {unique_pred_values}")
         print(f"[DER DEBUG] Active speakers per frame (labels): min={min(active_speakers_labels)}, max={max(active_speakers_labels)}, mean={np.mean(active_speakers_labels):.2f}")
