@@ -36,7 +36,8 @@ from data_processing import (
     prepare_data_loaders,
     power_set_encoding,
     calculate_der,
-    compute_speaker_embeddings
+    compute_speaker_embeddings,
+    OverlappingSpeechDataset
 )
 import time
 import argparse
@@ -191,26 +192,6 @@ class SENDModel(nn.Module):
         out = self.classifier(combined)
         return out
 
-class OverlappingSpeechDataset(Dataset):
-    """Dataset for overlapping speech diarization."""
-    def __init__(self, features: np.ndarray, labels: np.ndarray, speaker_encoder: EncoderClassifier, speaker_to_embedding: Dict[int, np.ndarray]):
-        self.features = features
-        self.labels = labels
-        self.speaker_encoder = speaker_encoder
-        self.speaker_to_embedding = speaker_to_embedding
-        
-    def __len__(self) -> int:
-        return len(self.features)
-    
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        feature = torch.tensor(self.features[idx], dtype=torch.float32)
-        label = torch.tensor(self.labels[idx], dtype=torch.long)
-        
-        # Extract speaker embeddings
-        with torch.no_grad():
-            speaker_embedding = self.speaker_to_embedding[self.labels[idx]]
-        
-        return feature, speaker_embedding, label
 
 class SENDClient(NumPyClient):
     """Federated Learning client for SEND model."""
@@ -293,7 +274,8 @@ class SENDClient(NumPyClient):
                 # Group predictions by meeting_id
                 predictions_np = predictions.cpu().numpy()
                 labels_np = labels.cpu().numpy()
-                meeting_ids_flat = meeting_ids.reshape(-1)  # Flatten meeting_ids to match predictions shape
+                # meeting_ids: List[np.ndarray] (каждый длиной = max_len батча)
+                meeting_ids_flat = np.concatenate(meeting_ids, axis=0)  # => shape: [batch_size*seq_len]
                 
                 for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
                     if meeting_id is not None:  # Skip padded frames
@@ -377,7 +359,8 @@ class SENDClient(NumPyClient):
                 # Group predictions by meeting_id
                 predictions_np = predictions.cpu().numpy()
                 labels_np = labels.cpu().numpy()
-                meeting_ids_flat = meeting_ids.reshape(-1)  # Flatten meeting_ids to match predictions shape
+                # meeting_ids: List[np.ndarray] (каждый длиной = max_len батча)
+                meeting_ids_flat = np.concatenate(meeting_ids, axis=0)  # => shape: [batch_size*seq_len]
                 
                 for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
                     if meeting_id is not None:  # Skip padded frames
@@ -837,7 +820,8 @@ def main():
                 # Group predictions by meeting_id
                 predictions_np = predictions.cpu().numpy()
                 labels_np = labels.cpu().numpy()
-                meeting_ids_flat = meeting_ids.reshape(-1)  # Flatten meeting_ids to match predictions shape
+                # meeting_ids: List[np.ndarray] (каждый длиной = max_len батча)
+                meeting_ids_flat = np.concatenate(meeting_ids, axis=0)  # => shape: [batch_size*seq_len]
                 
                 for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
                     if meeting_id is not None:  # Skip padded frames
