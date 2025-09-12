@@ -266,9 +266,11 @@ class SENDClient(NumPyClient):
         for epoch in range(epochs):
             train_loss = 0.0
             batch_losses = []
-            all_predictions = []
-            all_labels = []
-            for batch_idx, (features, speaker_embeddings, labels) in enumerate(self.train_loader):
+            # Group predictions by meeting_id for proper DER calculation
+            pred_by_rec = defaultdict(list)
+            lab_by_rec = defaultdict(list)
+            
+            for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(self.train_loader):
                 if batch_idx == 0:
                     print(f"[{datetime.now()}] SENDClient: First batch in fit for client {id(self)} (epoch {epoch+1}/{epochs})")
                 features, speaker_embeddings, labels = features.to(self.device), speaker_embeddings.to(self.device), labels.to(self.device)
@@ -287,17 +289,47 @@ class SENDClient(NumPyClient):
                 train_loss += loss.item()
                 batch_losses.append(loss.item())
                 predictions = torch.argmax(outputs, dim=-1)
-                all_predictions.extend(predictions.cpu().numpy())
-                all_labels.extend(labels.cpu().numpy())
+                
+                # Group predictions by meeting_id
+                predictions_np = predictions.cpu().numpy()
+                labels_np = labels.cpu().numpy()
+                meeting_ids_flat = meeting_ids.reshape(-1)  # Flatten meeting_ids to match predictions shape
+                
+                for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
+                    if meeting_id is not None:  # Skip padded frames
+                        pred_by_rec[meeting_id].append(pred)
+                        lab_by_rec[meeting_id].append(label)
+                
                 if batch_idx % 10 == 0:
                     print(f"Batch {batch_idx}, Loss: {loss.item():.4f}")
                 if batch_idx == 0:
                     print(f"Batch {batch_idx}, labels shape: {labels.shape}, unique labels: {torch.unique(labels)}")
                     print(f"Batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(predictions)}")
+            
+            # Calculate DER per recording and aggregate
+            ders = {}
+            for rec_id in pred_by_rec:
+                if pred_by_rec[rec_id] and lab_by_rec[rec_id]:
+                    ders[rec_id] = self.calculate_der(
+                        pred_by_rec[rec_id],
+                        lab_by_rec[rec_id],
+                        speaker_id_list=None,
+                        debug=False,
+                        frame_shift=0.01,
+                        uri=rec_id
+                    )
+            
             # Metrics per epoch
             mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
+            # Calculate accuracy across all frames
+            all_predictions = []
+            all_labels = []
+            for rec_id in pred_by_rec:
+                all_predictions.extend(pred_by_rec[rec_id])
+                all_labels.extend(lab_by_rec[rec_id])
             acc = (np.array(all_predictions) == np.array(all_labels)).mean() if all_labels else float('nan')
-            der = self.calculate_der(all_predictions, all_labels) if all_labels else float('nan')
+            # Average DER across recordings
+            der = np.mean(list(ders.values())) if ders else float('nan')
             print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique labels: {np.unique(all_labels) if all_labels else 'EMPTY'}")
             print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique predictions: {np.unique(all_predictions) if all_predictions else 'EMPTY'}")
             print(f"[{datetime.now()}] SENDClient: Epoch {epoch+1}/{epochs} summary for client {id(self)}: min_loss={min(batch_losses) if batch_losses else 'nan'}, max_loss={max(batch_losses) if batch_losses else 'nan'}, mean_loss={mean_loss}, acc={acc}, DER={der}")
@@ -322,12 +354,13 @@ class SENDClient(NumPyClient):
         self.model.eval()
         val_loss = 0.0
         batch_losses = []
-        all_predictions = []
-        all_labels = []
+        # Group predictions by meeting_id for proper DER calculation
+        pred_by_rec = defaultdict(list)
+        lab_by_rec = defaultdict(list)
         start_time = time.time()
         epoch_metrics = []  # Collect metrics for each epoch (for compatibility)
         with torch.no_grad():
-            for batch_idx, (features, speaker_embeddings, labels) in enumerate(self.val_loader):
+            for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(self.val_loader):
                 if batch_idx == 0:
                     print(f"[{datetime.now()}] SENDClient: First batch in evaluate for client {id(self)}")
                 features, speaker_embeddings, labels = features.to(self.device), speaker_embeddings.to(self.device), labels.to(self.device)
@@ -340,15 +373,39 @@ class SENDClient(NumPyClient):
                 val_loss += loss.item()
                 batch_losses.append(loss.item())
                 predictions = torch.argmax(outputs, dim=-1)
-                all_predictions.extend(predictions.cpu().numpy())
-                all_labels.extend(labels.cpu().numpy())
+                
+                # Group predictions by meeting_id
+                predictions_np = predictions.cpu().numpy()
+                labels_np = labels.cpu().numpy()
+                meeting_ids_flat = meeting_ids.reshape(-1)  # Flatten meeting_ids to match predictions shape
+                
+                for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
+                    if meeting_id is not None:  # Skip padded frames
+                        pred_by_rec[meeting_id].append(pred)
+                        lab_by_rec[meeting_id].append(label)
+                
                 if batch_idx == 0:
                     print(f"Eval batch {batch_idx}, labels shape: {labels.shape}, unique labels: {np.unique(labels.cpu().numpy())}")
                     print(f"Eval batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {np.unique(predictions.cpu().numpy())}")
+        
+        # Calculate DER per recording and aggregate
+        ders = {}
+        for rec_id in pred_by_rec:
+            if pred_by_rec[rec_id] and lab_by_rec[rec_id]:
+                ders[rec_id] = self.calculate_der(
+                    pred_by_rec[rec_id],
+                    lab_by_rec[rec_id],
+                    speaker_id_list=None,
+                    debug=False,
+                    frame_shift=0.01,
+                    uri=rec_id
+                )
+        
         print(f"[{datetime.now()}] SENDClient: Eval summary for client {id(self)}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={np.mean(batch_losses):.4f}")
         elapsed = time.time() - start_time
         print(f"[{datetime.now()}] SENDClient: Finished evaluate for client {id(self)}, total time: {elapsed:.2f} sec")
-        der = self.calculate_der(all_predictions, all_labels)
+        # Average DER across recordings
+        der = np.mean(list(ders.values())) if ders else float('nan')
         print("=== CLIENT LOG: evaluate finished ===")
         print("=== CLIENT LOG: evaluate finished ===")
         # For compatibility, return epoch_metrics (single epoch for val) as JSON string
@@ -363,10 +420,10 @@ class SENDClient(NumPyClient):
             {"val_loss": val_loss / len(self.val_loader), "der": der, "epoch_metrics": json.dumps(epoch_metrics)}
         )
     
-    def calculate_der(self, predictions: List[int], labels: List[int], speaker_id_list: list = None, debug: bool = True) -> float:
+    def calculate_der(self, predictions: List[int], labels: List[int], speaker_id_list: list = None, debug: bool = True, frame_shift: float = 0.01, uri: str = None) -> float:
         """Calculate Diarization Error Rate using the common function from data_processing."""
         from data_processing import calculate_der as common_calculate_der
-        return common_calculate_der(predictions, labels, self.power_set_encoder, speaker_id_list, debug)
+        return common_calculate_der(predictions, labels, self.power_set_encoder, speaker_id_list, debug, frame_shift, uri)
 
 def find_available_port(start_port: int = 8080, max_attempts: int = 10) -> int:
     """Find an available port starting from start_port.
@@ -760,10 +817,11 @@ def main():
         print("\n==================== TESTING STARTED (UPDATED MODEL) ====================\n")
         model.eval()
         test_loss = 0.0
-        all_predictions = []
-        all_labels = []
+        # Group predictions by meeting_id for proper DER calculation
+        pred_by_rec = defaultdict(list)
+        lab_by_rec = defaultdict(list)
         with torch.no_grad():
-            for features, speaker_embeddings, labels in test_loader:
+            for features, speaker_embeddings, labels, meeting_ids in test_loader:
                 features, speaker_embeddings, labels = (
                     features.to(device),
                     speaker_embeddings.to(device),
@@ -775,13 +833,38 @@ def main():
                 loss = nn.CrossEntropyLoss()(outputs, labels)
                 test_loss += loss.item()
                 predictions = torch.argmax(outputs, dim=-1)
-                all_predictions.extend(predictions.cpu().numpy().flatten())
-                all_labels.extend(labels.cpu().numpy().flatten())
-        print(f"Test predictions shape: {np.array(all_predictions).shape}, unique: {np.unique(all_predictions)}")
-        print(f"Test labels shape: {np.array(all_labels).shape}, unique: {np.unique(all_labels)}")
+                
+                # Group predictions by meeting_id
+                predictions_np = predictions.cpu().numpy()
+                labels_np = labels.cpu().numpy()
+                meeting_ids_flat = meeting_ids.reshape(-1)  # Flatten meeting_ids to match predictions shape
+                
+                for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
+                    if meeting_id is not None:  # Skip padded frames
+                        pred_by_rec[meeting_id].append(pred)
+                        lab_by_rec[meeting_id].append(label)
+        
+        # Calculate DER per recording and aggregate
+        ders = {}
+        for rec_id in pred_by_rec:
+            if pred_by_rec[rec_id] and lab_by_rec[rec_id]:
+                ders[rec_id] = calculate_der(
+                    pred_by_rec[rec_id],
+                    lab_by_rec[rec_id],
+                    power_set_encoder,
+                    speaker_id_list=speaker_id_list,
+                    debug=True,
+                    frame_shift=0.01,
+                    uri=rec_id
+                )
+        
         # Calculate final metrics
         test_loss = test_loss / len(test_loader)
-        der = calculate_der(all_predictions, all_labels, power_set_encoder, speaker_id_list=speaker_id_list, debug=True)
+        der = np.mean(list(ders.values())) if ders else float('nan')
+        
+        print(f"Test recordings processed: {len(ders)}")
+        print(f"DER per recording: {ders}")
+        print(f"Average DER: {der}")
         print(f"\n==================== TESTING FINISHED ====================\n")
         print(f"Final Test Loss: {test_loss:.4f}")
         print(f"Final DER: {der:.4f}")
