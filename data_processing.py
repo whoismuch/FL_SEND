@@ -373,6 +373,7 @@ def split_data_for_clients(grouped_data, num_clients, speaker_encoder, min_overl
                 raw_features = []
                 raw_labels = []
                 speaker_ids = []
+                meeting_ids = []
                 for sample in samples:
                     feature = extract_features(sample["audio"]["array"])
                     if feature.shape[0] == 0:
@@ -383,19 +384,26 @@ def split_data_for_clients(grouped_data, num_clients, speaker_encoder, min_overl
                     label = np.full(feature.shape[0], sample["speaker_id"], dtype=np.int64)
                     raw_labels.append(label)
                     speaker_ids.append(sample["speaker_id"])
+                    # frame-wise meeting_ids
+                    meeting_id = np.full(feature.shape[0], sample.get("meeting_id", f"client_{client_id}"), dtype=object)
+                    meeting_ids.append(meeting_id)
                 if not raw_features:
                     logger.error(f"No valid features for client {client_id}, skipping client.")
                     continue
                 max_len = max(f.shape[0] for f in raw_features)
                 features_padded = []
                 labels_padded = []
-                for feature, label in zip(raw_features, raw_labels):
+                meeting_ids_padded = []
+                for feature, label, meeting_id in zip(raw_features, raw_labels, meeting_ids):
                     if feature.shape[0] < max_len:
                         pad_len = max_len - feature.shape[0]
                         feature = np.pad(feature, ((0, pad_len), (0, 0)), mode='constant')
                         label = np.pad(label, (0, pad_len), mode='constant', constant_values=-100)
+                        # Pad meeting_ids with None for padded frames
+                        meeting_id = np.pad(meeting_id, (0, pad_len), mode='constant', constant_values=None)
                     features_padded.append(feature)
                     labels_padded.append(label)
+                    meeting_ids_padded.append(meeting_id)
                 # Diagnostics: check that all sequence lengths are the same
                 lengths = [f.shape[0] for f in features_padded]
                 logger.info(f"All sequence lengths for client {client_id}: {set(lengths)}")
@@ -404,16 +412,21 @@ def split_data_for_clients(grouped_data, num_clients, speaker_encoder, min_overl
                     continue
                 features = np.array(features_padded)
                 labels = np.array(labels_padded)
-                train_size = int(0.8 * len(features))
+                meeting_ids_array = np.array(meeting_ids_padded)
+                # Ensure we have at least 1 sample for training
+                train_size = max(1, int(0.8 * len(features)))
                 val_size = len(features) - train_size
                 train_features = features[:train_size]
                 train_labels = labels[:train_size]
+                train_meeting_ids = meeting_ids_array[:train_size]
                 val_features = features[train_size:]
                 val_labels = labels[train_size:]
+                val_meeting_ids = meeting_ids_array[train_size:]
                 speaker_to_embedding = compute_speaker_embeddings(grouped_data, speaker_encoder)
                 train_dataset = OverlappingSpeechDataset(
                     features=train_features,
                     labels=train_labels,
+                    meeting_ids=train_meeting_ids,
                     speaker_ids=speaker_ids[:train_size],
                     speaker_to_embedding=speaker_to_embedding,
                     max_speakers=len(speaker_to_idx)
@@ -421,12 +434,35 @@ def split_data_for_clients(grouped_data, num_clients, speaker_encoder, min_overl
                 val_dataset = OverlappingSpeechDataset(
                     features=val_features,
                     labels=val_labels,
+                    meeting_ids=val_meeting_ids,
                     speaker_ids=speaker_ids[train_size:],
                     speaker_to_embedding=speaker_to_embedding,
                     max_speakers=len(speaker_to_idx)
                 )
-                train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
-                val_loader = DataLoader(val_dataset, batch_size=4, shuffle=False)
+                # Create data loaders with collate function
+                def collate_fn(batch):
+                    max_len = max(x[0].shape[0] for x in batch)
+                    features = []
+                    speaker_embeddings = []
+                    labels = []
+                    meeting_ids = []
+                    for feature, all_embeddings, label, meeting_id in batch:
+                        if feature.shape[0] < max_len:
+                            pad_len = max_len - feature.shape[0]
+                            feature = np.pad(feature, ((0, pad_len), (0, 0)), mode='constant')
+                            # Pad meeting_id array with None for padded frames
+                            meeting_id = np.pad(meeting_id, (0, pad_len), mode='constant', constant_values=None)
+                        features.append(feature)
+                        speaker_embeddings.append(all_embeddings)  # [num_speakers, 192]
+                        labels.append(label)
+                        meeting_ids.append(meeting_id)
+                    features = torch.tensor(np.array(features), dtype=torch.float32)
+                    speaker_embeddings = torch.stack(speaker_embeddings).float()  # [batch, num_speakers, 192]
+                    labels = torch.tensor(np.array(labels), dtype=torch.long)
+                    return features, speaker_embeddings, labels, meeting_ids
+                
+                train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True, collate_fn=collate_fn)
+                val_loader = DataLoader(val_dataset, batch_size=4, shuffle=False, collate_fn=collate_fn)
                 client_data.append((train_loader, val_loader))
                 logger.info(f"Created data loaders for client {client_id}")
             except KeyboardInterrupt:
