@@ -812,8 +812,15 @@ def main():
         # Group predictions by meeting_id for proper DER calculation
         pred_by_rec = defaultdict(list)
         lab_by_rec = defaultdict(list)
+        
+        # Debug: Check model parameters
+        print(f"[FINAL TEST DEBUG] Model parameters changed: {strategy.final_parameters is not None}")
+        if strategy.final_parameters:
+            print(f"[FINAL TEST DEBUG] Final parameters shape: {len(strategy.final_parameters.tensors)}")
+        
         with torch.no_grad():
-            for features, speaker_embeddings, labels, meeting_ids in test_loader:
+            for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(test_loader):
+                print(f"[FINAL TEST DEBUG] Processing batch {batch_idx}")
                 features, speaker_embeddings, labels = (
                     features.to(device),
                     speaker_embeddings.to(device),
@@ -825,6 +832,12 @@ def main():
                 loss = nn.CrossEntropyLoss()(outputs, labels)
                 test_loss += loss.item()
                 predictions = torch.argmax(outputs, dim=-1)
+                
+                # Debug: Check predictions
+                unique_preds = torch.unique(predictions).cpu().numpy()
+                unique_labels = torch.unique(labels).cpu().numpy()
+                print(f"[FINAL TEST DEBUG] Batch {batch_idx}: unique predictions: {unique_preds}")
+                print(f"[FINAL TEST DEBUG] Batch {batch_idx}: unique labels: {unique_labels}")
                 
                 # Group predictions by meeting_id
                 predictions_np = predictions.cpu().numpy()
@@ -839,13 +852,28 @@ def main():
         
         # Calculate DER per recording and aggregate
         ders = {}
+        # Get speaker_id_list from test dataset for consistency
+        test_speaker_id_list = test_loader.dataset.get_speaker_id_list() if hasattr(test_loader.dataset, 'get_speaker_id_list') else speaker_id_list
+        print(f"[FINAL TEST] Using speaker_id_list from test dataset: {test_speaker_id_list}")
+        
+        # Debug: Check predictions distribution
+        for rec_id in pred_by_rec:
+            if pred_by_rec[rec_id] and lab_by_rec[rec_id]:
+                unique_preds = np.unique(pred_by_rec[rec_id])
+                unique_labels = np.unique(lab_by_rec[rec_id])
+                print(f"[FINAL TEST DEBUG] Recording {rec_id}:")
+                print(f"  - Unique predictions: {unique_preds}")
+                print(f"  - Unique labels: {unique_labels}")
+                print(f"  - Prediction distribution: {np.bincount(pred_by_rec[rec_id])}")
+                print(f"  - Label distribution: {np.bincount(lab_by_rec[rec_id])}")
+        
         for rec_id in pred_by_rec:
             if pred_by_rec[rec_id] and lab_by_rec[rec_id]:
                 ders[rec_id] = calculate_der(
                     pred_by_rec[rec_id],
                     lab_by_rec[rec_id],
                     power_set_encoder,
-                    speaker_id_list=speaker_id_list,
+                    speaker_id_list=test_speaker_id_list,
                     debug=True,
                     frame_shift=0.01,
                     uri=rec_id
