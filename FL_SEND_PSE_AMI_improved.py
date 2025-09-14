@@ -271,7 +271,7 @@ class SENDClient(NumPyClient):
                 # Group predictions by meeting_id
                 predictions_np = predictions.cpu().numpy()
                 labels_np = labels.cpu().numpy()
-                # meeting_ids: List[np.ndarray] (каждый длиной = max_len батча)
+                # meeting_ids: List[np.ndarray] (each with length = max_len of batch)
                 meeting_ids_flat = np.concatenate(meeting_ids, axis=0)  # => shape: [batch_size*seq_len]
                 
                 for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
@@ -357,7 +357,7 @@ class SENDClient(NumPyClient):
                 # Group predictions by meeting_id
                 predictions_np = predictions.cpu().numpy()
                 labels_np = labels.cpu().numpy()
-                # meeting_ids: List[np.ndarray] (каждый длиной = max_len батча)
+                # meeting_ids: List[np.ndarray] (each with length = max_len of batch)
                 meeting_ids_flat = np.concatenate(meeting_ids, axis=0)  # => shape: [batch_size*seq_len]
                 
                 for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
@@ -818,6 +818,14 @@ def main():
         if strategy.final_parameters:
             print(f"[FINAL TEST DEBUG] Final parameters shape: {len(strategy.final_parameters.tensors)}")
         
+        # Debug: Check test dataset
+        print(f"[FINAL TEST DEBUG] Test dataset size: {len(test_loader.dataset)}")
+        print(f"[FINAL TEST DEBUG] Test dataset speaker_id_list: {test_loader.dataset.get_speaker_id_list()}")
+        
+        # Debug: Check model state before testing
+        model_params_before = [p.clone() for p in model.parameters()]
+        print(f"[FINAL TEST DEBUG] Model has {len(model_params_before)} parameters")
+        
         with torch.no_grad():
             for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(test_loader):
                 print(f"[FINAL TEST DEBUG] Processing batch {batch_idx}")
@@ -838,11 +846,17 @@ def main():
                 unique_labels = torch.unique(labels).cpu().numpy()
                 print(f"[FINAL TEST DEBUG] Batch {batch_idx}: unique predictions: {unique_preds}")
                 print(f"[FINAL TEST DEBUG] Batch {batch_idx}: unique labels: {unique_labels}")
+                print(f"[FINAL TEST DEBUG] Batch {batch_idx}: loss: {loss.item():.4f}")
+                
+                # Debug: Check if predictions are deterministic
+                if batch_idx == 0:
+                    first_pred = predictions[0].item()
+                    print(f"[FINAL TEST DEBUG] First prediction: {first_pred}")
                 
                 # Group predictions by meeting_id
                 predictions_np = predictions.cpu().numpy()
                 labels_np = labels.cpu().numpy()
-                # meeting_ids: List[np.ndarray] (каждый длиной = max_len батча)
+                # meeting_ids: List[np.ndarray] (each with length = max_len of batch)
                 meeting_ids_flat = np.concatenate(meeting_ids, axis=0)  # => shape: [batch_size*seq_len]
                 
                 for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
@@ -892,11 +906,53 @@ def main():
         print(f"Final Test Loss: {test_loss:.4f}")
         print(f"Final DER: {der:.4f}")
 
-        # === LOG FINAL RESULTS TO FILE ===
-        # Use actual experiment parameters, not hardcoded values
+        # === EXPORT DIARIZATION RESULTS TO RTTM FORMAT ===
+        print("\n===== EXPORTING DIARIZATION RESULTS =====")
+        
+        # Create experiment tag for export directory
         dt_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         dt_str_human = datetime.now().strftime("%Y-%m-%d-%H-%M")
         exp_tag = f"exp_{test_size}size_{epochs}epochs_{num_rounds}rounds_{num_clients}clients_{dt_str_human}"
+        
+        try:
+            from diarization_export import export_diarization_results
+            
+            # Create dictionary with speaker_id_lists for each recording
+            speaker_id_lists = {}
+            for rec_id in pred_by_rec:
+                if rec_id in test_loader.dataset.speaker_id_list:
+                    speaker_id_lists[rec_id] = test_loader.dataset.speaker_id_list[rec_id]
+                else:
+                    # Use general speaker list
+                    speaker_id_lists[rec_id] = test_speaker_id_list
+            
+            # Export results to various formats
+            # Create diarization export directory with experiment parameters
+            diarization_export_dir = os.path.join("out_artifacts", "diarization_export", exp_tag)
+            export_results = export_diarization_results(
+                predictions_by_recording=pred_by_rec,
+                power_set_encoder=power_set_encoder,
+                output_dir=diarization_export_dir,
+                speaker_id_lists=speaker_id_lists,
+                ground_truth_by_recording=lab_by_rec,
+                formats=['rttm', 'ctm', 'summary', 'metrics']
+            )
+            
+            print("Diarization results export completed:")
+            for format_name, files in export_results.items():
+                print(f"  {format_name.upper()}: {len(files)} files")
+                for file_path in files:
+                    print(f"    - {file_path}")
+                    
+        except ImportError as e:
+            print(f"[WARNING] Could not import export module: {e}")
+            print("Diarization results not exported to RTTM format")
+        except Exception as e:
+            print(f"[ERROR] Error exporting diarization results: {e}")
+            print("Diarization results not exported to RTTM format")
+
+        # === LOG FINAL RESULTS TO FILE ===
+        # Use actual experiment parameters, not hardcoded values
         # Artifact directories for logs and plots
         artifact_logs_dir = os.path.join("out_artifacts", "logs", exp_tag)
         artifact_plots_dir = os.path.join("out_artifacts", "plots", exp_tag)
