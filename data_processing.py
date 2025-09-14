@@ -415,13 +415,15 @@ def split_data_for_clients(grouped_data, num_clients, speaker_encoder, min_overl
                     features=train_features,
                     labels=train_labels,
                     speaker_ids=speaker_ids[:train_size],
-                    speaker_to_embedding=speaker_to_embedding
+                    speaker_to_embedding=speaker_to_embedding,
+                    max_speakers=len(speaker_to_idx)
                 )
                 val_dataset = OverlappingSpeechDataset(
                     features=val_features,
                     labels=val_labels,
                     speaker_ids=speaker_ids[train_size:],
-                    speaker_to_embedding=speaker_to_embedding
+                    speaker_to_embedding=speaker_to_embedding,
+                    max_speakers=len(speaker_to_idx)
                 )
                 train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
                 val_loader = DataLoader(val_dataset, batch_size=4, shuffle=False)
@@ -497,12 +499,13 @@ def group_by_meeting(dataset_split):
         grouped.setdefault(meeting_id, []).append(sample)
     return grouped
 
-def create_dataset_from_grouped(grouped_data, speaker_encoder):
-    """Create dataset from grouped data with proper padding.
+def create_dataset_from_grouped(grouped_data, speaker_encoder, N=4):
+    """Create dataset from grouped data with proper padding and fixed N slots per recording.
     
     Args:
         grouped_data: Dictionary of meeting_id to samples
         speaker_encoder: Speaker encoder model
+        N: Maximum number of speaker slots per recording (fixed for PSE)
         
     Returns:
         Tuple of (features, labels, meeting_ids): Dataset with padded features and meeting IDs
@@ -515,30 +518,36 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder):
     raw_meeting_ids = []
     speaker_ids = []
     
-    # Create speaker ID to index mapping
-    speaker_to_idx = {}
-    for meeting_id, samples in grouped_data.items():
-        for sample in samples:
-            speaker_id = sample["speaker_id"]
-            if speaker_id not in speaker_to_idx:
-                speaker_to_idx[speaker_id] = len(speaker_to_idx)
-    
-    logger.info(f"Created speaker ID mapping: {speaker_to_idx}")
-    
     # First pass: extract features and find max length
     for meeting_id, samples in grouped_data.items():
+        # Create speaker-to-slot mapping for this recording (max N slots)
+        meeting_speakers = list(set(sample["speaker_id"] for sample in samples))
+        speaker_to_slot = {}
+        for i, speaker_id in enumerate(meeting_speakers[:N]):  # Limit to N slots
+            speaker_to_slot[speaker_id] = i
+        
+        logger.info(f"Meeting {meeting_id}: {len(meeting_speakers)} speakers mapped to slots {list(speaker_to_slot.values())}")
+        
         for sample in samples:
             # Extract features
             feature = extract_features(sample["audio"]["array"])
             raw_features.append(feature)
-            # Convert string speaker ID to numeric index
-            speaker_idx = speaker_to_idx[sample["speaker_id"]]
-            label = power_set_encoding(speaker_idx)
+            
+            # Map speaker to slot (0 to N-1) and encode
+            speaker_id = sample["speaker_id"]
+            if speaker_id in speaker_to_slot:
+                slot_idx = speaker_to_slot[speaker_id]
+                label = power_set_encoding(slot_idx)  # Single speaker in slot
+            else:
+                # Speaker not in top-N, assign to slot 0 (or handle differently)
+                logger.warning(f"Speaker {speaker_id} not in top-{N} for meeting {meeting_id}, assigning to slot 0")
+                label = power_set_encoding(0)
+            
             # frame-wise labels
             raw_labels.append(np.full(feature.shape[0], label, dtype=np.int64))
             # frame-wise meeting_ids
             raw_meeting_ids.append(np.full(feature.shape[0], meeting_id, dtype=object))
-            speaker_ids.append(sample["speaker_id"])
+            speaker_ids.append(speaker_id)
     
     # Find max sequence length
     max_len = max(f.shape[0] for f in raw_features)
@@ -626,14 +635,18 @@ def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, 
         
         # REFERENCE: Add separate track for each active speaker
         for track_idx, idx in enumerate(true_indices):
-            # Use speaker index directly as speaker name for consistency
-            speaker_name = f"speaker_{idx}"
+            if idx < len(speaker_id_list):
+                speaker_name = f"speaker_{speaker_id_list[idx]}"
+            else:
+                speaker_name = f"speaker_slot_{idx}"
             reference[Segment(t0, t1), track_idx] = speaker_name
         
         # HYPOTHESIS: Same approach - separate track for each active speaker
         for track_idx, idx in enumerate(pred_indices):
-            # Use speaker index directly as speaker name for consistency
-            speaker_name = f"speaker_{idx}"
+            if idx < len(speaker_id_list):
+                speaker_name = f"speaker_{speaker_id_list[idx]}"
+            else:
+                speaker_name = f"speaker_slot_{idx}"
             hypothesis[Segment(t0, t1), track_idx] = speaker_name
         
         unique_label_values.add(label)
@@ -659,12 +672,12 @@ def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, 
     print(f"[DER DEBUG] DER calculation: valid frames used = {len(predictions)}, DER = {der}")
     return der
 
-def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speaker_encoder, batch_size=4, speaker_to_embedding=None):
+def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speaker_encoder, batch_size=4, speaker_to_embedding=None, N=4):
     """Prepare data loaders for training, validation and testing."""
     # Create datasets
-    train_features, train_labels, train_meeting_ids = create_dataset_from_grouped(grouped_train, speaker_encoder)
-    val_features, val_labels, val_meeting_ids = create_dataset_from_grouped(grouped_validation, speaker_encoder)
-    test_features, test_labels, test_meeting_ids = create_dataset_from_grouped(grouped_test, speaker_encoder)
+    train_features, train_labels, train_meeting_ids = create_dataset_from_grouped(grouped_train, speaker_encoder, N)
+    val_features, val_labels, val_meeting_ids = create_dataset_from_grouped(grouped_validation, speaker_encoder, N)
+    test_features, test_labels, test_meeting_ids = create_dataset_from_grouped(grouped_test, speaker_encoder, N)
     
     # Create speaker ID to index mapping for speaker_ids list
     speaker_to_idx = {}
@@ -697,21 +710,24 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
         labels=train_labels,
         meeting_ids=train_meeting_ids,
         speaker_ids=train_speaker_ids,
-        speaker_to_embedding=compute_speaker_embeddings(grouped_train, speaker_encoder)
+        speaker_to_embedding=compute_speaker_embeddings(grouped_train, speaker_encoder),
+        max_speakers=N
     )
     val_dataset = OverlappingSpeechDataset(
         features=val_features,
         labels=val_labels,
         meeting_ids=val_meeting_ids,
         speaker_ids=val_speaker_ids,
-        speaker_to_embedding=compute_speaker_embeddings(grouped_validation, speaker_encoder)
+        speaker_to_embedding=compute_speaker_embeddings(grouped_validation, speaker_encoder),
+        max_speakers=N
     )
     test_dataset = OverlappingSpeechDataset(
         features=test_features,
         labels=test_labels,
         meeting_ids=test_meeting_ids,
         speaker_ids=test_speaker_ids,
-        speaker_to_embedding=compute_speaker_embeddings(grouped_test, speaker_encoder)
+        speaker_to_embedding=compute_speaker_embeddings(grouped_test, speaker_encoder),
+        max_speakers=N
     )
     
     # Create data loaders with collate function
@@ -832,22 +848,49 @@ def compute_speaker_embeddings(grouped_data, speaker_encoder):
 
 class OverlappingSpeechDataset(Dataset):
     """Dataset for overlapping speech diarization."""
-    def __init__(self, features: np.ndarray, labels: np.ndarray, meeting_ids: np.ndarray, speaker_ids: list, speaker_to_embedding: dict):
+    def __init__(self, features: np.ndarray, labels: np.ndarray, meeting_ids: np.ndarray, speaker_ids: list, speaker_to_embedding: dict, max_speakers: int = 4):
         self.features = features
         self.labels = labels
         self.meeting_ids = meeting_ids
         self.speaker_ids = speaker_ids
         self.speaker_to_embedding = speaker_to_embedding
+        self.max_speakers = max_speakers
+        
+        # Create stable mapping: slot -> speaker_id
+        # This ensures consistent ordering across all samples
+        ordered_spk_ids = sorted(self.speaker_to_embedding.keys())
+        self.speaker_id_list = ordered_spk_ids[:max_speakers]  # Limit to max_speakers
+        
+        # Create embeddings matrix in the same order as speaker_id_list
+        self.all_embeddings = torch.stack([
+            self.speaker_to_embedding[sid] for sid in self.speaker_id_list
+        ]).float()
+        
+        # Assertions for consistency
+        assert len(self.speaker_id_list) <= max_speakers, \
+            f"speaker_id_list length ({len(self.speaker_id_list)}) > max_speakers ({max_speakers})"
+        assert self.all_embeddings.shape[0] == len(self.speaker_id_list), \
+            f"embeddings rows ({self.all_embeddings.shape[0]}) != speaker_id_list length ({len(self.speaker_id_list)})"
+        
+        # Log the mapping for debugging
+        print(f"[OverlappingSpeechDataset] Slot->Speaker mapping: {dict(enumerate(self.speaker_id_list))}")
+        print(f"[OverlappingSpeechDataset] Embeddings shape: {self.all_embeddings.shape}")
+        
     def __len__(self) -> int:
         return len(self.features)
+    
     def __getitem__(self, idx: int) -> tuple:
         feature = torch.tensor(self.features[idx], dtype=torch.float32)
         label = torch.tensor(self.labels[idx], dtype=torch.long)
         meeting_id = self.meeting_ids[idx]
         sid = self.speaker_ids[idx]
-        # For SEND-style: return embeddings of all speakers (matrix)
-        all_embeddings = torch.stack([self.speaker_to_embedding[s] for s in sorted(self.speaker_to_embedding.keys())]).float()
-        return feature, all_embeddings, label, meeting_id 
+        
+        # Return the pre-computed embeddings matrix
+        return feature, self.all_embeddings, label, meeting_id
+    
+    def get_speaker_id_list(self):
+        """Get the stable speaker ID list for DER calculation."""
+        return self.speaker_id_list 
     
 
 

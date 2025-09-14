@@ -234,10 +234,7 @@ class SENDClient(NumPyClient):
     def fit(self, parameters, config):
         print("=== CLIENT LOG: fit started ===")
         print(f"[DEBUG] fit: train_loader size: {len(self.train_loader)}")
-        print(f"[DEBUG] fit: number of batches: {len(list(self.train_loader))}")
-        print(f"=== aaa ===")
-        print(f"=== bbb ===")
-        print("=== CLIENT LOG: fit started ===")
+        print(f"[DEBUG] fit: number of batches: {len(self.train_loader)}")
         print(f"[{datetime.now()}] SENDClient: Starting fit for client {id(self)}")
         self.set_parameters(parameters)
         self.model.train()
@@ -292,10 +289,12 @@ class SENDClient(NumPyClient):
             ders = {}
             for rec_id in pred_by_rec:
                 if pred_by_rec[rec_id] and lab_by_rec[rec_id]:
+                    # Get speaker_id_list from the dataset
+                    speaker_id_list = self.train_loader.dataset.get_speaker_id_list() if hasattr(self.train_loader.dataset, 'get_speaker_id_list') else None
                     ders[rec_id] = self.calculate_der(
                         pred_by_rec[rec_id],
                         lab_by_rec[rec_id],
-                        speaker_id_list=None,
+                        speaker_id_list=speaker_id_list,
                         debug=False,
                         frame_shift=0.01,
                         uri=rec_id
@@ -329,7 +328,6 @@ class SENDClient(NumPyClient):
         return self.get_parameters({}), len(self.train_loader), {"train_loss": mean_loss, "epoch_metrics": json.dumps(epoch_metrics)}
     
     def evaluate(self, parameters, config):
-        print("=== CLIENT LOG: evaluate started ===")
         print("=== CLIENT LOG: evaluate started ===")
         print(f"[{datetime.now()}] SENDClient: Starting evaluate for client {id(self)}")
         self.set_parameters(parameters)
@@ -375,10 +373,12 @@ class SENDClient(NumPyClient):
         ders = {}
         for rec_id in pred_by_rec:
             if pred_by_rec[rec_id] and lab_by_rec[rec_id]:
+                # Get speaker_id_list from the dataset
+                speaker_id_list = self.val_loader.dataset.get_speaker_id_list() if hasattr(self.val_loader.dataset, 'get_speaker_id_list') else None
                 ders[rec_id] = self.calculate_der(
                     pred_by_rec[rec_id],
                     lab_by_rec[rec_id],
-                    speaker_id_list=None,
+                    speaker_id_list=speaker_id_list,
                     debug=False,
                     frame_shift=0.01,
                     uri=rec_id
@@ -389,7 +389,6 @@ class SENDClient(NumPyClient):
         print(f"[{datetime.now()}] SENDClient: Finished evaluate for client {id(self)}, total time: {elapsed:.2f} sec")
         # Average DER across recordings
         der = np.mean(list(ders.values())) if ders else float('nan')
-        print("=== CLIENT LOG: evaluate finished ===")
         print("=== CLIENT LOG: evaluate finished ===")
         # For compatibility, return epoch_metrics (single epoch for val) as JSON string
         mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
@@ -504,26 +503,36 @@ def main():
         print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_validation)} meetings from validation set")
         print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_test)} meetings from test set")
         
+        # PSE/SEND Configuration: Fixed N and K (as per original paper)
+        N = 4  # Maximum number of target speakers per recording
+        K = 3  # Maximum simultaneous overlap (2-4 as per paper)
+        
         # Prepare test_loader for final evaluation
         _, _, test_loader = prepare_data_loaders(
-            grouped_train, grouped_validation, grouped_test, speaker_encoder
+            grouped_train, grouped_validation, grouped_test, speaker_encoder, N=N
         )
         
-        # Determine number of unique speakers across all splits
+        # Calculate number of classes using C(K,N) formula
+        from math import comb
+        num_classes = sum(comb(N, k) for k in range(K + 1))
+        print(f"[{datetime.now()}] MAIN: PSE Configuration: N={N} (max speakers per recording), K={K} (max overlap)")
+        print(f"[{datetime.now()}] MAIN: Number of classes C(K,N) = Σ(k=0 to {K}) C({N},k) = {num_classes}")
+        
+        # Get all unique speakers for speaker embedding computation
         speaker_ids = set()
         for grouped in [grouped_train, grouped_validation, grouped_test]:
             for samples in grouped.values():
                 for sample in samples:
                     speaker_ids.add(sample["speaker_id"])
-        speaker_id_list = sorted(list(speaker_ids))
-        num_speakers = len(speaker_id_list)
-        num_classes = 2 ** num_speakers
-        print(f"[{datetime.now()}] MAIN: Detected {num_speakers} unique speakers, num_classes={num_classes}")
-        print(f"[{datetime.now()}] MAIN: speaker_ids: {speaker_id_list}")
+        all_speaker_ids = sorted(list(speaker_ids))
+        speaker_id_list = all_speaker_ids[:N]  # Limit to N slots for PSE consistency
+        print(f"[{datetime.now()}] MAIN: Detected {len(all_speaker_ids)} unique speakers in dataset: {all_speaker_ids}")
+        print(f"[{datetime.now()}] MAIN: Using first {len(speaker_id_list)} speakers for PSE slots: {speaker_id_list}")
+        print(f"[{datetime.now()}] MAIN: Note: PSE uses fixed N={N} slots per recording, not all {len(all_speaker_ids)} speakers")
         
-        # Initialize Power Set Encoder
-        print(f"[{datetime.now()}] MAIN: Initializing Power Set Encoder with max_speakers={num_speakers}")
-        power_set_encoder = PowerSetEncoder(max_speakers=num_speakers)
+        # Initialize Power Set Encoder with fixed N
+        print(f"[{datetime.now()}] MAIN: Initializing Power Set Encoder with max_speakers={N}")
+        power_set_encoder = PowerSetEncoder(max_speakers=N)
         
         # Create and train model
         print(f"[{datetime.now()}] MAIN: Creating SEND model...")
