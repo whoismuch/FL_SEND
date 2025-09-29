@@ -1,0 +1,306 @@
+INFO:numexpr.utils:NumExpr defaulting to 8 threads.
+/Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/pyannote/core/notebook.py:134: MatplotlibDeprecationWarning: The get_cmap function was deprecated in Matplotlib 3.7 and will be removed two minor releases later. Use ``matplotlib.colormaps[name]`` or ``matplotlib.colormaps.get_cmap(obj)`` instead.
+  cm = get_cmap("Set1")
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint save hook for _speechbrain_save
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint load hook for _speechbrain_load
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint save hook for save
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint load hook for load
+INFO:speechbrain.utils.quirks:Applied quirks (see `speechbrain.utils.quirks`): [disable_jit_profiling, allow_tf32]
+INFO:speechbrain.utils.quirks:Excluded quirks specified by the `SB_DISABLE_QUIRKS` environment (comma-separated list): []
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint save hook for _save
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint load hook for _recover
+/Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/FL_SEND_PSE_AMI_improved.py:24: UserWarning: Module 'speechbrain.pretrained' was deprecated, redirecting to 'speechbrain.inference'. Please update your script. This is a change from SpeechBrain 1.0. See: https://github.com/speechbrain/speechbrain/releases/tag/v1.0.0
+  from speechbrain.pretrained import EncoderClassifier
+/Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/jupyter_client/connect.py:27: DeprecationWarning: Jupyter is migrating its paths to use standard platformdirs
+given by the platformdirs library.  To remove this warning and
+see the appropriate new directories, set the environment variable
+`JUPYTER_PLATFORM_DIRS=1` and then run `jupyter --paths`.
+The use of platformdirs will be the default in `jupyter_core` v6
+  from jupyter_core.paths import jupyter_data_dir
+INFO:speechbrain.utils.fetching:Fetch hyperparams.yaml: Using symlink found at '/Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/hyperparams.yaml'
+INFO:speechbrain.utils.fetching:Fetch custom.py: Fetching from HuggingFace Hub 'speechbrain/spkrec-ecapa-voxceleb' if not cached
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint save hook for _save
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint load hook for _load
+DEBUG:speechbrain.utils.checkpoints:Registered parameter transfer hook for _load
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint save hook for save
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint load hook for load_if_possible
+DEBUG:speechbrain.utils.parameter_transfer:Collecting files (or symlinks) for pretraining in pretrained_models/spkrec-ecapa.
+INFO:speechbrain.utils.fetching:Fetch embedding_model.ckpt: Using symlink found at '/Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/embedding_model.ckpt'
+DEBUG:speechbrain.utils.parameter_transfer:Set local path in self.paths["embedding_model"] = /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/embedding_model.ckpt
+INFO:speechbrain.utils.fetching:Fetch mean_var_norm_emb.ckpt: Using symlink found at '/Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/mean_var_norm_emb.ckpt'
+DEBUG:speechbrain.utils.parameter_transfer:Set local path in self.paths["mean_var_norm_emb"] = /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/mean_var_norm_emb.ckpt
+INFO:speechbrain.utils.fetching:Fetch classifier.ckpt: Using symlink found at '/Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/classifier.ckpt'
+DEBUG:speechbrain.utils.parameter_transfer:Set local path in self.paths["classifier"] = /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/classifier.ckpt
+INFO:speechbrain.utils.fetching:Fetch label_encoder.txt: Using symlink found at '/Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/label_encoder.ckpt'
+DEBUG:speechbrain.utils.parameter_transfer:Set local path in self.paths["label_encoder"] = /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/label_encoder.ckpt
+INFO:speechbrain.utils.parameter_transfer:Loading pretrained files for: embedding_model, mean_var_norm_emb, classifier, label_encoder
+DEBUG:speechbrain.utils.parameter_transfer:Redirecting (loading from local path): embedding_model -> /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/embedding_model.ckpt
+DEBUG:speechbrain.utils.parameter_transfer:Redirecting (loading from local path): mean_var_norm_emb -> /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/mean_var_norm_emb.ckpt
+DEBUG:speechbrain.utils.parameter_transfer:Redirecting (loading from local path): classifier -> /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/classifier.ckpt
+DEBUG:speechbrain.utils.parameter_transfer:Redirecting (loading from local path): label_encoder -> /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/label_encoder.ckpt
+DEBUG:speechbrain.dataio.encoder:Loaded categorical encoding from /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/label_encoder.ckpt
+WARNING:datasets.builder:Found cached dataset ami (/Users/khumachbayramova/.cache/huggingface/datasets/edinburghcstr___ami/ihm/0.0.0/0d128d0aa8145d0f16f3d5b4da86c5d5759dbe9e8f947fda04b25edb56442bd5)
+Using device: cpu
+MAIN STARTED
+[2025-09-26 20:41:16.312241] MAIN: Starting main()
+[2025-09-26 20:41:16.312256] MAIN: Using device: cpu
+[2025-09-26 20:41:16.312259] MAIN: Initializing speaker encoder...
+[2025-09-26 20:41:16.874705] MAIN: Speaker encoder initialized successfully
+[2025-09-26 20:41:16.874740] MAIN: Loading AMI dataset...
+  0%|          | 0/3 [00:00<?, ?it/s]100%|██████████| 3/3 [00:00<00:00, 76.87it/s]
+/Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/librosa/core/intervals.py:15: DeprecationWarning: path is deprecated. Use files() instead. Refer to https://importlib-resources.readthedocs.io/en/latest/using.html#migrating-from-legacy for migration advice.
+  with resources.path("librosa.core", "intervals.msgpack") as imsgpack:
+INFO:data_processing:Meeting EN2001a: 4 speakers mapped to slots [0, 1, 2, 3]
+INFO:data_processing:Max sequence length: 991
+INFO:data_processing:=== DATASET STATISTICS ===
+INFO:data_processing:Dataset size (number of samples): 10
+INFO:data_processing:Feature shape (samples, frames, mel-bands): (10, 991, 80)
+INFO:data_processing:Label shape: (10, 991)
+INFO:data_processing:Meeting IDs shape: (10, 991)
+INFO:data_processing:Frame size (number of frames per sample): min=38, max=991, mean=461.7
+INFO:data_processing:Feature dtype: float64, Label dtype: int64
+INFO:data_processing:Example feature[0] shape: (991, 80), min=-78.34, max=1.66
+INFO:data_processing:Example label[0] shape: (991,), values: [-100    1]
+INFO:data_processing:Unique label values in dataset: [-100    1    2    4    8]
+INFO:data_processing:Audio segment length distribution: min=38, max=991, mean=461.7, median=474.0
+INFO:data_processing:Meeting ES2011a: 3 speakers mapped to slots [0, 1, 2]
+INFO:data_processing:Max sequence length: 398
+INFO:data_processing:=== DATASET STATISTICS ===
+INFO:data_processing:Dataset size (number of samples): 10
+INFO:data_processing:Feature shape (samples, frames, mel-bands): (10, 398, 80)
+INFO:data_processing:Label shape: (10, 398)
+INFO:data_processing:Meeting IDs shape: (10, 398)
+INFO:data_processing:Frame size (number of frames per sample): min=16, max=398, mean=156.2
+INFO:data_processing:Feature dtype: float64, Label dtype: int64
+INFO:data_processing:Example feature[0] shape: (398, 80), min=-72.38, max=7.62
+INFO:data_processing:Example label[0] shape: (398,), values: [-100    1]
+INFO:data_processing:Unique label values in dataset: [-100    1    2    4]
+INFO:data_processing:Audio segment length distribution: min=16, max=398, mean=156.2, median=120.0
+INFO:data_processing:Meeting EN2002a: 4 speakers mapped to slots [0, 1, 2, 3]
+INFO:data_processing:Max sequence length: 175
+INFO:data_processing:=== DATASET STATISTICS ===
+INFO:data_processing:Dataset size (number of samples): 10
+INFO:data_processing:Feature shape (samples, frames, mel-bands): (10, 175, 80)
+INFO:data_processing:Label shape: (10, 175)
+INFO:data_processing:Meeting IDs shape: (10, 175)
+INFO:data_processing:Frame size (number of frames per sample): min=30, max=175, mean=94.0
+INFO:data_processing:Feature dtype: float64, Label dtype: int64
+INFO:data_processing:Example feature[0] shape: (175, 80), min=-93.66, max=0.00
+INFO:data_processing:Example label[0] shape: (175,), values: [-100    8]
+INFO:data_processing:Unique label values in dataset: [-100    1    2    4    8]
+INFO:data_processing:Audio segment length distribution: min=30, max=175, mean=94.0, median=91.5
+INFO:data_processing:Created data loaders with batch size 4
+INFO:data_processing:Training set: 10 samples | 3 batches | 9910 frames
+INFO:data_processing:Validation set: 10 samples | 3 batches | 3980 frames
+INFO:data_processing:Test set: 10 samples | 3 batches | 1750 frames
+INFO:data_processing:=== EXAMPLE TRAIN SAMPLE ===
+INFO:data_processing:Feature shape: torch.Size([991, 80]), dtype: torch.float32
+INFO:data_processing:Feature (first frame): tensor([-25.7961, -21.6416, -16.6324, -13.3380, -12.1601, -12.7919, -14.0378,
+        -14.8877, -17.3196, -23.8747, -20.1642, -14.1468, -11.4491, -11.4738,
+        -14.0905, -19.3088, -25.9539, -33.7698, -32.3547, -29.1311, -28.5645,
+        -28.0751, -29.4783, -34.3271, -41.1570, -40.3496, -36.6071, -33.9976,
+        -33.8865, -34.8686, -35.8664, -36.6525, -37.4211, -38.2193, -36.4379,
+        -35.8695, -38.0396, -42.2522, -47.5849, -42.9448, -41.8785, -47.9526,
+        -48.7211, -43.4506, -44.3202, -45.9654, -38.6584, -40.9482, -44.7076,
+        -45.1133, -51.1277, -50.1222, -51.6958, -53.1796, -53.4646, -54.9030,
+        -54.5478, -55.6168, -55.2637, -52.1974, -53.0708, -49.8131, -50.6336,
+        -51.5848, -52.7451, -55.4427, -58.7778, -58.6580, -58.5146, -59.1365,
+        -60.0565, -62.9523, -61.9280, -61.2017, -61.9546, -62.1751, -61.5246,
+        -61.7682, -61.8947, -61.8983])
+INFO:data_processing:Speaker embeddings shape: torch.Size([4, 192]), dtype: torch.float32
+INFO:data_processing:Label shape: torch.Size([991]), dtype: torch.int64
+INFO:data_processing:Label (first 10 frames): tensor([1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
+INFO:data_processing:Meeting ID shape: (991,), dtype: object
+INFO:data_processing:Meeting ID (first 10 frames): ['EN2001a' 'EN2001a' 'EN2001a' 'EN2001a' 'EN2001a' 'EN2001a' 'EN2001a'
+ 'EN2001a' 'EN2001a' 'EN2001a']
+INFO:data_processing:Sample = audio segment (feature matrix), batch = group of samples, frame = row in the feature matrix (one time step)
+INFO:data_processing:Frames are NOT independent: the model takes their sequence/context into account
+INFO:data_processing:Starting data processing for clients...
+INFO:data_processing:Found 4 unique speakers: {'MEO069': 0, 'MEE068': 1, 'MEE067': 2, 'FEO065': 3}
+INFO:data_processing:Processing meetings for overlapping segments...
+INFO:data_processing:Processing meeting EN2001a with 10 samples
+INFO:data_processing:Adding non-overlapping segments...
+INFO:data_processing:Finding real overlapping segments...
+INFO:data_processing:Creating artificial overlapping segments...
+INFO:data_processing:Simulating overlapping speech with 10 segments...
+INFO:data_processing:Starting simulation with 10 segments
+INFO:data_processing:Processing 45 combinations
+INFO:data_processing:Successfully created 45 overlapping segments
+INFO:data_processing:Meeting EN2001a statistics:
+INFO:data_processing:  - Original segments: 10
+INFO:data_processing:  - Natural overlaps: 0
+INFO:data_processing:  - Artificial overlaps: 45
+INFO:data_processing:
+Overall Dataset Statistics:
+INFO:data_processing:Total meetings processed: 1
+INFO:data_processing:Total original segments: 10
+INFO:data_processing:Total natural overlaps: 0
+INFO:data_processing:Total artificial overlaps: 45
+INFO:data_processing:Total segments: 55
+INFO:data_processing:Natural overlap ratio: 0.00%
+INFO:data_processing:Artificial overlap ratio: 450.00%
+INFO:data_processing:
+Balancing dataset...
+INFO:data_processing:
+Balanced Dataset Statistics:
+INFO:data_processing:Non-overlapping samples: 10
+INFO:data_processing:Natural overlapping samples: 0
+INFO:data_processing:Artificial overlapping samples: 10
+INFO:data_processing:Total balanced samples: 20
+INFO:data_processing:
+Splitting 20 samples among 2 clients...
+INFO:data_processing:Creating data loaders for clients...
+INFO:data_processing:
+Processing client 0 with 10 samples
+INFO:data_processing:Client 0 sample distribution:
+INFO:data_processing:  - Non-overlapping: 5
+INFO:data_processing:  - Natural overlaps: 0
+INFO:data_processing:  - Artificial overlaps: 5
+INFO:data_processing:All sequence lengths for client 0: {1001}
+INFO:data_processing:Created data loaders for client 0
+INFO:data_processing:
+Processing client 1 with 10 samples
+INFO:data_processing:Client 1 sample distribution:
+INFO:data_processing:  - Non-overlapping: 5
+INFO:data_processing:  - Natural overlaps: 0
+INFO:data_processing:  - Artificial overlaps: 5
+INFO:data_processing:All sequence lengths for client 1: {1001}
+INFO:data_processing:Created data loaders for client 1
+INFO:data_processing:
+Data processing completed successfully
+[93mWARNING [0m:   DEPRECATED FEATURE: flwr.simulation.start_simulation() is deprecated.
+	Instead, use the `flwr run` CLI command to start a local simulation in your Flower app, as shown for example below:
+
+		$ flwr new  # Create a new Flower app from a template
+
+		$ flwr run  # Run the Flower app in Simulation Mode
+
+	Using `start_simulation()` is deprecated.
+
+            This is a deprecated feature. It will be removed
+            entirely in future versions of Flower.
+        
+WARNING:flwr:DEPRECATED FEATURE: flwr.simulation.start_simulation() is deprecated.
+	Instead, use the `flwr run` CLI command to start a local simulation in your Flower app, as shown for example below:
+
+		$ flwr new  # Create a new Flower app from a template
+
+		$ flwr run  # Run the Flower app in Simulation Mode
+
+	Using `start_simulation()` is deprecated.
+
+            This is a deprecated feature. It will be removed
+            entirely in future versions of Flower.
+        
+[92mINFO [0m:      Starting Flower simulation, config: num_rounds=3, no round_timeout
+INFO:flwr:Starting Flower simulation, config: num_rounds=3, no round_timeout
+2025-09-26 20:41:29,075	INFO worker.py:1771 -- Started a local Ray instance.
+[92mINFO [0m:      Flower VCE: Ray initialized with resources: {'memory': 8719772877.0, 'node:127.0.0.1': 1.0, 'object_store_memory': 2147483648.0, 'node:__internal_head__': 1.0, 'CPU': 2.0}
+INFO:flwr:Flower VCE: Ray initialized with resources: {'memory': 8719772877.0, 'node:127.0.0.1': 1.0, 'object_store_memory': 2147483648.0, 'node:__internal_head__': 1.0, 'CPU': 2.0}
+[92mINFO [0m:      Optimize your simulation with Flower VCE: https://flower.ai/docs/framework/how-to-run-simulations.html
+INFO:flwr:Optimize your simulation with Flower VCE: https://flower.ai/docs/framework/how-to-run-simulations.html
+[92mINFO [0m:      Flower VCE: Resources for each Virtual Client: {'num_cpus': 1, 'num_gpus': 0}
+INFO:flwr:Flower VCE: Resources for each Virtual Client: {'num_cpus': 1, 'num_gpus': 0}
+[92mINFO [0m:      Flower VCE: Creating VirtualClientEngineActorPool with 2 actors
+INFO:flwr:Flower VCE: Creating VirtualClientEngineActorPool with 2 actors
+[92mINFO [0m:      [INIT]
+INFO:flwr:[INIT]
+[92mINFO [0m:      Using initial global parameters provided by strategy
+INFO:flwr:Using initial global parameters provided by strategy
+[92mINFO [0m:      Starting evaluation of initial global parameters
+INFO:flwr:Starting evaluation of initial global parameters
+[92mINFO [0m:      Evaluation returned no results (`None`)
+INFO:flwr:Evaluation returned no results (`None`)
+[92mINFO [0m:      
+INFO:flwr:
+[92mINFO [0m:      [ROUND 1]
+INFO:flwr:[ROUND 1]
+[92mINFO [0m:      configure_fit: strategy sampled 2 clients (out of 2)
+INFO:flwr:configure_fit: strategy sampled 2 clients (out of 2)
+[36m(ClientAppActor pid=51038)[0m /Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/jupyter_client/connect.py:27: DeprecationWarning: Jupyter is migrating its paths to use standard platformdirs
+[36m(ClientAppActor pid=51038)[0m given by the platformdirs library.  To remove this warning and
+[36m(ClientAppActor pid=51038)[0m see the appropriate new directories, set the environment variable
+[36m(ClientAppActor pid=51038)[0m `JUPYTER_PLATFORM_DIRS=1` and then run `jupyter --paths`.
+[36m(ClientAppActor pid=51038)[0m The use of platformdirs will be the default in `jupyter_core` v6
+[36m(ClientAppActor pid=51038)[0m   from jupyter_core.paths import jupyter_data_dir
+[36m(ClientAppActor pid=51038)[0m /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/data_processing.py:11: UserWarning: Module 'speechbrain.pretrained' was deprecated, redirecting to 'speechbrain.inference'. Please update your script. This is a change from SpeechBrain 1.0. See: https://github.com/speechbrain/speechbrain/releases/tag/v1.0.0
+[36m(ClientAppActor pid=51038)[0m   from speechbrain.pretrained import EncoderClassifier
+[36m(ClientAppActor pid=51038)[0m /Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/pyannote/core/notebook.py:134: MatplotlibDeprecationWarning: The get_cmap function was deprecated in Matplotlib 3.7 and will be removed two minor releases later. Use ``matplotlib.colormaps[name]`` or ``matplotlib.colormaps.get_cmap(obj)`` instead.
+[36m(ClientAppActor pid=51038)[0m   cm = get_cmap("Set1")
+[33m(raylet)[0m [2025-09-26 20:41:38,971 E 51032 1178792] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-09-26_20-41-26_722153_50979 is over 95% full, available space: 19595739136; capacity: 494384795648. Object creation will fail if spilling is required.
+[36m(ClientAppActor pid=51039)[0m /Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/jupyter_client/connect.py:27: DeprecationWarning: Jupyter is migrating its paths to use standard platformdirs
+[36m(ClientAppActor pid=51039)[0m given by the platformdirs library.  To remove this warning and
+[36m(ClientAppActor pid=51039)[0m see the appropriate new directories, set the environment variable
+[36m(ClientAppActor pid=51039)[0m `JUPYTER_PLATFORM_DIRS=1` and then run `jupyter --paths`.
+[36m(ClientAppActor pid=51039)[0m The use of platformdirs will be the default in `jupyter_core` v6
+[36m(ClientAppActor pid=51039)[0m   from jupyter_core.paths import jupyter_data_dir
+[36m(ClientAppActor pid=51039)[0m /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/data_processing.py:11: UserWarning: Module 'speechbrain.pretrained' was deprecated, redirecting to 'speechbrain.inference'. Please update your script. This is a change from SpeechBrain 1.0. See: https://github.com/speechbrain/speechbrain/releases/tag/v1.0.0
+[36m(ClientAppActor pid=51039)[0m   from speechbrain.pretrained import EncoderClassifier
+[36m(ClientAppActor pid=51039)[0m /Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/pyannote/core/notebook.py:134: MatplotlibDeprecationWarning: The get_cmap function was deprecated in Matplotlib 3.7 and will be removed two minor releases later. Use ``matplotlib.colormaps[name]`` or ``matplotlib.colormaps.get_cmap(obj)`` instead.
+[36m(ClientAppActor pid=51039)[0m   cm = get_cmap("Set1")
+[33m(raylet)[0m [2025-09-26 20:41:48,973 E 51032 1178792] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-09-26_20-41-26_722153_50979 is over 95% full, available space: 17451323392; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-09-26 20:41:58,976 E 51032 1178792] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-09-26_20-41-26_722153_50979 is over 95% full, available space: 17078226944; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-09-26 20:42:08,977 E 51032 1178792] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-09-26_20-41-26_722153_50979 is over 95% full, available space: 17078153216; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-09-26 20:42:19,011 E 51032 1178792] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-09-26_20-41-26_722153_50979 is over 95% full, available space: 17081094144; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-09-26 20:42:29,110 E 51032 1178792] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-09-26_20-41-26_722153_50979 is over 95% full, available space: 17079078912; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-09-26 20:42:39,145 E 51032 1178792] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-09-26_20-41-26_722153_50979 is over 95% full, available space: 17079005184; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-09-26 20:42:49,242 E 51032 1178792] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-09-26_20-41-26_722153_50979 is over 95% full, available space: 17077895168; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-09-26 20:42:59,340 E 51032 1178792] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-09-26_20-41-26_722153_50979 is over 95% full, available space: 16003493888; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-09-26 20:43:09,441 E 51032 1178792] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-09-26_20-41-26_722153_50979 is over 95% full, available space: 16017403904; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-09-26 20:43:19,443 E 51032 1178792] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-09-26_20-41-26_722153_50979 is over 95% full, available space: 16017387520; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-09-26 20:43:29,445 E 51032 1178792] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-09-26_20-41-26_722153_50979 is over 95% full, available space: 16015908864; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-09-26 20:43:39,462 E 51032 1178792] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-09-26_20-41-26_722153_50979 is over 95% full, available space: 16015761408; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-09-26 20:43:49,523 E 51032 1178792] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-09-26_20-41-26_722153_50979 is over 95% full, available space: 16014909440; capacity: 494384795648. Object creation will fail if spilling is required.
+[36m(ClientAppActor pid=51038)[0m /Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/pyannote/metrics/utils.py:200: UserWarning: 'uem' was approximated by the union of 'reference' and 'hypothesis' extents.
+[36m(ClientAppActor pid=51038)[0m   warnings.warn(
+[33m(raylet)[0m [2025-09-26 20:43:59,625 E 51032 1178792] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-09-26_20-41-26_722153_50979 is over 95% full, available space: 16014159872; capacity: 494384795648. Object creation will fail if spilling is required.
+[36m(ClientAppActor pid=51039)[0m /Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/pyannote/metrics/utils.py:200: UserWarning: 'uem' was approximated by the union of 'reference' and 'hypothesis' extents.
+[36m(ClientAppActor pid=51039)[0m   warnings.warn(
+[33m(raylet)[0m [2025-09-26 20:44:09,630 E 51032 1178792] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-09-26_20-41-26_722153_50979 is over 95% full, available space: 16026914816; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-09-26 20:44:19,641 E 51032 1178792] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-09-26_20-41-26_722153_50979 is over 95% full, available space: 16026034176; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-09-26 20:44:29,646 E 51032 1178792] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-09-26_20-41-26_722153_50979 is over 95% full, available space: 16024940544; capacity: 494384795648. Object creation will fail if spilling is required.
+*** SIGTERM received at time=1758908677 ***
+PC: @        0x186f913cc  (unknown)  __psynch_cvwait
+    @        0x35cc2899c  (unknown)  absl::lts_20230125::WriteFailureInfo()
+    @        0x35cc286e8  (unknown)  absl::lts_20230125::AbslFailureSignalHandler()
+    @        0x1870096a4  (unknown)  _sigtramp
+    @        0x186fd00e0  (unknown)  _pthread_cond_wait
+    @        0x1043d1d38  (unknown)  PyThread_acquire_lock_timed
+    @        0x1044436fc  (unknown)  acquire_timed
+    @        0x1044438e0  (unknown)  lock_PyThread_acquire_lock
+    @        0x104225d58  (unknown)  method_vectorcall_VARARGS_KEYWORDS
+    @        0x1043596b0  (unknown)  _PyEval_EvalFrameDefault
+    @        0x104326b88  (unknown)  _PyEval_Vector
+    @        0x104326928  (unknown)  PyEval_EvalCode
+    @        0x1043c0474  (unknown)  run_mod
+    @        0x1043c0240  (unknown)  pyrun_file
+    @        0x1043bfc6c  (unknown)  _PyRun_SimpleFileObject
+    @        0x1043bf5e4  (unknown)  _PyRun_AnyFileObject
+    @        0x1043e318c  (unknown)  pymain_run_file_obj
+    @        0x1043e2ab4  (unknown)  pymain_run_file
+    @        0x1043e22b4  (unknown)  Py_RunMain
+    @        0x1041ab99c  (unknown)  main
+    @        0x186c2eb98  (unknown)  start
+[2025-09-26 20:44:37,479 E 50979 1178221] logging.cc:440: *** SIGTERM received at time=1758908677 ***
+[2025-09-26 20:44:37,479 E 50979 1178221] logging.cc:440: PC: @        0x186f913cc  (unknown)  __psynch_cvwait
+[2025-09-26 20:44:37,480 E 50979 1178221] logging.cc:440:     @        0x35cc2899c  (unknown)  absl::lts_20230125::WriteFailureInfo()
+[2025-09-26 20:44:37,480 E 50979 1178221] logging.cc:440:     @        0x35cc28700  (unknown)  absl::lts_20230125::AbslFailureSignalHandler()
+[2025-09-26 20:44:37,480 E 50979 1178221] logging.cc:440:     @        0x1870096a4  (unknown)  _sigtramp
+[2025-09-26 20:44:37,480 E 50979 1178221] logging.cc:440:     @        0x186fd00e0  (unknown)  _pthread_cond_wait
+[2025-09-26 20:44:37,480 E 50979 1178221] logging.cc:440:     @        0x1043d1d38  (unknown)  PyThread_acquire_lock_timed
+[2025-09-26 20:44:37,480 E 50979 1178221] logging.cc:440:     @        0x1044436fc  (unknown)  acquire_timed
+[2025-09-26 20:44:37,480 E 50979 1178221] logging.cc:440:     @        0x1044438e0  (unknown)  lock_PyThread_acquire_lock
+[2025-09-26 20:44:37,480 E 50979 1178221] logging.cc:440:     @        0x104225d58  (unknown)  method_vectorcall_VARARGS_KEYWORDS
+[2025-09-26 20:44:37,480 E 50979 1178221] logging.cc:440:     @        0x1043596b0  (unknown)  _PyEval_EvalFrameDefault
+[2025-09-26 20:44:37,480 E 50979 1178221] logging.cc:440:     @        0x104326b88  (unknown)  _PyEval_Vector
+[2025-09-26 20:44:37,480 E 50979 1178221] logging.cc:440:     @        0x104326928  (unknown)  PyEval_EvalCode
+[2025-09-26 20:44:37,480 E 50979 1178221] logging.cc:440:     @        0x1043c0474  (unknown)  run_mod
+[2025-09-26 20:44:37,480 E 50979 1178221] logging.cc:440:     @        0x1043c0240  (unknown)  pyrun_file
+[2025-09-26 20:44:37,480 E 50979 1178221] logging.cc:440:     @        0x1043bfc6c  (unknown)  _PyRun_SimpleFileObject
+[2025-09-26 20:44:37,480 E 50979 1178221] logging.cc:440:     @        0x1043bf5e4  (unknown)  _PyRun_AnyFileObject
+[2025-09-26 20:44:37,480 E 50979 1178221] logging.cc:440:     @        0x1043e318c  (unknown)  pymain_run_file_obj
+[2025-09-26 20:44:37,480 E 50979 1178221] logging.cc:440:     @        0x1043e2ab4  (unknown)  pymain_run_file
+[2025-09-26 20:44:37,480 E 50979 1178221] logging.cc:440:     @        0x1043e22b4  (unknown)  Py_RunMain
+[2025-09-26 20:44:37,480 E 50979 1178221] logging.cc:440:     @        0x1041ab99c  (unknown)  main
+[2025-09-26 20:44:37,480 E 50979 1178221] logging.cc:440:     @        0x186c2eb98  (unknown)  start
+[33m(raylet)[0m [2025-09-26 20:44:39,649 E 51032 1178792] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-09-26_20-41-26_722153_50979 is over 95% full, available space: 16024809472; capacity: 494384795648. Object creation will fail if spilling is required.
