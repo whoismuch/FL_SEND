@@ -39,6 +39,16 @@ from data_processing import (
     compute_speaker_embeddings,
     OverlappingSpeechDataset
 )
+from statistics import (
+    print_meeting_statistics,
+    print_dataset_overview,
+    print_grouping_results,
+    print_experiment_config,
+    print_training_progress,
+    print_final_results,
+    analyze_speaker_distribution,
+    print_data_loading_info
+)
 import time
 import argparse
 
@@ -455,6 +465,9 @@ def start_client(client: SENDClient, server_address: str):
         logger.error(f"Client error: {str(e)}")
 
 def main():
+    # Start timing
+    start_time = time.time()
+    
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description="Federated Learning for Overlapping Speech Diarization")
     parser.add_argument('--test_size', type=int, default=6, help='Number of samples to use for testing')
@@ -486,12 +499,12 @@ def main():
         print(f"[{datetime.now()}] MAIN: Speaker encoder initialized successfully")
         
         # Load and preprocess data
-        print(f"[{datetime.now()}] MAIN: Loading AMI dataset...")
+        print_data_loading_info("AMI")
         dataset = load_dataset("edinburghcstr/ami", "ihm")
         print(f"[{datetime.now()}] MAIN: Dataset loaded successfully")
         
         # Take a small subset for testing
-        print(f"[{datetime.now()}] MAIN: Using subset of {test_size} samples for testing")
+        print_dataset_overview("AMI", len(dataset["train"]), test_size)
         
         # Group data by meeting ID for all splits
         print(f"[{datetime.now()}] MAIN: Grouping data by meeting ID...")
@@ -499,24 +512,31 @@ def main():
         grouped_validation = group_by_meeting(dataset["validation"].select(range(test_size)))
         grouped_test = group_by_meeting(dataset["test"].select(range(test_size)))
         
-        print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_train)} meetings from training set")
-        print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_validation)} meetings from validation set")
-        print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_test)} meetings from test set")
+        print_grouping_results(grouped_train, grouped_validation, grouped_test)
+        
+        # Print statistics for each meeting
+        print_meeting_statistics(grouped_train, grouped_validation, grouped_test)
         
         # PSE/SEND Configuration: Fixed N and K (as per original paper)
         N = 4  # Maximum number of target speakers per recording
         K = 3  # Maximum simultaneous overlap (2-4 as per paper)
+        
         
         # Prepare test_loader for final evaluation
         _, _, test_loader = prepare_data_loaders(
             grouped_train, grouped_validation, grouped_test, speaker_encoder, N=N
         )
         
+      
+        
         # Calculate number of classes using C(K,N) formula
         from math import comb
         num_classes = sum(comb(N, k) for k in range(K + 1))
         print(f"[{datetime.now()}] MAIN: PSE Configuration: N={N} (max speakers per recording), K={K} (max overlap)")
         print(f"[{datetime.now()}] MAIN: Number of classes C(K,N) = Σ(k=0 to {K}) C({N},k) = {num_classes}")
+        
+        # Print experiment configuration
+        print_experiment_config(num_clients, num_rounds, epochs, test_size)
         
         # Get all unique speakers for speaker embedding computation
         speaker_ids = set()
@@ -529,6 +549,9 @@ def main():
         print(f"[{datetime.now()}] MAIN: Detected {len(all_speaker_ids)} unique speakers in dataset: {all_speaker_ids}")
         print(f"[{datetime.now()}] MAIN: Using first {len(speaker_id_list)} speakers for PSE slots: {speaker_id_list}")
         print(f"[{datetime.now()}] MAIN: Note: PSE uses fixed N={N} slots per recording, not all {len(all_speaker_ids)} speakers")
+        
+        # Analyze speaker distribution
+        analyze_speaker_distribution(grouped_train)
         
         # Initialize Power Set Encoder with fixed N
         print(f"[{datetime.now()}] MAIN: Initializing Power Set Encoder with max_speakers={N}")
@@ -994,6 +1017,9 @@ def main():
             f"Model Status: {'UPDATED with FL parameters' if final_parameters is not None else 'ORIGINAL (no FL parameters)'}",
             f"Parameters Changed: {changed_count if 'changed_count' in locals() else 'N/A'}/{total_params if 'total_params' in locals() else 'N/A'} ({(changed_count/total_params*100) if 'changed_count' in locals() and 'total_params' in locals() else 'N/A':.1f}%)",
         ])
+        
+        # Print final results using statistics module
+        print_final_results(der, der, time.time() - start_time)
         # Save to file and print to console (only artifact directory)
         print("\n===== SAVING FINAL RESULTS TO FILE =====")
         print(f"Results will be saved to: {exp_filepath}")

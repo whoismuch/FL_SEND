@@ -864,7 +864,7 @@ def demonstrate_power_set_encoding():
         print(f"Speakers {speakers}: {encoded} (binary: {binary})")
 
 def compute_speaker_embeddings(grouped_data, speaker_encoder):
-    """Вычисляет speaker embedding для каждого уникального speaker_id по его первому аудиосегменту."""
+    """Computes speaker embedding for each unique speaker_id based on their first audio segment."""
     speaker_to_audio = {}
     for meeting_id, samples in grouped_data.items():
         for sample in samples:
@@ -872,6 +872,7 @@ def compute_speaker_embeddings(grouped_data, speaker_encoder):
             if sid not in speaker_to_audio:
                 speaker_to_audio[sid] = []
             speaker_to_audio[sid].append(sample["audio"]["array"])
+            
     speaker_to_embedding = {}
     for sid, audio_list in speaker_to_audio.items():
         audio = audio_list[0]
