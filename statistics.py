@@ -90,10 +90,10 @@ def print_meeting_statistics(grouped_train: Dict, grouped_validation: Dict, grou
         grouped_validation: Dictionary of meeting_id to samples for validation set
         grouped_test: Dictionary of meeting_id to samples for test set
     """
-    print(f"\n[{datetime.now()}] MAIN: ========================================== MEETING STATISTICS ==========================================")
+    print(f"\n[{datetime.now()}] STATS: ========================================== MEETING STATISTICS ==========================================")
     
     # Training set statistics
-    print(f"\n[{datetime.now()}] MAIN: Training set meetings:")
+    print(f"\n[{datetime.now()}] STATS: Training set meetings:")
     train_audio_counts = []
     train_overlap_counts = []
     train_max_concurrent = []
@@ -120,7 +120,7 @@ def print_meeting_statistics(grouped_train: Dict, grouped_validation: Dict, grou
                       f"(duration: {overlap['duration']:.2f}s)")
     
     # Validation set statistics
-    print(f"\n[{datetime.now()}] MAIN: Validation set meetings:")
+    print(f"\n[{datetime.now()}] STATS: Validation set meetings:")
     val_audio_counts = []
     val_overlap_counts = []
     val_max_concurrent = []
@@ -147,7 +147,7 @@ def print_meeting_statistics(grouped_train: Dict, grouped_validation: Dict, grou
                       f"(duration: {overlap['duration']:.2f}s)")
     
     # Test set statistics
-    print(f"\n[{datetime.now()}] MAIN: Test set meetings:")
+    print(f"\n[{datetime.now()}] STATS: Test set meetings:")
     test_audio_counts = []
     test_overlap_counts = []
     test_max_concurrent = []
@@ -177,7 +177,7 @@ def print_meeting_statistics(grouped_train: Dict, grouped_validation: Dict, grou
     all_counts = train_audio_counts + val_audio_counts + test_audio_counts
     all_overlap_counts = train_overlap_counts + val_overlap_counts + test_overlap_counts
     all_max_concurrent = train_max_concurrent + val_max_concurrent + test_max_concurrent
-    print(f"\n[{datetime.now()}] MAIN: ========================================== SUMMARY STATISTICS ==========================================")
+    print(f"\n[{datetime.now()}] STATS: ========================================== SUMMARY STATISTICS ==========================================")
     print(f"Total meetings: {len(all_counts)}")
     print(f"Total audio segments: {sum(all_counts)}")
     print(f"Total overlapping segments: {sum(all_overlap_counts)}")
@@ -214,9 +214,9 @@ def print_dataset_overview(dataset_name: str, total_samples: int, test_size: int
         total_samples: Total number of samples in the dataset
         test_size: Number of samples used for testing
     """
-    print(f"[{datetime.now()}] MAIN: Dataset: {dataset_name}")
-    print(f"[{datetime.now()}] MAIN: Total samples: {total_samples}")
-    print(f"[{datetime.now()}] MAIN: Using subset of {test_size} samples for testing")
+    print(f"[{datetime.now()}] STATS: Dataset: {dataset_name}")
+    print(f"[{datetime.now()}] STATS: Total samples: {total_samples}")
+    print(f"[{datetime.now()}] STATS: Using subset of {test_size} samples for testing")
 
 
 def print_grouping_results(grouped_train: Dict, grouped_validation: Dict, grouped_test: Dict) -> None:
@@ -228,10 +228,10 @@ def print_grouping_results(grouped_train: Dict, grouped_validation: Dict, groupe
         grouped_validation: Dictionary of meeting_id to samples for validation set
         grouped_test: Dictionary of meeting_id to samples for test set
     """
-    print(f"[{datetime.now()}] MAIN: ========================================== DATA GROUPING ==========================================")
-    print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_train)} meetings from training set")
-    print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_validation)} meetings from validation set")
-    print(f"[{datetime.now()}] MAIN: Grouped {len(grouped_test)} meetings from test set")
+    print(f"[{datetime.now()}] STATS: ========================================== DATA GROUPING ==========================================")
+    print(f"[{datetime.now()}] STATS: Grouped {len(grouped_train)} meetings from training set")
+    print(f"[{datetime.now()}] STATS: Grouped {len(grouped_validation)} meetings from validation set")
+    print(f"[{datetime.now()}] STATS: Grouped {len(grouped_test)} meetings from test set")
 
 
 def print_experiment_config(num_clients: int, num_rounds: int, num_epochs: int, test_size: int) -> None:
@@ -244,7 +244,7 @@ def print_experiment_config(num_clients: int, num_rounds: int, num_epochs: int, 
         num_epochs: Number of training epochs per round
         test_size: Number of samples used for testing
     """
-    print(f"\n[{datetime.now()}] MAIN: ========================================== EXPERIMENT CONFIGURATION ==========================================")
+    print(f"\n[{datetime.now()}] STATS: ========================================== EXPERIMENT CONFIGURATION ==========================================")
     print(f"Number of clients: {num_clients}")
     print(f"Number of rounds: {num_rounds}")
     print(f"Number of epochs per round: {num_epochs}")
@@ -274,7 +274,7 @@ def print_final_results(final_der: float, best_der: float, total_time: float) ->
         best_der: Best DER score achieved
         total_time: Total experiment time in seconds
     """
-    print(f"\n[{datetime.now()}] MAIN: ========================================== FINAL RESULTS ==========================================")
+    print(f"\n[{datetime.now()}] STATS: ========================================== FINAL RESULTS ==========================================")
     print(f"Final DER: {final_der:.4f}")
     print(f"Best DER: {best_der:.4f}")
     print(f"Total experiment time: {total_time:.2f} seconds")
@@ -287,7 +287,7 @@ def analyze_speaker_distribution(grouped_data: Dict) -> None:
     Args:
         grouped_data: Dictionary of meeting_id to samples
     """
-    print(f"\n[{datetime.now()}] MAIN: ========================================== SPEAKER DISTRIBUTION ANALYSIS ==========================================")
+    print(f"\n[{datetime.now()}] STATS: ========================================== SPEAKER DISTRIBUTION ANALYSIS ==========================================")
     
     all_speakers = set()
     meeting_speaker_counts = []
@@ -313,6 +313,282 @@ def print_data_loading_info(dataset_name: str) -> None:
     Args:
         dataset_name: Name of the dataset being loaded
     """
-    print(f"[{datetime.now()}] MAIN: ========================================== DATASET LOADING ==========================================")
-    print(f"[{datetime.now()}] MAIN: Loading dataset: {dataset_name}")
-    print(f"[{datetime.now()}] MAIN: Dataset loaded successfully")
+    print(f"[{datetime.now()}] STATS: ========================================== DATASET LOADING ==========================================")
+    print(f"[{datetime.now()}] STATS: Loading dataset: {dataset_name}")
+    print(f"[{datetime.now()}] STATS: Dataset loaded successfully")
+
+
+def print_function_start(function_name: str, **kwargs) -> None:
+    """
+    Print function start with parameters.
+    
+    Args:
+        function_name: Name of the function
+        **kwargs: Function parameters
+    """
+    params_str = ", ".join([f"{k}={v}" for k, v in kwargs.items()])
+    print(f"[{datetime.now()}] STATS: STARTING FUNCTION: {function_name}({params_str})")
+
+
+def print_function_end(function_name: str, result_summary: str = "") -> None:
+    """
+    Print function end with optional result summary.
+    
+    Args:
+        function_name: Name of the function
+        result_summary: Optional summary of results
+    """
+    if result_summary:
+        print(f"[{datetime.now()}] STATS: COMPLETED FUNCTION: {function_name} - {result_summary}")
+    else:
+        print(f"[{datetime.now()}] STATS: COMPLETED FUNCTION: {function_name}")
+
+
+def print_dataset_statistics(features, labels, meeting_ids, raw_features) -> None:
+    """
+    Print detailed dataset statistics.
+    
+    Args:
+        features: Feature tensor
+        labels: Label tensor
+        meeting_ids: Meeting ID tensor
+        raw_features: Raw feature list for length analysis
+    """
+    import numpy as np
+    
+    print(f"[{datetime.now()}] STATS: ========================================== DATASET STATISTICS ==========================================")
+    print(f"[{datetime.now()}] STATS: STARTING FUNCTION: print_dataset_statistics")
+    
+    print(f"[{datetime.now()}] STATS: Dataset size (number of samples): {features.shape[0]}")
+    print(f"[{datetime.now()}] STATS: Feature shape (samples, frames, mel-bands): {features.shape}")
+    print(f"[{datetime.now()}] STATS: Label shape: {labels.shape}")
+    print(f"[{datetime.now()}] STATS: Meeting IDs shape: {meeting_ids.shape}")
+    
+    # Frame size statistics
+    frame_sizes = [f.shape[0] for f in raw_features]
+    print(f"[{datetime.now()}] STATS: Frame size (frames per sample): min={np.min(frame_sizes)}, max={np.max(frame_sizes)}, mean={np.mean(frame_sizes):.1f}")
+    
+    # Data types
+    print(f"[{datetime.now()}] STATS: Feature dtype: {features.dtype}, Label dtype: {labels.dtype}")
+    
+    # Example sample analysis
+    print(f"[{datetime.now()}] STATS: Example feature[0] shape: {features[0].shape}, min={features[0].min():.2f}, max={features[0].max():.2f}")
+    print(f"[{datetime.now()}] STATS: Example label[0] shape: {labels[0].shape}, values: {np.unique(labels[0])}")
+    print(f"[{datetime.now()}] STATS: Unique label values in dataset: {np.unique(labels)}")
+    
+    # Audio segment length distribution
+    segment_lengths = [f.shape[0] for f in raw_features]
+    print(f"[{datetime.now()}] STATS: Audio segment length distribution: min={np.min(segment_lengths)}, max={np.max(segment_lengths)}, mean={np.mean(segment_lengths):.1f}, median={np.median(segment_lengths)}")
+    
+    print(f"[{datetime.now()}] STATS: COMPLETED FUNCTION: print_dataset_statistics")
+
+
+def print_data_loaders_info(train_dataset, val_dataset, test_dataset, train_loader, val_loader, test_loader, batch_size: int) -> None:
+    """
+    Print detailed information about created data loaders and sample analysis.
+    
+    Args:
+        train_dataset: Training dataset
+        val_dataset: Validation dataset  
+        test_dataset: Test dataset
+        train_loader: Training data loader
+        val_loader: Validation data loader
+        test_loader: Test data loader
+        batch_size: Batch size used
+    """
+    print(f"[{datetime.now()}] STATS: ========================================== DATA LOADERS CREATION ==========================================")
+    print(f"[{datetime.now()}] STATS: STARTING FUNCTION: print_data_loaders_info")
+    
+    print(f"[{datetime.now()}] STATS: Created data loaders with batch size {batch_size}")
+    print(f"[{datetime.now()}] STATS: Training set: {len(train_dataset)} samples | {len(train_loader)} batches | {len(train_dataset) * train_dataset[0][0].shape[0]} frames")
+    print(f"[{datetime.now()}] STATS: Validation set: {len(val_dataset)} samples | {len(val_loader)} batches | {len(val_dataset) * val_dataset[0][0].shape[0]} frames")
+    print(f"[{datetime.now()}] STATS: Test set: {len(test_dataset)} samples | {len(test_loader)} batches | {len(test_dataset) * test_dataset[0][0].shape[0]} frames")
+
+    # Example of a single sample from train_dataset
+    feature, all_embeddings, label, meeting_id = train_dataset[0]
+    print(f"[{datetime.now()}] STATS: === EXAMPLE TRAIN SAMPLE ===")
+    print(f"[{datetime.now()}] STATS: Feature shape: {feature.shape}, dtype: {feature.dtype}")
+    print(f"[{datetime.now()}] STATS: Feature (first frame): {feature[0]}")
+    print(f"[{datetime.now()}] STATS: Speaker embeddings shape: {all_embeddings.shape}, dtype: {all_embeddings.dtype}")
+    print(f"[{datetime.now()}] STATS: Label shape: {label.shape}, dtype: {label.dtype}")
+    print(f"[{datetime.now()}] STATS: Label (first 10 frames): {label[:10]}")
+    print(f"[{datetime.now()}] STATS: Meeting ID shape: {meeting_id.shape}, dtype: {meeting_id.dtype}")
+    print(f"[{datetime.now()}] STATS: Meeting ID (first 10 frames): {meeting_id[:10]}")
+    print(f"[{datetime.now()}] STATS: Sample = audio segment (feature matrix), batch = group of samples, frame = row in the feature matrix (one time step)")
+    print(f"[{datetime.now()}] STATS: Frames are NOT independent: the model takes their sequence/context into account")
+    
+    print(f"[{datetime.now()}] STATS: COMPLETED FUNCTION: print_data_loaders_info")
+
+
+def print_power_set_encoder_examples(power_set_encoder) -> None:
+    """
+    Print examples of PowerSetEncoder encoding and decoding operations.
+    
+    Args:
+        power_set_encoder: PowerSetEncoder instance to demonstrate
+    """
+    print(f"\n[{datetime.now()}] STATS: ========================================== POWER SET ENCODER EXAMPLES ==========================================")
+    print(f"[{datetime.now()}] STATS: STARTING FUNCTION: print_power_set_encoder_examples")
+    
+    max_speakers = power_set_encoder.max_speakers
+    max_overlap = power_set_encoder.max_overlap
+    num_classes = power_set_encoder.num_classes
+    
+    print(f"[{datetime.now()}] STATS: PowerSetEncoder Configuration:")
+    print(f"[{datetime.now()}] STATS:   - Max speakers: {max_speakers}")
+    print(f"[{datetime.now()}] STATS:   - Max overlap: {max_overlap}")
+    print(f"[{datetime.now()}] STATS:   - Number of classes: {num_classes}")
+    print(f"[{datetime.now()}] STATS:   - Formula: C(K,N) = Σ(k=0 to {max_overlap}) C({max_speakers},k)")
+    
+    # Test cases for encoding/decoding
+    test_cases = [
+        [],  # No speakers
+        [0],  # Single speaker
+        [1],  # Single speaker (different)
+        [0, 1],  # Two speakers
+        [0, 2],  # Two speakers (non-consecutive)
+        [1, 2],  # Two speakers
+        [0, 1, 2],  # Three speakers
+    ]
+    
+    # Add more test cases if max_overlap allows
+    if max_overlap >= 4 and max_speakers >= 4:
+        test_cases.append([0, 1, 2, 3])  # Four speakers
+    
+    print(f"\n[{datetime.now()}] STATS: Encoding/Decoding Examples:")
+    print(f"[{datetime.now()}] STATS: {'Speaker IDs':<15} {'Encoded':<8} {'Decoded':<15} {'Match':<5}")
+    print(f"[{datetime.now()}] STATS: {'-'*15} {'-'*8} {'-'*15} {'-'*5}")
+    
+    for speaker_ids in test_cases:
+        if len(speaker_ids) > max_overlap:
+            continue
+        if max(speaker_ids) >= max_speakers if speaker_ids else False:
+            continue
+            
+        try:
+            # Encode
+            encoded = power_set_encoder.encode(speaker_ids)
+            
+            # Decode
+            decoded = power_set_encoder.decode(encoded)
+            
+            # Check if encoding/decoding is correct
+            match = "✓" if set(speaker_ids) == set(decoded) else "✗"
+            
+            speaker_str = str(speaker_ids) if speaker_ids else "[]"
+            decoded_str = str(decoded) if decoded else "[]"
+            
+            print(f"[{datetime.now()}] STATS: {speaker_str:<15} {encoded:<8} {decoded_str:<15} {match:<5}")
+        except ValueError as e:
+            speaker_str = str(speaker_ids) if speaker_ids else "[]"
+            print(f"[{datetime.now()}] STATS: {speaker_str:<15} {'ERROR':<8} {'ERROR':<15} {'✗':<5} ({str(e)})")
+    
+    # Show all possible combinations
+    print(f"\n[{datetime.now()}] STATS: All Possible Speaker Combinations:")
+    print(f"[{datetime.now()}] STATS: {'Combination':<15} {'Encoded':<8} {'Description':<25}")
+    print(f"[{datetime.now()}] STATS: {'-'*15} {'-'*8} {'-'*25}")
+    
+    for i in range(num_classes):
+        decoded = power_set_encoder.decode(i)
+        
+        if not decoded:
+            description = "No speakers"
+        elif len(decoded) == 1:
+            description = f"Speaker {decoded[0]} only"
+        elif len(decoded) == max_overlap:
+            description = f"Max overlap ({len(decoded)} speakers)"
+        else:
+            description = f"{len(decoded)} speakers: {decoded}"
+        
+        decoded_str = str(decoded) if decoded else "[]"
+        print(f"[{datetime.now()}] STATS: {decoded_str:<15} {i:<8} {description:<25}")
+    
+    # Demonstrate edge cases
+    print(f"\n[{datetime.now()}] STATS: Edge Cases:")
+    print(f"[{datetime.now()}] STATS:   - Empty list [] encodes to 0 (no speakers active)")
+    print(f"[{datetime.now()}] STATS:   - Single speaker [0] encodes to 1")
+    print(f"[{datetime.now()}] STATS:   - Max overlap combination encodes to {num_classes - 1}")
+    
+    # Show overlap limitations
+    print(f"\n[{datetime.now()}] STATS: Overlap Limitations:")
+    print(f"[{datetime.now()}] STATS:   - Maximum {max_overlap} speakers can be active simultaneously")
+    print(f"[{datetime.now()}] STATS:   - Total combinations: {num_classes}")
+    
+    # Calculate and show the formula breakdown
+    from math import comb
+    print(f"\n[{datetime.now()}] STATS: Formula Breakdown C(K,N) = Σ(k=0 to {max_overlap}) C({max_speakers},k):")
+    total = 0
+    for k in range(max_overlap + 1):
+        combinations_k = comb(max_speakers, k)
+        total += combinations_k
+        print(f"[{datetime.now()}] STATS:   - C({max_speakers},{k}) = {combinations_k} combinations with {k} speakers")
+    print(f"[{datetime.now()}] STATS:   - Total: {total} classes")
+    
+    # Show encoding and decoding formulas with examples
+    print(f"\n[{datetime.now()}] STATS: Encoding/Decoding Formulas:")
+    print(f"[{datetime.now()}] STATS: ")
+    print(f"[{datetime.now()}] STATS: ENCODING: S → class_id")
+    print(f"[{datetime.now()}] STATS:   1. Sort speaker IDs: S' = sorted(S)")
+    print(f"[{datetime.now()}] STATS:   2. Find lexicographic index of S'")
+    print(f"[{datetime.now()}] STATS: ")
+    print(f"[{datetime.now()}] STATS: DECODING: class_id → S")
+    print(f"[{datetime.now()}] STATS:   1. Find k: Σ(j=0 to k-1) C({max_speakers},j) ≤ class_id < Σ(j=0 to k) C({max_speakers},j)")
+    print(f"[{datetime.now()}] STATS:   2. Reconstruct combination from remaining index")
+    print(f"[{datetime.now()}] STATS: ")
+    print(f"[{datetime.now()}] STATS: EXAMPLES WITH CALCULATIONS:")
+    
+    # Show calculation examples
+    examples = [
+        ([], "Empty set"),
+        ([0], "Single speaker"),
+        ([0, 1], "Two speakers"),
+    ]
+    
+    if max_overlap >= 3 and max_speakers >= 3:
+        examples.append(([0, 1, 2], "Three speakers"))
+    
+    for speaker_set, description in examples:
+        if len(speaker_set) > max_overlap:
+            continue
+            
+        encoded = power_set_encoder.encode(speaker_set)
+        decoded = power_set_encoder.decode(encoded)
+        
+        print(f"[{datetime.now()}] STATS: ")
+        print(f"[{datetime.now()}] STATS: Example: {speaker_set} ({description})")
+        print(f"[{datetime.now()}] STATS:   Encoded: {encoded}")
+        print(f"[{datetime.now()}] STATS:   Decoded: {decoded}")
+        
+        # Show calculation breakdown for simple cases
+        print(f"[{datetime.now()}] STATS:   Calculation:")
+        if not speaker_set:
+            print(f"[{datetime.now()}] STATS:     Empty set → index 0")
+        elif len(speaker_set) == 1:
+            s = speaker_set[0]
+            # Single speaker: index = C(n,0) + s = 1 + s
+            offset = comb(max_speakers, 0)  # C(n,0) = 1
+            print(f"[{datetime.now()}] STATS:     Speaker {s}: offset {offset} + speaker_id {s} = {offset + s}")
+        elif len(speaker_set) == 2:
+            s1, s2 = sorted(speaker_set)
+            # Two speakers: index = C(n,0) + C(n,1) + combination_index
+            offset = comb(max_speakers, 0) + comb(max_speakers, 1)  # C(n,0) + C(n,1)
+            # Combination index for [s1, s2] in lexicographic order
+            combo_idx = 0
+            for i in range(s1):
+                combo_idx += comb(max_speakers - i - 1, 2 - 1)  # C(n-i-1, 1)
+            combo_idx += s2 - s1 - 1  # Position within the s1-th group
+            print(f"[{datetime.now()}] STATS:     Speakers [{s1},{s2}]: offset {offset} + combo_index {combo_idx} = {offset + combo_idx}")
+        elif len(speaker_set) == 3:
+            s1, s2, s3 = sorted(speaker_set)
+            # Three speakers: index = C(n,0) + C(n,1) + C(n,2) + combination_index
+            offset = comb(max_speakers, 0) + comb(max_speakers, 1) + comb(max_speakers, 2)
+            # Combination index for [s1, s2, s3] in lexicographic order
+            combo_idx = 0
+            for i in range(s1):
+                combo_idx += comb(max_speakers - i - 1, 3 - 1)  # C(n-i-1, 2)
+            for j in range(s1 + 1, s2):
+                combo_idx += comb(max_speakers - j - 1, 3 - 2)  # C(n-j-1, 1)
+            combo_idx += s3 - s2 - 1  # Position within the [s1,s2] group
+            print(f"[{datetime.now()}] STATS:     Speakers [{s1},{s2},{s3}]: offset {offset} + combo_index {combo_idx} = {offset + combo_idx}")
+    
+    print(f"[{datetime.now()}] STATS: COMPLETED FUNCTION: print_power_set_encoder_examples")

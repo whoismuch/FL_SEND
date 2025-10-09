@@ -1,5 +1,6 @@
 import os
 import logging
+import re
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,8 @@ from statistics import (
     print_training_progress,
     print_final_results,
     analyze_speaker_distribution,
-    print_data_loading_info
+    print_data_loading_info,
+    print_power_set_encoder_examples
 )
 import time
 import argparse
@@ -71,23 +73,50 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
 class PowerSetEncoder:
-    """Power Set Encoding for overlapping speech diarization."""
-    def __init__(self, max_speakers: int = 4):
+    """Power Set Encoding for overlapping speech diarization with limited overlap."""
+    def __init__(self, max_speakers: int = 4, max_overlap: int = None):
         self.max_speakers = max_speakers
-        self.num_classes = 2 ** max_speakers
+        self.max_overlap = max_overlap if max_overlap is not None else max_speakers
         
+        # Calculate number of classes using C(K,N) formula
+        from math import comb
+        self.num_classes = sum(comb(max_speakers, k) for k in range(self.max_overlap + 1))
+        
+        # Create mapping from speaker combinations to class indices
+        self._create_mapping()
+        
+    def _create_mapping(self):
+        """Create mapping from speaker combinations to class indices."""
+        self.combination_to_class = {}
+        self.class_to_combination = {}
+        
+        class_idx = 0
+        # Generate all combinations with up to max_overlap speakers
+        for k in range(self.max_overlap + 1):
+            from itertools import combinations
+            for combo in combinations(range(self.max_speakers), k):
+                self.combination_to_class[combo] = class_idx
+                self.class_to_combination[class_idx] = list(combo)
+                class_idx += 1
+    
     def encode(self, speaker_labels: List[int]) -> int:
         """Encode speaker labels (as speaker IDs) into a single integer using power set encoding."""
         if any(label >= self.max_speakers or label < 0 for label in speaker_labels):
             raise ValueError(f"Speaker ID in labels exceeds max_speakers ({self.max_speakers}) or is negative.")
-        # Create binary vector: 1 if speaker ID is active, else 0
-        vector_bin = [1 if i in speaker_labels else 0 for i in range(self.max_speakers)]
-        return sum(bit * (2 ** i) for i, bit in enumerate(vector_bin))
+        
+        if len(speaker_labels) > self.max_overlap:
+            raise ValueError(f"Number of speakers ({len(speaker_labels)}) exceeds max_overlap ({self.max_overlap}).")
+        
+        # Convert to tuple for mapping lookup
+        combo = tuple(sorted(speaker_labels))
+        return self.combination_to_class[combo]
     
     def decode(self, encoded_value: int) -> List[int]:
-        """Decode an encoded value back into a list of active speaker IDs (positions with 1)."""
-        binary = format(encoded_value, f'0{self.max_speakers}b')
-        return [i for i, bit in enumerate(binary[::-1]) if bit == '1']
+        """Decode an encoded value back into a list of active speaker IDs."""
+        if encoded_value < 0 or encoded_value >= self.num_classes:
+            raise ValueError(f"Encoded value {encoded_value} is out of range [0, {self.num_classes-1}]")
+        
+        return self.class_to_combination[encoded_value].copy()
 
 class FSMNLayer(nn.Module):
     """Feedforward Sequential Memory Network layer."""
@@ -518,45 +547,48 @@ def main():
         print_meeting_statistics(grouped_train, grouped_validation, grouped_test)
         
         # PSE/SEND Configuration: Fixed N and K (as per original paper)
-        N = 4  # Maximum number of target speakers per recording
+        N = 5  # Maximum number of target speakers per recording
         K = 3  # Maximum simultaneous overlap (2-4 as per paper)
         
         
-        # Prepare test_loader for final evaluation
-        _, _, test_loader = prepare_data_loaders(
+        # Prepare data loaders for training and evaluation
+        train_loader, val_loader, test_loader = prepare_data_loaders(
             grouped_train, grouped_validation, grouped_test, speaker_encoder, N=N
-        )
-        
-      
-        
-        # Calculate number of classes using C(K,N) formula
-        from math import comb
-        num_classes = sum(comb(N, k) for k in range(K + 1))
-        print(f"[{datetime.now()}] MAIN: PSE Configuration: N={N} (max speakers per recording), K={K} (max overlap)")
-        print(f"[{datetime.now()}] MAIN: Number of classes C(K,N) = Σ(k=0 to {K}) C({N},k) = {num_classes}")
+        ) 
         
         # Print experiment configuration
         print_experiment_config(num_clients, num_rounds, epochs, test_size)
+
         
         # Get all unique speakers for speaker embedding computation
-        speaker_ids = set()
-        for grouped in [grouped_train, grouped_validation, grouped_test]:
-            for samples in grouped.values():
-                for sample in samples:
-                    speaker_ids.add(sample["speaker_id"])
-        all_speaker_ids = sorted(list(speaker_ids))
-        speaker_id_list = all_speaker_ids[:N]  # Limit to N slots for PSE consistency
-        print(f"[{datetime.now()}] MAIN: Detected {len(all_speaker_ids)} unique speakers in dataset: {all_speaker_ids}")
-        print(f"[{datetime.now()}] MAIN: Using first {len(speaker_id_list)} speakers for PSE slots: {speaker_id_list}")
-        print(f"[{datetime.now()}] MAIN: Note: PSE uses fixed N={N} slots per recording, not all {len(all_speaker_ids)} speakers")
+        # speaker_ids = set()
+        # for grouped in [grouped_train, grouped_validation, grouped_test]:
+        #     for samples in grouped.values():
+        #         for sample in samples:
+        #             speaker_ids.add(sample["speaker_id"])
+        # all_speaker_ids = sorted(list(speaker_ids))
+        # speaker_id_list = all_speaker_ids[:N]  # Limit to N slots for PSE consistency
+        # print(f"[{datetime.now()}] MAIN: Detected {len(all_speaker_ids)} unique speakers in dataset: {all_speaker_ids}")
+        # print(f"[{datetime.now()}] MAIN: Using first {len(speaker_id_list)} speakers for PSE slots: {speaker_id_list}")
+        # print(f"[{datetime.now()}] MAIN: Note: PSE uses fixed N={N} slots per recording, not all {len(all_speaker_ids)} speakers")
         
         # Analyze speaker distribution
         analyze_speaker_distribution(grouped_train)
         
-        # Initialize Power Set Encoder with fixed N
-        print(f"[{datetime.now()}] MAIN: Initializing Power Set Encoder with max_speakers={N}")
-        power_set_encoder = PowerSetEncoder(max_speakers=N)
+        # Initialize Power Set Encoder with fixed N and K
+        print(f"[{datetime.now()}] MAIN: Initializing Power Set Encoder with max_speakers={N}, max_overlap={K}")
+        power_set_encoder = PowerSetEncoder(max_speakers=N, max_overlap=K)
+
+        # Calculate number of classes using C(K,N) formula
+        num_classes = power_set_encoder.num_classes
+        print(f"[{datetime.now()}] MAIN: PSE Configuration: N={N} (max speakers per recording), K={K} (max overlap)")
+        print(f"[{datetime.now()}] MAIN: Number of classes using C(K,N) = Σ(k=0 to {K}) C({N},k) = {num_classes}")
         
+        # Print PowerSetEncoder examples and statistics
+        print_power_set_encoder_examples(power_set_encoder)
+        
+        # return 0;
+
         # Create and train model
         print(f"[{datetime.now()}] MAIN: Creating SEND model...")
         model = SENDModel(num_classes=num_classes).to(device)

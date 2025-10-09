@@ -11,6 +11,7 @@ import logging
 from speechbrain.pretrained import EncoderClassifier
 from pyannote.core import Segment, Annotation
 from pyannote.metrics.diarization import DiarizationErrorRate
+from statistics import print_function_start, print_function_end, print_data_loaders_info, print_dataset_statistics
 
 logger = logging.getLogger(__name__)
 
@@ -546,6 +547,10 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, N=4):
     Returns:
         Tuple of (features, labels, meeting_ids): Dataset with padded features and meeting IDs
     """
+    # Log function start
+    print_function_start("create_dataset_from_grouped", 
+                        grouped_data_len=len(grouped_data), 
+                        N=N)
     features = []
     labels = []
     meeting_ids = []
@@ -606,20 +611,12 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, N=4):
     labels = np.array(labels)
     meeting_ids = np.array(meeting_ids)
     
-    # === DATASET STATISTICS ===
-    logger.info(f"=== DATASET STATISTICS ===")
-    logger.info(f"Dataset size (number of samples): {features.shape[0]}")
-    logger.info(f"Feature shape (samples, frames, mel-bands): {features.shape}")
-    logger.info(f"Label shape: {labels.shape}")
-    logger.info(f"Meeting IDs shape: {meeting_ids.shape}")
-    logger.info(f"Frame size (number of frames per sample): min={np.min([f.shape[0] for f in raw_features])}, max={np.max([f.shape[0] for f in raw_features])}, mean={np.mean([f.shape[0] for f in raw_features]):.1f}")
-    logger.info(f"Feature dtype: {features.dtype}, Label dtype: {labels.dtype}")
-    logger.info(f"Example feature[0] shape: {features[0].shape}, min={features[0].min():.2f}, max={features[0].max():.2f}")
-    logger.info(f"Example label[0] shape: {labels[0].shape}, values: {np.unique(labels[0])}")
-    logger.info(f"Unique label values in dataset: {np.unique(labels)}")
-    # Optionally, print distribution of audio segment lengths
-    segment_lengths = [f.shape[0] for f in raw_features]
-    logger.info(f"Audio segment length distribution: min={np.min(segment_lengths)}, max={np.max(segment_lengths)}, mean={np.mean(segment_lengths):.1f}, median={np.median(segment_lengths)}")
+    # Use statistics function for dataset logging
+    print_dataset_statistics(features, labels, meeting_ids, raw_features)
+    
+    # Log function completion
+    print_function_end("create_dataset_from_grouped", 
+                      f"Created dataset with {features.shape[0]} samples, {features.shape[1]} max frames, {features.shape[2]} mel-bands")
     
     return features, labels, meeting_ids
 
@@ -709,6 +706,13 @@ def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, 
     return der
 
 def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speaker_encoder, batch_size=4, speaker_to_embedding=None, N=4):
+    # Import and log function start
+    print_function_start("prepare_data_loaders", 
+                        grouped_train_len=len(grouped_train), 
+                        grouped_validation_len=len(grouped_validation), 
+                        grouped_test_len=len(grouped_test),
+                        batch_size=batch_size, 
+                        N=N)
     """Prepare data loaders for training, validation and testing."""
     # Create datasets
     train_features, train_labels, train_meeting_ids = create_dataset_from_grouped(grouped_train, speaker_encoder, N)
@@ -792,23 +796,12 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
     
-    logger.info(f"Created data loaders with batch size {batch_size}")
-    logger.info(f"Training set: {len(train_dataset)} samples | {len(train_loader)} batches | {len(train_dataset) * train_dataset[0][0].shape[0]} frames")
-    logger.info(f"Validation set: {len(val_dataset)} samples | {len(val_loader)} batches | {len(val_dataset) * val_dataset[0][0].shape[0]} frames")
-    logger.info(f"Test set: {len(test_dataset)} samples | {len(test_loader)} batches | {len(test_dataset) * test_dataset[0][0].shape[0]} frames")
-
-    # Example of a single sample from train_dataset
-    feature, all_embeddings, label, meeting_id = train_dataset[0]
-    logger.info("=== EXAMPLE TRAIN SAMPLE ===")
-    logger.info(f"Feature shape: {feature.shape}, dtype: {feature.dtype}")
-    logger.info(f"Feature (first frame): {feature[0]}")
-    logger.info(f"Speaker embeddings shape: {all_embeddings.shape}, dtype: {all_embeddings.dtype}")
-    logger.info(f"Label shape: {label.shape}, dtype: {label.dtype}")
-    logger.info(f"Label (first 10 frames): {label[:10]}")
-    logger.info(f"Meeting ID shape: {meeting_id.shape}, dtype: {meeting_id.dtype}")
-    logger.info(f"Meeting ID (first 10 frames): {meeting_id[:10]}")
-    logger.info("Sample = audio segment (feature matrix), batch = group of samples, frame = row in the feature matrix (one time step)")
-    logger.info("Frames are NOT independent: the model takes their sequence/context into account")
+    # Import and use statistics function for logging
+    print_data_loaders_info(train_dataset, val_dataset, test_dataset, train_loader, val_loader, test_loader, batch_size)
+    
+    # Log function completion
+    print_function_end("prepare_data_loaders", 
+                      f"Created 3 data loaders: train({len(train_loader)} batches), val({len(val_loader)} batches), test({len(test_loader)} batches)")
 
     return train_loader, val_loader, test_loader
 
