@@ -31,6 +31,8 @@ from datetime import datetime
 import pandas as pd
 from data_processing import (
     split_data_for_clients, 
+    process_training_data,
+    process_validation_data,
     extract_features, 
     simulate_overlapping_speech, 
     group_by_meeting,
@@ -49,7 +51,9 @@ from statistics import (
     print_final_results,
     analyze_speaker_distribution,
     print_data_loading_info,
-    print_power_set_encoder_examples
+    print_power_set_encoder_examples,
+    print_send_model_statistics,
+    print_client_split_statistics
 )
 import time
 import argparse
@@ -550,10 +554,21 @@ def main():
         N = 5  # Maximum number of target speakers per recording
         K = 3  # Maximum simultaneous overlap (2-4 as per paper)
         
+        # Initialize Power Set Encoder with fixed N and K
+        print(f"[{datetime.now()}] MAIN: Initializing Power Set Encoder with max_speakers={N}, max_overlap={K}")
+        power_set_encoder = PowerSetEncoder(max_speakers=N, max_overlap=K)
+
+        # Calculate number of classes using C(K,N) formula
+        num_classes = power_set_encoder.num_classes
+        print(f"[{datetime.now()}] MAIN: PSE Configuration: N={N} (max speakers per recording), K={K} (max overlap)")
+        print(f"[{datetime.now()}] MAIN: Number of classes using C(K,N) = Σ(k=0 to {K}) C({N},k) = {num_classes}")
+        
+        # Print PowerSetEncoder examples and statistics
+        print_power_set_encoder_examples(power_set_encoder)
         
         # Prepare data loaders for training and evaluation
         train_loader, val_loader, test_loader = prepare_data_loaders(
-            grouped_train, grouped_validation, grouped_test, speaker_encoder, N=N
+            grouped_train, grouped_validation, grouped_test, speaker_encoder, power_set_encoder, N=N
         ) 
         
         # Print experiment configuration
@@ -575,27 +590,19 @@ def main():
         # Analyze speaker distribution
         analyze_speaker_distribution(grouped_train)
         
-        # Initialize Power Set Encoder with fixed N and K
-        print(f"[{datetime.now()}] MAIN: Initializing Power Set Encoder with max_speakers={N}, max_overlap={K}")
-        power_set_encoder = PowerSetEncoder(max_speakers=N, max_overlap=K)
-
-        # Calculate number of classes using C(K,N) formula
-        num_classes = power_set_encoder.num_classes
-        print(f"[{datetime.now()}] MAIN: PSE Configuration: N={N} (max speakers per recording), K={K} (max overlap)")
-        print(f"[{datetime.now()}] MAIN: Number of classes using C(K,N) = Σ(k=0 to {K}) C({N},k) = {num_classes}")
-        
-        # Print PowerSetEncoder examples and statistics
-        print_power_set_encoder_examples(power_set_encoder)
-        
-        # return 0;
-
         # Create and train model
         print(f"[{datetime.now()}] MAIN: Creating SEND model...")
         model = SENDModel(num_classes=num_classes).to(device)
         
+        # Print SENDModel statistics
+        print_send_model_statistics(model)
+        
         # Split data for federated learning with fewer clients
         print(f"[{datetime.now()}] MAIN: Splitting data for federated learning...")
-        client_data = split_data_for_clients(grouped_train, num_clients, speaker_encoder)
+        client_data = split_data_for_clients(grouped_train, grouped_validation, num_clients, speaker_encoder, power_set_encoder)
+        
+        # Print detailed statistics about client data split
+        print_client_split_statistics(client_data, num_clients, grouped_train)
         
         # Validate client data
         if not client_data or len(client_data) < num_clients:

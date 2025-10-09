@@ -592,3 +592,226 @@ def print_power_set_encoder_examples(power_set_encoder) -> None:
             print(f"[{datetime.now()}] STATS:     Speakers [{s1},{s2},{s3}]: offset {offset} + combo_index {combo_idx} = {offset + combo_idx}")
     
     print(f"[{datetime.now()}] STATS: COMPLETED FUNCTION: print_power_set_encoder_examples")
+
+
+def print_send_model_statistics(model) -> None:
+    """
+    Print basic statistics about SENDModel architecture and parameters.
+    
+    Args:
+        model: SENDModel instance to analyze
+    """
+    print(f"\n[{datetime.now()}] STATS: ========================================== SEND MODEL STATISTICS ==========================================")
+    print(f"[{datetime.now()}] STATS: STARTING FUNCTION: print_send_model_statistics")
+    
+    # Get model parameters
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    
+    print(f"[{datetime.now()}] STATS: Model Architecture:")
+    print(f"[{datetime.now()}] STATS:   - Model type: SENDModel")
+    print(f"[{datetime.now()}] STATS:   - Total parameters: {total_params:,}")
+    print(f"[{datetime.now()}] STATS:   - Trainable parameters: {trainable_params:,}")
+    print(f"[{datetime.now()}] STATS:   - Non-trainable parameters: {total_params - trainable_params:,}")
+    
+    # Model configuration
+    print(f"[{datetime.now()}] STATS: Model Configuration:")
+    
+    # Extract configuration from model structure
+    input_dim = None
+    hidden_dim = None
+    num_classes = None
+    dropout_p = None
+    
+    # Try to get input_dim and hidden_dim from FSMNLayer
+    try:
+        first_fsmn = model.speech_encoder[0][0]
+        if hasattr(first_fsmn, 'input_dim'):
+            input_dim = first_fsmn.input_dim
+        if hasattr(first_fsmn, 'hidden_dim'):
+            hidden_dim = first_fsmn.hidden_dim
+    except:
+        pass
+    
+    # Try to get num_classes from output layer
+    try:
+        # Get from classifier's last layer
+        if hasattr(model, 'classifier'):
+            last_layer = model.classifier[-1]
+            if hasattr(last_layer, 'out_features'):
+                num_classes = last_layer.out_features
+    except:
+        pass
+    
+    # Try to get dropout_p from dropout layers
+    try:
+        import torch.nn as nn
+        for module in model.modules():
+            if isinstance(module, nn.Dropout):
+                dropout_p = module.p
+                break
+    except:
+        pass
+    
+    print(f"[{datetime.now()}] STATS:   - Input dimension: {input_dim if input_dim else 'Unknown'}")
+    print(f"[{datetime.now()}] STATS:   - Hidden dimension: {hidden_dim if hidden_dim else 'Unknown'}")
+    print(f"[{datetime.now()}] STATS:   - Number of classes: {num_classes if num_classes else 'Unknown'}")
+    print(f"[{datetime.now()}] STATS:   - Dropout probability: {dropout_p if dropout_p else 'Unknown'}")
+    
+    # Layer information
+    print(f"[{datetime.now()}] STATS: Layer Structure:")
+    layer_count = 0
+    for name, module in model.named_modules():
+        if len(list(module.children())) == 0:  # Leaf modules only
+            layer_count += 1
+            param_count = sum(p.numel() for p in module.parameters())
+            print(f"[{datetime.now()}] STATS:   - {name}: {type(module).__name__} ({param_count:,} params)")
+    
+    print(f"[{datetime.now()}] STATS:   - Total layers: {layer_count}")
+    
+    # Memory estimation
+    param_size_mb = total_params * 4 / (1024 * 1024)  # Assuming float32
+    print(f"[{datetime.now()}] STATS: Memory Estimation:")
+    print(f"[{datetime.now()}] STATS:   - Model size: ~{param_size_mb:.1f} MB")
+    print(f"[{datetime.now()}] STATS:   - Training memory: ~{param_size_mb * 3:.1f} MB (including gradients and optimizer)")
+    
+    print(f"[{datetime.now()}] STATS: COMPLETED FUNCTION: print_send_model_statistics")
+
+
+def print_client_split_statistics(client_data: List, num_clients: int, grouped_train: Dict) -> None:
+    """
+    Print detailed statistics about client data split for federated learning.
+    
+    Args:
+        client_data: List containing client data split results (each element is a tuple of (train_loader, val_loader))
+        num_clients: Number of clients in federated learning
+        grouped_train: Original grouped training data for comparison
+    """
+    print(f"\n[{datetime.now()}] STATS: ========================================== CLIENT DATA SPLIT STATISTICS ==========================================")
+    print(f"[{datetime.now()}] STATS: STARTING FUNCTION: print_client_split_statistics")
+    
+    if not client_data:
+        print(f"[{datetime.now()}] STATS: ERROR: No client data provided")
+        return
+    
+    # Basic split information
+    print(f"[{datetime.now()}] STATS: Federated Learning Configuration:")
+    print(f"[{datetime.now()}] STATS:   - Number of clients: {num_clients}")
+    print(f"[{datetime.now()}] STATS:   - Split strategy: meeting_based")
+    print(f"[{datetime.now()}] STATS:   - Total meetings in training set: {len(grouped_train)}")
+    print(f"[{datetime.now()}] STATS:   - Actual clients created: {len(client_data)}")
+    
+    # Client-specific statistics
+    print(f"\n[{datetime.now()}] STATS: Client Data Distribution:")
+    print(f"[{datetime.now()}] STATS: {'Client':<10} {'Train Batches':<15} {'Val Batches':<12} {'Train Samples':<15} {'Val Samples':<12}")
+    print(f"[{datetime.now()}] STATS: {'-'*10} {'-'*15} {'-'*12} {'-'*15} {'-'*12}")
+    
+    total_train_samples = 0
+    total_val_samples = 0
+    clients_with_data = 0
+    
+    for client_id, (train_loader, val_loader) in enumerate(client_data):
+        if train_loader is None or val_loader is None:
+            print(f"[{datetime.now()}] STATS: {client_id:<10} {'MISSING':<15} {'MISSING':<12} {'MISSING':<15} {'MISSING':<12}")
+            continue
+        
+        # Extract information from data loaders
+        train_batches = len(train_loader)
+        val_batches = len(val_loader)
+        
+        # Calculate approximate number of samples (assuming batch_size=4)
+        train_samples = train_batches * 4  # Approximate, actual batch size may vary
+        val_samples = val_batches * 4      # Approximate, actual batch size may vary
+        
+        total_train_samples += train_samples
+        total_val_samples += val_samples
+        
+        if train_batches > 0 or val_batches > 0:
+            clients_with_data += 1
+        
+        print(f"[{datetime.now()}] STATS: {client_id:<10} {train_batches:<15} {val_batches:<12} {train_samples:<15} {val_samples:<12}")
+    
+    # Summary statistics
+    print(f"\n[{datetime.now()}] STATS: Split Summary:")
+    print(f"[{datetime.now()}] STATS:   - Total train samples (approx): {total_train_samples:,}")
+    print(f"[{datetime.now()}] STATS:   - Total validation samples (approx): {total_val_samples:,}")
+    print(f"[{datetime.now()}] STATS:   - Total samples (approx): {total_train_samples + total_val_samples:,}")
+    print(f"[{datetime.now()}] STATS:   - Clients with data: {clients_with_data}/{len(client_data)}")
+    
+    # Balance analysis
+    if len(client_data) > 0:
+        client_train_samples = []
+        client_val_samples = []
+        client_total_samples = []
+        
+        for train_loader, val_loader in client_data:
+            if train_loader is not None and val_loader is not None:
+                train_samples = len(train_loader) * 4  # Approximate
+                val_samples = len(val_loader) * 4      # Approximate
+                total_samples = train_samples + val_samples
+                
+                client_train_samples.append(train_samples)
+                client_val_samples.append(val_samples)
+                client_total_samples.append(total_samples)
+        
+        if client_total_samples:
+            import numpy as np
+            print(f"\n[{datetime.now()}] STATS: Balance Analysis:")
+            print(f"[{datetime.now()}] STATS:   - Train samples per client: min={min(client_train_samples)}, max={max(client_train_samples)}, mean={np.mean(client_train_samples):.1f}, std={np.std(client_train_samples):.1f}")
+            print(f"[{datetime.now()}] STATS:   - Val samples per client: min={min(client_val_samples)}, max={max(client_val_samples)}, mean={np.mean(client_val_samples):.1f}, std={np.std(client_val_samples):.1f}")
+            print(f"[{datetime.now()}] STATS:   - Total samples per client: min={min(client_total_samples)}, max={max(client_total_samples)}, mean={np.mean(client_total_samples):.1f}, std={np.std(client_total_samples):.1f}")
+            
+            # Coefficient of variation (lower is better for balance)
+            cv_train = np.std(client_train_samples) / np.mean(client_train_samples) if np.mean(client_train_samples) > 0 else 0
+            cv_val = np.std(client_val_samples) / np.mean(client_val_samples) if np.mean(client_val_samples) > 0 else 0
+            cv_total = np.std(client_total_samples) / np.mean(client_total_samples) if np.mean(client_total_samples) > 0 else 0
+            
+            print(f"[{datetime.now()}] STATS:   - Balance coefficients (lower=better): train={cv_train:.3f}, val={cv_val:.3f}, total={cv_total:.3f}")
+    
+    # Data loader analysis
+    print(f"\n[{datetime.now()}] STATS: Data Loader Analysis:")
+    print(f"[{datetime.now()}] STATS:   - Each client has train_loader and val_loader")
+    print(f"[{datetime.now()}] STATS:   - Batch size: 4 (approximate)")
+    print(f"[{datetime.now()}] STATS:   - Data loaders include collate function for padding")
+    print(f"[{datetime.now()}] STATS:   - Features are padded to max sequence length in batch")
+    
+    # Data quality checks
+    print(f"\n[{datetime.now()}] STATS: Data Quality Checks:")
+    empty_clients = 0
+    for train_loader, val_loader in client_data:
+        if train_loader is None or val_loader is None:
+            empty_clients += 1
+        elif len(train_loader) == 0 and len(val_loader) == 0:
+            empty_clients += 1
+    
+    print(f"[{datetime.now()}] STATS:   - Empty clients: {empty_clients}/{len(client_data)}")
+    print(f"[{datetime.now()}] STATS:   - Clients with data: {len(client_data) - empty_clients}/{len(client_data)}")
+    
+    if empty_clients > 0:
+        print(f"[{datetime.now()}] STATS:   - WARNING: Some clients have no data!")
+    
+    # Training readiness check
+    print(f"\n[{datetime.now()}] STATS: Training Readiness:")
+    ready_clients = 0
+    for client_id, (train_loader, val_loader) in enumerate(client_data):
+        if train_loader is not None and val_loader is not None:
+            if len(train_loader) > 0 and len(val_loader) > 0:
+                ready_clients += 1
+                print(f"[{datetime.now()}] STATS:   - Client {client_id}: Ready for training ({len(train_loader)} train batches, {len(val_loader)} val batches)")
+            else:
+                print(f"[{datetime.now()}] STATS:   - Client {client_id}: Not ready (empty loaders)")
+        else:
+            print(f"[{datetime.now()}] STATS:   - Client {client_id}: Not ready (missing loaders)")
+    
+    print(f"[{datetime.now()}] STATS:   - Clients ready for training: {ready_clients}/{len(client_data)}")
+    
+    # Recommendations
+    print(f"\n[{datetime.now()}] STATS: Recommendations:")
+    if 'cv_total' in locals() and cv_total > 0.3:
+        print(f"[{datetime.now()}] STATS:   - Consider rebalancing: high sample count variation (CV={cv_total:.3f})")
+    if empty_clients > 0:
+        print(f"[{datetime.now()}] STATS:   - Fix empty clients before training")
+    if ready_clients < len(client_data):
+        print(f"[{datetime.now()}] STATS:   - Ensure all clients have valid data loaders before federated training")
+    
+    print(f"[{datetime.now()}] STATS: COMPLETED FUNCTION: print_client_split_statistics")
