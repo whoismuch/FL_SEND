@@ -42,7 +42,7 @@ from data_processing import (
     compute_speaker_embeddings,
     OverlappingSpeechDataset
 )
-from statistics import (
+from dataset_statistics import (
     print_meeting_statistics,
     print_dataset_overview,
     print_grouping_results,
