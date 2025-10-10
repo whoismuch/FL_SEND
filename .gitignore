@@ -7,3 +7,4 @@ results/
 .env
 .DS_Store
 out_artifacts/
+.idea/
