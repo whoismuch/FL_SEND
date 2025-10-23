@@ -235,13 +235,19 @@ class SENDModel(nn.Module):
 
 
 # Centralized training functions
-def train_model(model, train_loader, val_loader, device, power_set_encoder, epochs=2, compute_der_during_training=False):
+def train_model(model, train_loader, val_loader, device, power_set_encoder, epochs=2, compute_der_during_training=False, progress_log_file=None):
     """Train the SEND model in centralized manner."""
     model.train()
     optimizer = optim.Adam(model.parameters())
     criterion = nn.CrossEntropyLoss()
     
     epoch_metrics = []
+    
+    # Initialize progress logging
+    if progress_log_file:
+        with open(progress_log_file, 'w') as f:
+            f.write("EPOCH\tLOSS\tDER\tACCURACY\tTIMESTAMP\n")
+            f.write("="*60 + "\n")
     
     for epoch in range(epochs):
         print(f"[{datetime.now()}] Starting epoch {epoch+1}/{epochs}")
@@ -250,6 +256,9 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         # Group predictions by meeting_id for proper DER calculation
         pred_by_rec = defaultdict(list)
         lab_by_rec = defaultdict(list)
+        
+        total_batches = len(train_loader)
+        print(f"[{datetime.now()}] Epoch {epoch+1}/{epochs}: Processing {total_batches} batches...")
         
         for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(train_loader):
             if batch_idx == 0:
@@ -282,8 +291,11 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                     pred_by_rec[meeting_id].append(pred)
                     lab_by_rec[meeting_id].append(label)
             
-            if batch_idx % 10 == 0:
-                print(f"Batch {batch_idx}, Loss: {loss.item():.4f}")
+            # Progress indicator for batches
+            if batch_idx % max(1, total_batches // 10) == 0 or batch_idx == total_batches - 1:
+                progress = (batch_idx + 1) / total_batches * 100
+                print(f"[{datetime.now()}] Epoch {epoch+1} Progress: {progress:.1f}% ({batch_idx+1}/{total_batches}) - Loss: {loss.item():.4f}")
+            
             if batch_idx == 0:
                 print(f"Batch {batch_idx}, labels shape: {labels.shape}, unique labels: {torch.unique(labels)}")
                 print(f"Batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(predictions)}")
@@ -323,6 +335,25 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         der = np.mean(list(ders.values())) if ders else float('nan')
         print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique labels: {np.unique(all_labels) if all_labels else 'EMPTY'}")
         print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique predictions: {np.unique(all_predictions) if all_predictions else 'EMPTY'}")
+        
+        # CAPS progress output
+        der_display = f"{der:.4f}" if compute_der_during_training and not np.isnan(der) else "SKIPPED"
+        acc_display = f"{acc:.4f}" if not np.isnan(acc) else "N/A"
+        loss_display = f"{mean_loss:.4f}" if not np.isnan(mean_loss) else "N/A"
+        
+        print(f"\n{'='*80}")
+        print(f"EPOCH {epoch+1}/{epochs} COMPLETED")
+        print(f"LOSS: {loss_display}")
+        print(f"DER:  {der_display}")
+        print(f"ACC:  {acc_display}")
+        print(f"TIME: {datetime.now().strftime('%H:%M:%S')}")
+        print(f"{'='*80}\n")
+        
+        # Log to file
+        if progress_log_file:
+            with open(progress_log_file, 'a') as f:
+                f.write(f"{epoch+1}\t{loss_display}\t{der_display}\t{acc_display}\t{datetime.now().strftime('%H:%M:%S')}\n")
+        
         print(f"[{datetime.now()}] Epoch {epoch+1}/{epochs} summary: min_loss={min(batch_losses) if batch_losses else 'nan'}, max_loss={max(batch_losses) if batch_losses else 'nan'}, mean_loss={mean_loss}, acc={acc}, DER={der if compute_der_during_training else 'skipped'}")
         # Collect metrics for this epoch
         epoch_metrics.append({
@@ -534,6 +565,21 @@ def main():
             print(f"[{datetime.now()}] MAIN: Each meeting recording contains multiple audio segments, each segment becomes multiple training samples")
             print(f"[{datetime.now()}] MAIN: Each training sample contains multiple frames (time steps) for sequence learning")
         
+        # Create experiment directories early
+        dt_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        dt_str_human = datetime.now().strftime("%Y-%m-%d-%H-%M")
+        exp_tag = f"exp_{test_size}size_{epochs}epochs_centralized_{dt_str_human}"
+        
+        # Artifact directories for logs and plots
+        artifact_logs_dir = os.path.join("centralized_out_artifacts", "logs", exp_tag)
+        artifact_plots_dir = os.path.join("centralized_out_artifacts", "plots", exp_tag)
+        os.makedirs(artifact_logs_dir, exist_ok=True)
+        os.makedirs(artifact_plots_dir, exist_ok=True)
+        
+        print(f"[{datetime.now()}] MAIN: Experiment tag: {exp_tag}")
+        print(f"[{datetime.now()}] MAIN: Logs directory: {artifact_logs_dir}")
+        print(f"[{datetime.now()}] MAIN: Plots directory: {artifact_plots_dir}")
+        
         # Compute speaker embeddings for train set
         print(f"[{datetime.now()}] MAIN: Computing speaker embeddings for train set...")
         speaker_to_embedding = compute_speaker_embeddings(grouped_train, speaker_encoder)
@@ -543,7 +589,12 @@ def main():
         
         # Train the model
         print(f"[{datetime.now()}] MAIN: DER computation during training: {'ENABLED' if compute_der_during_training else 'DISABLED (faster training)'}")
-        training_metrics = train_model(model, train_loader, val_loader, device, power_set_encoder, epochs, compute_der_during_training)
+        
+        # Create progress log file path
+        progress_log_file = os.path.join(artifact_logs_dir, "training_progress.txt")
+        print(f"[{datetime.now()}] MAIN: Progress will be logged to: {progress_log_file}")
+        
+        training_metrics = train_model(model, train_loader, val_loader, device, power_set_encoder, epochs, compute_der_during_training, progress_log_file)
         
         # Evaluate on validation set
         print(f"[{datetime.now()}] MAIN: Evaluating on validation set...")
@@ -655,10 +706,10 @@ def main():
         # === EXPORT DIARIZATION RESULTS TO RTTM FORMAT ===
         print("\n===== EXPORTING DIARIZATION RESULTS =====")
         
-        # Create experiment tag for export directory
-        dt_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-        dt_str_human = datetime.now().strftime("%Y-%m-%d-%H-%M")
-        exp_tag = f"exp_{test_size}size_{epochs}epochs_centralized_{dt_str_human}"
+        # Create experiment tag for export directory (already created above)
+        # dt_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # dt_str_human = datetime.now().strftime("%Y-%m-%d-%H-%M")
+        # exp_tag = f"exp_{test_size}size_{epochs}epochs_centralized_{dt_str_human}"
         
         try:
             from diarization_export import export_diarization_results
@@ -699,11 +750,11 @@ def main():
 
         # === LOG FINAL RESULTS TO FILE ===
         # Use actual experiment parameters, not hardcoded values
-        # Artifact directories for logs and plots
-        artifact_logs_dir = os.path.join("centralized_out_artifacts", "logs", exp_tag)
-        artifact_plots_dir = os.path.join("centralized_out_artifacts", "plots", exp_tag)
-        os.makedirs(artifact_logs_dir, exist_ok=True)
-        os.makedirs(artifact_plots_dir, exist_ok=True)
+        # Artifact directories already created above
+        # artifact_logs_dir = os.path.join("centralized_out_artifacts", "logs", exp_tag)
+        # artifact_plots_dir = os.path.join("centralized_out_artifacts", "plots", exp_tag)
+        # os.makedirs(artifact_logs_dir, exist_ok=True)
+        # os.makedirs(artifact_plots_dir, exist_ok=True)
         # File paths for logs and metrics (simple names)
         exp_filename = "experiment.txt"
         exp_filepath = os.path.join(artifact_logs_dir, exp_filename)
