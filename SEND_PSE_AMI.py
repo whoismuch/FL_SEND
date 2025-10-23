@@ -235,19 +235,24 @@ class SENDModel(nn.Module):
 
 
 # Centralized training functions
-def train_model(model, train_loader, val_loader, device, power_set_encoder, epochs=2, compute_der_during_training=False, progress_log_file=None):
-    """Train the SEND model in centralized manner."""
+def train_model(model, train_loader, val_loader, device, power_set_encoder, epochs=50, compute_der_during_training=False, progress_log_file=None, early_stopping_patience=5, early_stopping_min_delta=0.001):
+    """Train the SEND model in centralized manner with early stopping."""
     model.train()
     optimizer = optim.Adam(model.parameters())
     criterion = nn.CrossEntropyLoss()
     
     epoch_metrics = []
     
+    # Early stopping variables
+    best_val_loss = float('inf')
+    patience_counter = 0
+    best_model_state = None
+    
     # Initialize progress logging
     if progress_log_file:
         with open(progress_log_file, 'w') as f:
-            f.write("EPOCH\tLOSS\tDER\tACCURACY\tTIMESTAMP\n")
-            f.write("="*60 + "\n")
+            f.write(f"{'EPOCH':<6} {'LOSS':<12} {'DER':<10} {'ACCURACY':<10} {'VAL_LOSS':<12} {'VAL_DER':<10} {'TIMESTAMP':<10}\n")
+            f.write("="*80 + "\n")
     
     for epoch in range(epochs):
         print(f"[{datetime.now()}] Starting epoch {epoch+1}/{epochs}")
@@ -256,7 +261,7 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         # Group predictions by meeting_id for proper DER calculation
         pred_by_rec = defaultdict(list)
         lab_by_rec = defaultdict(list)
-        
+            
         total_batches = len(train_loader)
         print(f"[{datetime.now()}] Epoch {epoch+1}/{epochs}: Processing {total_batches} batches...")
         
@@ -299,7 +304,7 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
             if batch_idx == 0:
                 print(f"Batch {batch_idx}, labels shape: {labels.shape}, unique labels: {torch.unique(labels)}")
                 print(f"Batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(predictions)}")
-        
+            
         # Calculate DER per recording and aggregate (only if requested)
         ders = {}
         if compute_der_during_training:
@@ -349,19 +354,61 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         print(f"TIME: {datetime.now().strftime('%H:%M:%S')}")
         print(f"{'='*80}\n")
         
-        # Log to file
-        if progress_log_file:
-            with open(progress_log_file, 'a') as f:
-                f.write(f"{epoch+1}\t{loss_display}\t{der_display}\t{acc_display}\t{datetime.now().strftime('%H:%M:%S')}\n")
-        
         print(f"[{datetime.now()}] Epoch {epoch+1}/{epochs} summary: min_loss={min(batch_losses) if batch_losses else 'nan'}, max_loss={max(batch_losses) if batch_losses else 'nan'}, mean_loss={mean_loss}, acc={acc}, DER={der if compute_der_during_training else 'skipped'}")
         
-        # Collect metrics for this epoch
-        epoch_metrics.append({
-            "train_loss": float(mean_loss),
-            "acc": float(acc) if not np.isnan(acc) else None,
+        # Validation after each epoch
+        print(f"[{datetime.now()}] Running validation for epoch {epoch+1}...")
+        val_loss, val_der, _, _ = evaluate_model(model, val_loader, device, power_set_encoder)
+        
+        # Early stopping logic
+        improvement = best_val_loss - val_loss
+        if improvement > early_stopping_min_delta:
+            best_val_loss = val_loss
+            patience_counter = 0
+            best_model_state = model.state_dict().copy()
+            print(f"[{datetime.now()}] ✅ Validation improved! New best val_loss: {val_loss:.4f}")
+        else:
+            patience_counter += 1
+            print(f"[{datetime.now()}] ⚠️  No improvement for {patience_counter}/{early_stopping_patience} epochs")
+        
+        # CAPS progress output with validation metrics
+        val_der_display = f"{val_der:.4f}" if not np.isnan(val_der) else "N/A"
+        val_loss_display = f"{val_loss:.4f}" if not np.isnan(val_loss) else "N/A"
+        
+        print(f"\n{'='*80}")
+        print(f"EPOCH {epoch+1}/{epochs} COMPLETED")
+        print(f"TRAIN LOSS: {loss_display}")
+        print(f"TRAIN DER:  {der_display}")
+        print(f"TRAIN ACC:  {acc_display}")
+        print(f"VAL LOSS:   {val_loss_display}")
+        print(f"VAL DER:    {val_der_display}")
+        print(f"TIME:       {datetime.now().strftime('%H:%M:%S')}")
+        print(f"{'='*80}\n")
+        
+        # Log to file with validation metrics
+        if progress_log_file:
+            with open(progress_log_file, 'a') as f:
+                f.write(f"{epoch+1:<6} {loss_display:<12} {der_display:<10} {acc_display:<10} {val_loss_display:<12} {val_der_display:<10} {datetime.now().strftime('%H:%M:%S'):<10}\n")
+        
+            # Collect metrics for this epoch
+            epoch_metrics.append({
+                "train_loss": float(mean_loss),
+                "acc": float(acc) if not np.isnan(acc) else None,
             "der": float(der) if not np.isnan(der) and compute_der_during_training else None,
+            "val_loss": float(val_loss) if not np.isnan(val_loss) else None,
+            "val_der": float(val_der) if not np.isnan(val_der) else None,
         })
+        
+        # Early stopping check
+        if patience_counter >= early_stopping_patience:
+            print(f"[{datetime.now()}] 🛑 Early stopping triggered! No improvement for {early_stopping_patience} epochs.")
+            print(f"[{datetime.now()}] Best validation loss: {best_val_loss:.4f}")
+            break
+    
+    # Restore best model
+    if best_model_state is not None:
+        model.load_state_dict(best_model_state)
+        print(f"[{datetime.now()}] ✅ Restored best model (val_loss: {best_val_loss:.4f})")
     
     return epoch_metrics
 
@@ -438,15 +485,22 @@ def main():
     
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description="Centralized Learning for Overlapping Speech Diarization")
-    parser.add_argument('--test_size', type=int, default=6, help='Number of dataset records to use for training')
-    parser.add_argument('--epochs', type=int, default=2, help='Number of epochs for training')
+    parser.add_argument('--test_size', type=int, default=None, help='Number of dataset records to use for training (if not specified, use all available data)')
+    parser.add_argument('--epochs', type=int, default=50, help='Maximum number of epochs for training (early stopping will stop earlier if no improvement)')
     parser.add_argument('--compute_der_during_training', action='store_true', help='Compute DER during training (slower but provides more metrics)')
+    parser.add_argument('--early_stopping_patience', type=int, default=5, help='Number of epochs to wait before early stopping')
+    parser.add_argument('--early_stopping_min_delta', type=float, default=0.001, help='Minimum improvement required to reset patience counter')
     args = parser.parse_args()
 
     # Assign arguments to variables
     test_size = args.test_size
     epochs = args.epochs
     compute_der_during_training = args.compute_der_during_training
+    early_stopping_patience = args.early_stopping_patience
+    early_stopping_min_delta = args.early_stopping_min_delta
+    
+    # Determine if we're using all data or a subset
+    use_all_data = test_size is None
 
     print("MAIN STARTED")
     print(f"[{datetime.now()}] MAIN: Starting main()")
@@ -469,14 +523,25 @@ def main():
         dataset = load_dataset("edinburghcstr/ami", "ihm")
         print(f"[{datetime.now()}] MAIN: Dataset loaded successfully")
         
-        # Take a small subset for testing
-        print_dataset_overview("AMI", len(dataset["train"]), test_size)
+        # Determine dataset sizes
+        if use_all_data:
+            train_size = len(dataset["train"])
+            val_size = len(dataset["validation"])
+            test_size = len(dataset["test"])
+            print(f"[{datetime.now()}] MAIN: Using ALL data - Train: {train_size}, Val: {val_size}, Test: {test_size}")
+        else:
+            train_size = test_size
+            val_size = round(test_size/0.7*0.3)
+            test_size = round(test_size/0.7*0.3)
+            print(f"[{datetime.now()}] MAIN: Using SUBSET - Train: {train_size}, Val: {val_size}, Test: {test_size}")
+        
+        print_dataset_overview("AMI", len(dataset["train"]), train_size)
         
         # Group data by meeting ID for all splits
         print(f"[{datetime.now()}] MAIN: Grouping data by meeting ID...")
-        grouped_train = group_by_meeting(dataset["train"].select(range(test_size)))
-        grouped_validation = group_by_meeting(dataset["validation"].select(range(round(test_size/0.7*0.3))))
-        grouped_test = group_by_meeting(dataset["test"].select(range(round(test_size/0.7*0.3))))
+        grouped_train = group_by_meeting(dataset["train"].select(range(train_size)))
+        grouped_validation = group_by_meeting(dataset["validation"].select(range(val_size)))
+        grouped_test = group_by_meeting(dataset["test"].select(range(test_size)))
         
         print_grouping_results(grouped_train, grouped_validation, grouped_test)
         
@@ -505,7 +570,9 @@ def main():
         ) 
         
         # Print experiment configuration
-        print_experiment_config(1, 1, epochs, test_size)  # Single centralized training
+        print_experiment_config(1, 1, epochs, train_size)  # Single centralized training
+        print(f"[{datetime.now()}] MAIN: Early stopping patience: {early_stopping_patience} epochs")
+        print(f"[{datetime.now()}] MAIN: Early stopping min delta: {early_stopping_min_delta}")
 
         
         # Get all unique speakers for speaker embedding computation
@@ -562,14 +629,20 @@ def main():
         if total_training_samples > 0:
             avg_frames_per_sample = total_training_frames / total_training_samples
             print(f"[{datetime.now()}] MAIN: Average frames per sample: {avg_frames_per_sample:.1f}")
-            print(f"[{datetime.now()}] MAIN: Note: test_size={test_size} refers to number of dataset records selected for training")
+            if use_all_data:
+                print(f"[{datetime.now()}] MAIN: Using ALL available data from AMI dataset")
+            else:
+                print(f"[{datetime.now()}] MAIN: Note: test_size={train_size} refers to number of dataset records selected for training")
             print(f"[{datetime.now()}] MAIN: Each meeting recording contains multiple audio segments, each segment becomes multiple training samples")
             print(f"[{datetime.now()}] MAIN: Each training sample contains multiple frames (time steps) for sequence learning")
         
         # Create experiment directories early
         dt_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         dt_str_human = datetime.now().strftime("%Y-%m-%d-%H-%M")
-        exp_tag = f"exp_{test_size}size_{epochs}epochs_centralized_{dt_str_human}"
+        if use_all_data:
+            exp_tag = f"exp_all_{epochs}epochs_centralized_{dt_str_human}"
+        else:
+            exp_tag = f"exp_{train_size}size_{epochs}epochs_centralized_{dt_str_human}"
         
         # Artifact directories for logs and plots
         artifact_logs_dir = os.path.join("centralized_out_artifacts", "logs", exp_tag)
@@ -595,7 +668,7 @@ def main():
         progress_log_file = os.path.join(artifact_logs_dir, "training_progress.txt")
         print(f"[{datetime.now()}] MAIN: Progress will be logged to: {progress_log_file}")
         
-        training_metrics = train_model(model, train_loader, val_loader, device, power_set_encoder, epochs, compute_der_during_training, progress_log_file)
+        training_metrics = train_model(model, train_loader, val_loader, device, power_set_encoder, epochs, compute_der_during_training, progress_log_file, early_stopping_patience, early_stopping_min_delta)
         
         # Evaluate on validation set
         print(f"[{datetime.now()}] MAIN: Evaluating on validation set...")
@@ -774,8 +847,15 @@ def main():
         # Prepare lines for logging
         result_lines = [
             f"Experiment: {exp_tag}",
-            f"Num records (dataset): {test_size}",
-            f"Num epochs: {epochs}",
+            f"Dataset size: {'ALL' if use_all_data else f'{train_size} records'}",
+            f"Train records: {train_size}",
+            f"Validation records: {val_size}",
+            f"Test records: {test_size}",
+            f"Max epochs: {epochs}",
+            f"Actual epochs trained: {len(epoch_metrics)}",
+            f"Early stopping patience: {early_stopping_patience}",
+            f"Early stopping min delta: {early_stopping_min_delta}",
+            f"Early stopping triggered: {'Yes' if len(epoch_metrics) < epochs else 'No'}",
             f"Training type: Centralized",
             f"Datetime: {dt_str}",
             f"",
@@ -794,6 +874,7 @@ def main():
             f"Final Test DER: {der:.4f}",
             f"Final Validation Loss: {val_loss:.4f}",
             f"Final Validation DER: {val_der:.4f}",
+            f"Best Validation Loss: {min([m.get('val_loss', float('inf')) for m in epoch_metrics]) if epoch_metrics else 'N/A'}",
             f"Model Status: {'TRAINED with centralized learning' if epoch_metrics else 'NOT TRAINED'}",
             f"Training Epochs: {len(epoch_metrics) if epoch_metrics else 0}",
             f"Total Execution Time: {time.time() - start_time:.2f} seconds ({((time.time() - start_time)/60):.2f} minutes)",
@@ -890,15 +971,20 @@ def main():
             # 2. Final experiment results
             final_results = [{
                 'experiment_tag': exp_tag,
-                'test_size': test_size,
+            'dataset_size': 'ALL' if use_all_data else f'{train_size}',
+            'train_records': train_size,
+            'val_records': val_size,
+            'test_records': test_size,
                 'num_epochs': epochs,
+            'actual_epochs_trained': len(epoch_metrics),
+            'early_stopping_triggered': len(epoch_metrics) < epochs,
                 'datetime': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 'final_test_loss': test_loss,
                 'final_der': der,
-                'final_val_loss': val_loss,
-                'final_val_der': val_der,
-                'total_execution_time_seconds': total_time,
-                'total_execution_time_minutes': total_minutes,
+            'final_val_loss': val_loss,
+            'final_val_der': val_der,
+            'total_execution_time_seconds': total_time,
+            'total_execution_time_minutes': total_minutes,
                 'device_used': str(device),
                 'gpu_count': torch.cuda.device_count() if torch.cuda.is_available() else 0
             }]
