@@ -355,6 +355,7 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                 f.write(f"{epoch+1}\t{loss_display}\t{der_display}\t{acc_display}\t{datetime.now().strftime('%H:%M:%S')}\n")
         
         print(f"[{datetime.now()}] Epoch {epoch+1}/{epochs} summary: min_loss={min(batch_losses) if batch_losses else 'nan'}, max_loss={max(batch_losses) if batch_losses else 'nan'}, mean_loss={mean_loss}, acc={acc}, DER={der if compute_der_during_training else 'skipped'}")
+        
         # Collect metrics for this epoch
         epoch_metrics.append({
             "train_loss": float(mean_loss),
@@ -373,7 +374,7 @@ def evaluate_model(model, val_loader, device, power_set_encoder):
     # Group predictions by meeting_id for proper DER calculation
     pred_by_rec = defaultdict(list)
     lab_by_rec = defaultdict(list)
-    
+
     with torch.no_grad():
         for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(val_loader):
             if batch_idx == 0:
@@ -536,21 +537,21 @@ def main():
         total_training_samples = len(train_loader.dataset)
         total_validation_samples = len(val_loader.dataset)
         total_test_samples = len(test_loader.dataset)
-        
-        # Calculate actual frames from the dataset
+            
+            # Calculate actual frames from the dataset
         total_training_frames = 0
         if total_training_samples > 0:
-            # Get actual frame count from first sample
-            first_sample = train_loader.dataset[0]
-            if isinstance(first_sample, tuple) and len(first_sample) > 0:
-                feature = first_sample[0]  # First element should be features
-                if hasattr(feature, 'shape') and len(feature.shape) > 0:
-                    frames_per_sample = feature.shape[0]
-                    total_training_frames = total_training_samples * frames_per_sample
+                # Get actual frame count from first sample
+                first_sample = train_loader.dataset[0]
+                if isinstance(first_sample, tuple) and len(first_sample) > 0:
+                    feature = first_sample[0]  # First element should be features
+                    if hasattr(feature, 'shape') and len(feature.shape) > 0:
+                        frames_per_sample = feature.shape[0]
+                        total_training_frames = total_training_samples * frames_per_sample
+                    else:
+                        total_training_frames = total_training_samples * 100  # Fallback estimate
                 else:
                     total_training_frames = total_training_samples * 100  # Fallback estimate
-            else:
-                total_training_frames = total_training_samples * 100  # Fallback estimate
         
         print(f"[{datetime.now()}] MAIN: Training samples: {total_training_samples}")
         print(f"[{datetime.now()}] MAIN: Validation samples: {total_validation_samples}")
@@ -702,6 +703,18 @@ def main():
         print(f"Final Test DER: {der:.4f}")
         print(f"Final Validation Loss: {val_loss:.4f}")
         print(f"Final Validation DER: {val_der:.4f}")
+        
+        # Calculate and display total execution time
+        total_time = time.time() - start_time
+        total_minutes = total_time / 60
+        total_hours = total_minutes / 60
+        
+        if total_hours >= 1:
+            print(f"Total Execution Time: {total_time:.2f} seconds ({total_hours:.2f} hours)")
+        elif total_minutes >= 1:
+            print(f"Total Execution Time: {total_time:.2f} seconds ({total_minutes:.2f} minutes)")
+        else:
+            print(f"Total Execution Time: {total_time:.2f} seconds")
 
         # === EXPORT DIARIZATION RESULTS TO RTTM FORMAT ===
         print("\n===== EXPORTING DIARIZATION RESULTS =====")
@@ -783,6 +796,7 @@ def main():
             f"Final Validation DER: {val_der:.4f}",
             f"Model Status: {'TRAINED with centralized learning' if epoch_metrics else 'NOT TRAINED'}",
             f"Training Epochs: {len(epoch_metrics) if epoch_metrics else 0}",
+            f"Total Execution Time: {time.time() - start_time:.2f} seconds ({((time.time() - start_time)/60):.2f} minutes)",
         ])
         
         # Print final results using statistics module
@@ -858,12 +872,12 @@ def main():
             # 1. Detailed metrics per epoch
             detailed_metrics = []
             for epoch_idx, epoch_metrics_dict in enumerate(epoch_metrics):
-                detailed_metrics.append({
-                    'epoch': epoch_idx + 1,
+                        detailed_metrics.append({
+                            'epoch': epoch_idx + 1,
                     'train_loss': epoch_metrics_dict.get('train_loss'),
                     'der': epoch_metrics_dict.get('der'),
                     'acc': epoch_metrics_dict.get('acc')
-                })
+                        })
             
             if detailed_metrics:
                 detailed_df = pd.DataFrame(detailed_metrics)
@@ -883,6 +897,8 @@ def main():
                 'final_der': der,
                 'final_val_loss': val_loss,
                 'final_val_der': val_der,
+                'total_execution_time_seconds': total_time,
+                'total_execution_time_minutes': total_minutes,
                 'device_used': str(device),
                 'gpu_count': torch.cuda.device_count() if torch.cuda.is_available() else 0
             }]
@@ -905,13 +921,13 @@ def main():
             
             epoch_progress = []
             for epoch_idx, epoch_metrics_dict in enumerate(epoch_metrics):
-                epoch_progress.append({
-                    'epoch': epoch_idx + 1,
+                        epoch_progress.append({
+                            'epoch': epoch_idx + 1,
                     'train_loss': epoch_metrics_dict.get('train_loss'),
                     'der': epoch_metrics_dict.get('der'),
                     'acc': epoch_metrics_dict.get('acc'),
                     'epoch_label': f"E{epoch_idx + 1}"
-                })
+                        })
             
             if epoch_progress:
                 epoch_progress_df = pd.DataFrame(epoch_progress)
