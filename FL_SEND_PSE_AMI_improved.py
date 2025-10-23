@@ -450,52 +450,6 @@ class SENDClient(NumPyClient):
         from data_processing import calculate_der as common_calculate_der
         return common_calculate_der(predictions, labels, self.power_set_encoder, speaker_id_list, debug, frame_shift, uri)
 
-def find_available_port(start_port: int = 8080, max_attempts: int = 10) -> int:
-    """Find an available port starting from start_port.
-    
-    Args:
-        start_port: The port to start checking from
-        max_attempts: Maximum number of ports to check
-        
-    Returns:
-        An available port number
-    """
-    import socket
-    
-    for port in range(start_port, start_port + max_attempts):
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.bind(('', port))
-                return port
-        except OSError:
-            continue
-    
-    raise RuntimeError(f"Could not find an available port after {max_attempts} attempts")
-
-def is_running_in_colab():
-    """Check if the code is running in Google Colab."""
-    try:
-        import google.colab
-        return True
-    except ImportError:
-        return False
-
-def start_client(client: SENDClient, server_address: str):
-    """Start a Flower client.
-    
-    Args:
-        client: The client to start
-        server_address: The address of the server
-    """
-    try:
-        print(f"Client attempting to connect to {server_address}")
-        fl.client.start_numpy_client(
-            server_address=server_address,
-            client=client
-        )
-        print("Client finished successfully")
-    except Exception as e:
-        logger.error(f"Client error: {str(e)}")
 
 def main():
     # Start timing
@@ -542,8 +496,8 @@ def main():
         # Group data by meeting ID for all splits
         print(f"[{datetime.now()}] MAIN: Grouping data by meeting ID...")
         grouped_train = group_by_meeting(dataset["train"].select(range(test_size)))
-        grouped_validation = group_by_meeting(dataset["validation"].select(range(test_size)))
-        grouped_test = group_by_meeting(dataset["test"].select(range(test_size)))
+        grouped_validation = group_by_meeting(dataset["validation"].select(range(round(test_size/0.7*0.3))))
+        grouped_test = group_by_meeting(dataset["test"].select(range(round(test_size/0.7*0.3))))
         
         print_grouping_results(grouped_train, grouped_validation, grouped_test)
         
