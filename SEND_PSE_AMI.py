@@ -509,6 +509,15 @@ def main():
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"[{datetime.now()}] MAIN: Using device: {device}")
         
+        # Debug GPU information
+        if torch.cuda.is_available():
+            print(f"[{datetime.now()}] MAIN: CUDA available: True")
+            print(f"[{datetime.now()}] MAIN: CUDA device count: {torch.cuda.device_count()}")
+            print(f"[{datetime.now()}] MAIN: Current CUDA device: {torch.cuda.current_device()}")
+            print(f"[{datetime.now()}] MAIN: CUDA device name: {torch.cuda.get_device_name(0)}")
+        else:
+            print(f"[{datetime.now()}] MAIN: CUDA available: False - Using CPU")
+        
         # Initialize speaker encoder
         print(f"[{datetime.now()}] MAIN: Initializing speaker encoder...")
         speaker_encoder = EncoderClassifier.from_hparams(
