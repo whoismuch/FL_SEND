@@ -22,7 +22,7 @@ from flwr.client import NumPyClient
 from flwr.common import Context, Metrics
 from pyannote.core import Segment, Annotation
 from pyannote.metrics.diarization import DiarizationErrorRate
-from speechbrain.pretrained import EncoderClassifier
+from speechbrain.inference.speaker import EncoderClassifier
 from datasets import load_dataset
 import seaborn as sns
 from tqdm import tqdm

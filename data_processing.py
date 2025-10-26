@@ -8,7 +8,7 @@ from tqdm import tqdm
 import librosa
 from datasets import load_dataset
 import logging
-from speechbrain.pretrained import EncoderClassifier
+from speechbrain.inference.speaker import EncoderClassifier
 from pyannote.core import Segment, Annotation
 from pyannote.metrics.diarization import DiarizationErrorRate
 from dataset_statistics import print_function_start, print_function_end, print_data_loaders_info, print_dataset_statistics
