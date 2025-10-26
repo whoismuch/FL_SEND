@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader, Dataset, random_split
 # Removed federated learning imports
 from pyannote.core import Segment, Annotation
 from pyannote.metrics.diarization import DiarizationErrorRate
-from speechbrain.pretrained import EncoderClassifier
+from speechbrain.inference.speaker import EncoderClassifier
 from datasets import load_dataset
 import seaborn as sns
 from tqdm import tqdm
