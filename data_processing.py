@@ -765,7 +765,11 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder
     logger.info(f"Max sequence length: {max_len}")
     
     # Second pass: pad all features to max length
-    for feature, label, meeting_id_array in zip(raw_features, raw_labels, raw_meeting_ids):
+    total_samples = len(raw_features)
+    logger.info(f"Starting padding pass for {total_samples} samples...")
+    for idx, (feature, label, meeting_id_array) in enumerate(zip(raw_features, raw_labels, raw_meeting_ids)):
+        if idx % 100 == 0 or idx == total_samples - 1:
+            logger.info(f"Padding progress: {idx+1}/{total_samples} ({100*(idx+1)/total_samples:.1f}%)")
         if feature.shape[0] < max_len:
             pad_len = max_len - feature.shape[0]
             feature = np.pad(feature, ((0, pad_len), (0, 0)), mode='constant')
@@ -776,10 +780,14 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder
         labels.append(label)
         meeting_ids.append(meeting_id_array)
     
+    logger.info("Padding complete. Converting to numpy arrays...")
     # Convert to numpy arrays
     features = np.array(features)
+    logger.info(f"Features array created: shape {features.shape}, size {features.nbytes / (1024**3):.2f} GB")
     labels = np.array(labels)
+    logger.info(f"Labels array created: shape {labels.shape}")
     meeting_ids = np.array(meeting_ids)
+    logger.info(f"Meeting IDs array created: shape {meeting_ids.shape}")
     
     # Use statistics function for dataset logging
     print_dataset_statistics(features, labels, meeting_ids, raw_features)

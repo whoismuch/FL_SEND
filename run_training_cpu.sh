@@ -7,7 +7,7 @@
 #SBATCH --mem=32G
 #SBATCH --output=training_cpu_%j.out
 #SBATCH --error=training_cpu_%j.err
-#SBATCH --partition=long  # Try 'long' partition or your default partition
+# Remove partition specification to use any available CPU nodes
 
 # Activate conda environment
 source ~/.bashrc
@@ -28,7 +28,7 @@ echo "=== Starting Training on CPU ==="
 cd ~/FL_SEND/24oct/FL_SEND
 
 # Run training
-python SEND_PSE_AMI.py --test_size 10 --epochs 2 --compute_der_during_training
+python SEND_PSE_AMI.py --test_size 75 --epochs 5 --compute_der_during_training
 
 echo "=== Training Complete ==="
 
