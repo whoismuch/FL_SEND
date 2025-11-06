@@ -364,9 +364,33 @@ def print_dataset_statistics(features, labels, meeting_ids, raw_features) -> Non
     print(f"[{datetime.now()}] STATS: Label shape: {labels.shape}")
     print(f"[{datetime.now()}] STATS: Meeting IDs shape: {meeting_ids.shape}")
     
-    # Frame size statistics
-    frame_sizes = [f.shape[0] for f in raw_features]
-    print(f"[{datetime.now()}] STATS: Frame size (frames per sample): min={np.min(frame_sizes)}, max={np.max(frame_sizes)}, mean={np.mean(frame_sizes):.1f}")
+    # Frame size statistics - compute from padded features if raw_features not available
+    if raw_features and len(raw_features) > 0:
+        frame_sizes = [f.shape[0] for f in raw_features]
+        print(f"[{datetime.now()}] STATS: Frame size (frames per sample): min={np.min(frame_sizes)}, max={np.max(frame_sizes)}, mean={np.mean(frame_sizes):.1f}")
+        
+        # Audio segment length distribution
+        segment_lengths = [f.shape[0] for f in raw_features]
+        print(f"[{datetime.now()}] STATS: Audio segment length distribution: min={np.min(segment_lengths)}, max={np.max(segment_lengths)}, mean={np.mean(segment_lengths):.1f}, median={np.median(segment_lengths)}")
+    else:
+        # Compute from padded features by finding actual lengths (non-padded parts)
+        # Labels with -100 indicate padding, so we can find actual lengths
+        actual_lengths = []
+        for i in range(features.shape[0]):
+            # Find first padding position in labels (value -100)
+            label_row = labels[i]
+            actual_len = np.where(label_row == -100)[0]
+            if len(actual_len) > 0:
+                actual_lengths.append(actual_len[0])
+            else:
+                actual_lengths.append(features.shape[1])  # Full length if no padding
+        
+        if len(actual_lengths) > 0:
+            actual_lengths = np.array(actual_lengths)
+            print(f"[{datetime.now()}] STATS: Frame size (frames per sample): min={np.min(actual_lengths)}, max={np.max(actual_lengths)}, mean={np.mean(actual_lengths):.1f}")
+            print(f"[{datetime.now()}] STATS: Audio segment length distribution: min={np.min(actual_lengths)}, max={np.max(actual_lengths)}, mean={np.mean(actual_lengths):.1f}, median={np.median(actual_lengths)}")
+        else:
+            print(f"[{datetime.now()}] STATS: Frame size: Unable to compute (no valid data)")
     
     # Data types
     print(f"[{datetime.now()}] STATS: Feature dtype: {features.dtype}, Label dtype: {labels.dtype}")
@@ -375,10 +399,6 @@ def print_dataset_statistics(features, labels, meeting_ids, raw_features) -> Non
     print(f"[{datetime.now()}] STATS: Example feature[0] shape: {features[0].shape}, min={features[0].min():.2f}, max={features[0].max():.2f}")
     print(f"[{datetime.now()}] STATS: Example label[0] shape: {labels[0].shape}, values: {np.unique(labels[0])}")
     print(f"[{datetime.now()}] STATS: Unique label values in dataset: {np.unique(labels)}")
-    
-    # Audio segment length distribution
-    segment_lengths = [f.shape[0] for f in raw_features]
-    print(f"[{datetime.now()}] STATS: Audio segment length distribution: min={np.min(segment_lengths)}, max={np.max(segment_lengths)}, mean={np.mean(segment_lengths):.1f}, median={np.median(segment_lengths)}")
     
     print(f"[{datetime.now()}] STATS: COMPLETED FUNCTION: print_dataset_statistics")
 

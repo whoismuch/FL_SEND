@@ -490,6 +490,8 @@ def main():
     parser.add_argument('--compute_der_during_training', action='store_true', help='Compute DER during training (slower but provides more metrics)')
     parser.add_argument('--early_stopping_patience', type=int, default=5, help='Number of epochs to wait before early stopping')
     parser.add_argument('--early_stopping_min_delta', type=float, default=0.001, help='Minimum improvement required to reset patience counter')
+    parser.add_argument('--chunk_size', type=int, default=500, help='Number of samples to process at once during dataset creation (smaller = less memory, default: 500)')
+    parser.add_argument('--batch_size', type=int, default=4, help='Batch size for training (smaller = less memory, default: 4)')
     args = parser.parse_args()
 
     # Assign arguments to variables
@@ -498,6 +500,8 @@ def main():
     compute_der_during_training = args.compute_der_during_training
     early_stopping_patience = args.early_stopping_patience
     early_stopping_min_delta = args.early_stopping_min_delta
+    chunk_size = args.chunk_size
+    batch_size = args.batch_size
     
     # Determine if we're using all data or a subset
     use_all_data = test_size is None
@@ -575,7 +579,8 @@ def main():
         
         # Prepare data loaders for training and evaluation
         train_loader, val_loader, test_loader = prepare_data_loaders(
-            grouped_train, grouped_validation, grouped_test, speaker_encoder, power_set_encoder, N=N
+            grouped_train, grouped_validation, grouped_test, speaker_encoder, power_set_encoder, 
+            batch_size=batch_size, N=N, chunk_size=chunk_size
         ) 
         
         # Print experiment configuration

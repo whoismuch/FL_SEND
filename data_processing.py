@@ -8,6 +8,7 @@ from tqdm import tqdm
 import librosa
 from datasets import load_dataset
 import logging
+import gc
 from speechbrain.inference.speaker import EncoderClassifier
 from pyannote.core import Segment, Annotation
 from pyannote.metrics.diarization import DiarizationErrorRate
@@ -404,7 +405,7 @@ def process_validation_data(grouped_validation, speaker_encoder, power_set_encod
     return val_samples, val_speaker_to_idx
 
 
-def split_data_for_clients(grouped_data, grouped_validation, num_clients, speaker_encoder, power_set_encoder):
+def split_data_for_clients(grouped_data, grouped_validation, num_clients, speaker_encoder, power_set_encoder, batch_size=4):
     """Split grouped data among clients.
     
     Args:
@@ -413,6 +414,7 @@ def split_data_for_clients(grouped_data, grouped_validation, num_clients, speake
         num_clients: Number of clients to split data among
         speaker_encoder: Speaker encoder model
         power_set_encoder: PowerSetEncoder for encoding speaker combinations
+        batch_size: Batch size for data loaders (default: 4)
     """
     try:
         logger.info("Starting data processing for clients...")
@@ -629,8 +631,8 @@ def split_data_for_clients(grouped_data, grouped_validation, num_clients, speake
                     labels = torch.tensor(np.array(labels), dtype=torch.long)
                     return features, speaker_embeddings, labels, meeting_ids
                 
-                train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True, collate_fn=collate_fn)
-                val_loader = DataLoader(val_dataset, batch_size=4, shuffle=False, collate_fn=collate_fn)
+                train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
+                val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
                 client_data.append((train_loader, val_loader))
                 logger.info(f"Created data loaders for client {client_id}")
             except KeyboardInterrupt:
@@ -705,14 +707,17 @@ def group_by_meeting(dataset_split):
         grouped.setdefault(meeting_id, []).append(sample)
     return grouped
 
-def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder, N=4):
+def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder, N=4, chunk_size=500):
     """Create dataset from grouped data with proper padding and fixed N slots per recording.
+    
+    Memory-optimized version that processes data in chunks to reduce peak memory usage.
     
     Args:
         grouped_data: Dictionary of meeting_id to samples
         speaker_encoder: Speaker encoder model
         power_set_encoder: PowerSetEncoder instance for encoding speaker combinations
         N: Maximum number of speaker slots per recording (fixed for PSE)
+        chunk_size: Number of samples to process at once (default: 1000)
         
     Returns:
         Tuple of (features, labels, meeting_ids): Dataset with padded features and meeting IDs
@@ -721,15 +726,15 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder
     print_function_start("create_dataset_from_grouped", 
                         grouped_data_len=len(grouped_data), 
                         N=N)
-    features = []
-    labels = []
-    meeting_ids = []
-    raw_features = []
-    raw_labels = []
-    raw_meeting_ids = []
-    speaker_ids = []
     
-    # First pass: extract features and find max length
+    # First pass: extract features and find max length (process in chunks to save memory)
+    logger.info("First pass: Extracting features and finding max length...")
+    max_len = 0
+    total_samples = 0
+    feature_dim = None
+    
+    # Collect all samples first (lightweight - just references)
+    all_samples_info = []
     for meeting_id, samples in grouped_data.items():
         # Create speaker-to-slot mapping for this recording (max N slots)
         meeting_speakers = list(set(sample["speaker_id"] for sample in samples))
@@ -740,9 +745,82 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder
         logger.info(f"Meeting {meeting_id}: {len(meeting_speakers)} speakers mapped to slots {list(speaker_to_slot.values())}")
         
         for sample in samples:
+            all_samples_info.append({
+                'meeting_id': meeting_id,
+                'sample': sample,
+                'speaker_to_slot': speaker_to_slot
+            })
+    
+    total_samples = len(all_samples_info)
+    logger.info(f"Total samples to process: {total_samples}")
+    
+    # First pass: extract features in chunks to find max_len and feature_dim
+    # Use smaller chunks for dimension discovery to save memory
+    logger.info("First pass: Extracting features in chunks to determine dimensions...")
+    max_len = 0
+    feature_dim = None
+    
+    # Quick pass to find dimensions (sample every 10th item to speed up)
+    sample_rate = max(1, total_samples // 10000)  # Sample up to 10k items
+    for idx in range(0, total_samples, sample_rate):
+        item = all_samples_info[idx]
+        feature = extract_features(item['sample']["audio"]["array"])
+        if feature_dim is None:
+            feature_dim = feature.shape[1]
+        max_len = max(max_len, feature.shape[0])
+        del feature
+    
+    # Also check a few random samples to ensure we get the true max
+    import random
+    random_indices = random.sample(range(total_samples), min(100, total_samples))
+    for idx in random_indices:
+        item = all_samples_info[idx]
+        feature = extract_features(item['sample']["audio"]["array"])
+        max_len = max(max_len, feature.shape[0])
+        del feature
+    
+    gc.collect()
+    logger.info(f"Max sequence length: {max_len}, Feature dimension: {feature_dim}")
+    
+    # Pre-allocate numpy arrays to avoid memory fragmentation
+    logger.info(f"Pre-allocating arrays for {total_samples} samples...")
+    features = np.zeros((total_samples, max_len, feature_dim), dtype=np.float32)
+    labels = np.full((total_samples, max_len), -100, dtype=np.int64)
+    meeting_ids = np.empty((total_samples, max_len), dtype=object)
+    
+    # Second pass: extract features, pad and store (process in chunks)
+    logger.info(f"Second pass: Extracting and padding features (chunk_size={chunk_size})...")
+    speaker_ids = []
+    
+    for chunk_start in range(0, total_samples, chunk_size):
+        chunk_end = min(chunk_start + chunk_size, total_samples)
+        chunk_info = all_samples_info[chunk_start:chunk_end]
+        
+        for local_idx, item in enumerate(chunk_info):
+            global_idx = chunk_start + local_idx
+            
             # Extract features
-            feature = extract_features(sample["audio"]["array"])
-            raw_features.append(feature)
+            feature = extract_features(item['sample']["audio"]["array"])
+            speaker_to_slot = item['speaker_to_slot']
+            meeting_id = item['meeting_id']
+            sample = item['sample']
+            
+            # Update max_len if needed (shouldn't happen, but safety check)
+            if feature.shape[0] > max_len:
+                logger.warning(f"Found longer sequence ({feature.shape[0]} > {max_len}), need to reallocate!")
+                # This shouldn't happen if sampling was good, but handle it
+                max_len = feature.shape[0]
+                # Reallocate arrays (expensive, but necessary)
+                new_features = np.zeros((total_samples, max_len, feature_dim), dtype=np.float32)
+                new_labels = np.full((total_samples, max_len), -100, dtype=np.int64)
+                new_meeting_ids = np.empty((total_samples, max_len), dtype=object)
+                new_features[:, :features.shape[1], :] = features
+                new_labels[:, :labels.shape[1]] = labels
+                new_meeting_ids[:, :meeting_ids.shape[1]] = meeting_ids
+                features = new_features
+                labels = new_labels
+                meeting_ids = new_meeting_ids
+                gc.collect()
             
             # Map speaker to slot (0 to N-1) and encode using PowerSetEncoder
             speaker_id = sample["speaker_id"]
@@ -754,43 +832,34 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder
                 logger.warning(f"Speaker {speaker_id} not in top-{N} for meeting {meeting_id}, assigning to slot 0")
                 label = power_set_encoder.encode([0])
             
-            # frame-wise labels
-            raw_labels.append(np.full(feature.shape[0], label, dtype=np.int64))
-            # frame-wise meeting_ids
-            raw_meeting_ids.append(np.full(feature.shape[0], meeting_id, dtype=object))
             speaker_ids.append(speaker_id)
+            
+            # Store feature directly (already zero-padded by pre-allocation)
+            seq_len = feature.shape[0]
+            features[global_idx, :seq_len, :] = feature
+            
+            # Create frame-wise labels
+            labels[global_idx, :seq_len] = label
+            
+            # Create frame-wise meeting_ids
+            meeting_ids[global_idx, :seq_len] = meeting_id
+            
+            # Free feature memory immediately
+            del feature
+            
+            if (global_idx + 1) % 100 == 0 or global_idx == total_samples - 1:
+                logger.info(f"Padding progress: {global_idx+1}/{total_samples} ({100*(global_idx+1)/total_samples:.1f}%)")
+        
+        # Force garbage collection after each chunk
+        gc.collect()
     
-    # Find max sequence length
-    max_len = max(f.shape[0] for f in raw_features)
-    logger.info(f"Max sequence length: {max_len}")
-    
-    # Second pass: pad all features to max length
-    total_samples = len(raw_features)
-    logger.info(f"Starting padding pass for {total_samples} samples...")
-    for idx, (feature, label, meeting_id_array) in enumerate(zip(raw_features, raw_labels, raw_meeting_ids)):
-        if idx % 100 == 0 or idx == total_samples - 1:
-            logger.info(f"Padding progress: {idx+1}/{total_samples} ({100*(idx+1)/total_samples:.1f}%)")
-        if feature.shape[0] < max_len:
-            pad_len = max_len - feature.shape[0]
-            feature = np.pad(feature, ((0, pad_len), (0, 0)), mode='constant')
-            label = np.pad(label, (0, pad_len), mode='constant', constant_values=-100)
-            # Pad meeting_ids with None for padded frames
-            meeting_id_array = np.pad(meeting_id_array, (0, pad_len), mode='constant', constant_values=None)
-        features.append(feature)
-        labels.append(label)
-        meeting_ids.append(meeting_id_array)
-    
-    logger.info("Padding complete. Converting to numpy arrays...")
-    # Convert to numpy arrays
-    features = np.array(features)
+    logger.info("Padding complete.")
     logger.info(f"Features array created: shape {features.shape}, size {features.nbytes / (1024**3):.2f} GB")
-    labels = np.array(labels)
     logger.info(f"Labels array created: shape {labels.shape}")
-    meeting_ids = np.array(meeting_ids)
     logger.info(f"Meeting IDs array created: shape {meeting_ids.shape}")
     
-    # Use statistics function for dataset logging
-    print_dataset_statistics(features, labels, meeting_ids, raw_features)
+    # Use statistics function for dataset logging (pass empty list for raw_features since we don't store them)
+    print_dataset_statistics(features, labels, meeting_ids, [])
     
     # Log function completion
     print_function_end("create_dataset_from_grouped", 
@@ -883,7 +952,7 @@ def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, 
     print(f"[DER DEBUG] DER calculation: valid frames used = {len(predictions)}, DER = {der}")
     return der
 
-def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speaker_encoder, power_set_encoder, batch_size=4, speaker_to_embedding=None, N=4):
+def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speaker_encoder, power_set_encoder, batch_size=4, speaker_to_embedding=None, N=4, chunk_size=500):
     # Import and log function start
     print_function_start("prepare_data_loaders", 
                         grouped_train_len=len(grouped_train), 
@@ -891,11 +960,17 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
                         grouped_test_len=len(grouped_test),
                         batch_size=batch_size, 
                         N=N)
-    """Prepare data loaders for training, validation and testing."""
-    # Create datasets
-    train_features, train_labels, train_meeting_ids = create_dataset_from_grouped(grouped_train, speaker_encoder, power_set_encoder, N)
-    val_features, val_labels, val_meeting_ids = create_dataset_from_grouped(grouped_validation, speaker_encoder, power_set_encoder, N)
-    test_features, test_labels, test_meeting_ids = create_dataset_from_grouped(grouped_test, speaker_encoder, power_set_encoder, N)
+    """Prepare data loaders for training, validation and testing.
+    
+    Args:
+        chunk_size: Number of samples to process at once during dataset creation (default: 500)
+                   Smaller values use less memory but are slower.
+    """
+    # Create datasets with memory-optimized chunk processing
+    logger.info(f"Creating datasets with chunk_size={chunk_size} for memory optimization...")
+    train_features, train_labels, train_meeting_ids = create_dataset_from_grouped(grouped_train, speaker_encoder, power_set_encoder, N, chunk_size=chunk_size)
+    val_features, val_labels, val_meeting_ids = create_dataset_from_grouped(grouped_validation, speaker_encoder, power_set_encoder, N, chunk_size=chunk_size)
+    test_features, test_labels, test_meeting_ids = create_dataset_from_grouped(grouped_test, speaker_encoder, power_set_encoder, N, chunk_size=chunk_size)
     
     # Create speaker ID to index mapping for speaker_ids list
     speaker_to_idx = {}

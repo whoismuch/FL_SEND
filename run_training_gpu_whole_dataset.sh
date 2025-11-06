@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=128G  # More memory for full dataset
 #SBATCH --gres=gpu:1
-#SBATCH --partition=ampere  # Using ampere partition with A100 GPUs (faster)
+#SBATCH --partition=pascal  # Using pascal partition (infinite timelimit, 6 idle nodes available)
 #SBATCH --output=training_full_%j.out
 #SBATCH --error=training_full_%j.err
 
@@ -88,7 +88,10 @@ cd ~/FL_SEND/24oct/FL_SEND
 
 # Run training on full dataset with 100 epochs
 # Note: --test_size not specified means using ALL available data
-python SEND_PSE_AMI.py --epochs 100 --compute_der_during_training
+# Memory optimizations:
+#   --chunk_size 250: Process 250 samples at a time (reduces peak memory)
+#   --batch_size 2: Smaller batch size (reduces memory during training)
+python SEND_PSE_AMI.py --epochs 100 --compute_der_during_training --chunk_size 250 --batch_size 2
 
 echo "=== Training Complete ==="
 
