@@ -7,6 +7,7 @@
 #SBATCH --mem=128G  # More memory for full dataset
 #SBATCH --gres=gpu:1
 #SBATCH --partition=pascal  # Using pascal partition (infinite timelimit, 6 idle nodes available)
+#SBATCH --exclude=pascal-node01.l3s.intra,pascal-node03.l3s.intra  # Exclude unavailable nodes
 #SBATCH --output=training_full_%j.out
 #SBATCH --error=training_full_%j.err
 
@@ -84,13 +85,14 @@ nvidia-smi || echo "nvidia-smi not available"
 echo "=== Starting Training on FULL DATASET with 100 EPOCHS ==="
 
 # Change to working directory
-cd ~/FL_SEND/24oct/FL_SEND
+cd ~/FL_SEND/6nov/FL_SEND
 
 # Run training on full dataset with 100 epochs
 # Note: --test_size not specified means using ALL available data
-# Memory optimizations:
+# Memory optimizations (if your SEND_PSE_AMI.py supports these arguments):
 #   --chunk_size 250: Process 250 samples at a time (reduces peak memory)
 #   --batch_size 2: Smaller batch size (reduces memory during training)
+# If arguments are not recognized, remove --chunk_size and --batch_size lines below
 python SEND_PSE_AMI.py --epochs 100 --compute_der_during_training --chunk_size 250 --batch_size 2
 
 echo "=== Training Complete ==="
