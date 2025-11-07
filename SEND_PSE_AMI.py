@@ -492,6 +492,8 @@ def main():
     parser.add_argument('--early_stopping_min_delta', type=float, default=0.001, help='Minimum improvement required to reset patience counter')
     parser.add_argument('--chunk_size', type=int, default=500, help='Number of samples to process at once during dataset creation (smaller = less memory, default: 500)')
     parser.add_argument('--batch_size', type=int, default=4, help='Batch size for training (smaller = less memory, default: 4)')
+    parser.add_argument('--max_sequence_length', type=int, default=None, help='Maximum sequence length to truncate longer sequences (default: None = no limit). Use to limit memory usage.')
+    parser.add_argument('--max_memory_gb', type=float, default=64.0, help='Maximum memory to use in GB (default: 64.0). Will auto-calculate max_sequence_length if needed.')
     args = parser.parse_args()
 
     # Assign arguments to variables
@@ -502,6 +504,8 @@ def main():
     early_stopping_min_delta = args.early_stopping_min_delta
     chunk_size = args.chunk_size
     batch_size = args.batch_size
+    max_sequence_length = args.max_sequence_length
+    max_memory_gb = args.max_memory_gb
     
     # Determine if we're using all data or a subset
     use_all_data = test_size is None
@@ -577,10 +581,35 @@ def main():
         # Print PowerSetEncoder examples and statistics
         print_power_set_encoder_examples(power_set_encoder)
         
+        # Auto-calculate max_sequence_length based on available memory if not specified
+        if max_sequence_length is None:
+            # Estimate number of samples in training set (rough estimate)
+            estimated_train_samples = sum(len(samples) for samples in grouped_train.values())
+            feature_dim = 80  # mel-bands
+            
+            # Calculate memory per sample: features (float32) + labels (int64) + meeting_ids (object ~8 bytes)
+            # features: max_len × 80 × 4 bytes
+            # labels: max_len × 8 bytes
+            # meeting_ids: max_len × 8 bytes (approx)
+            bytes_per_frame = (feature_dim * 4) + 8 + 8  # 336 bytes per frame per sample
+            
+            # Calculate max_sequence_length that fits in max_memory_gb
+            # Leave 20% buffer for other operations
+            usable_memory_bytes = (max_memory_gb * 0.8) * (1024**3)
+            max_sequence_length = int(usable_memory_bytes / (estimated_train_samples * bytes_per_frame))
+            
+            print(f"[{datetime.now()}] MAIN: Auto-calculated max_sequence_length={max_sequence_length} based on:")
+            print(f"[{datetime.now()}] MAIN:   - Estimated train samples: {estimated_train_samples}")
+            print(f"[{datetime.now()}] MAIN:   - Max memory: {max_memory_gb} GB")
+            print(f"[{datetime.now()}] MAIN:   - Usable memory (80%): {max_memory_gb * 0.8:.1f} GB")
+            print(f"[{datetime.now()}] MAIN:   - Estimated memory usage: {(estimated_train_samples * max_sequence_length * bytes_per_frame) / (1024**3):.2f} GB")
+        else:
+            print(f"[{datetime.now()}] MAIN: Using user-specified max_sequence_length={max_sequence_length}")
+        
         # Prepare data loaders for training and evaluation
         train_loader, val_loader, test_loader = prepare_data_loaders(
             grouped_train, grouped_validation, grouped_test, speaker_encoder, power_set_encoder, 
-            batch_size=batch_size, N=N, chunk_size=chunk_size
+            batch_size=batch_size, N=N, chunk_size=chunk_size, max_sequence_length=max_sequence_length
         ) 
         
         # Print experiment configuration

@@ -707,7 +707,7 @@ def group_by_meeting(dataset_split):
         grouped.setdefault(meeting_id, []).append(sample)
     return grouped
 
-def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder, N=4, chunk_size=500):
+def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder, N=4, chunk_size=500, max_sequence_length=None):
     """Create dataset from grouped data with proper padding and fixed N slots per recording.
     
     Memory-optimized version that processes data in chunks to reduce peak memory usage.
@@ -717,7 +717,8 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder
         speaker_encoder: Speaker encoder model
         power_set_encoder: PowerSetEncoder instance for encoding speaker combinations
         N: Maximum number of speaker slots per recording (fixed for PSE)
-        chunk_size: Number of samples to process at once (default: 1000)
+        chunk_size: Number of samples to process at once (default: 500)
+        max_sequence_length: Optional maximum sequence length to truncate longer sequences (default: None = no limit)
         
     Returns:
         Tuple of (features, labels, meeting_ids): Dataset with padded features and meeting IDs
@@ -755,38 +756,69 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder
     logger.info(f"Total samples to process: {total_samples}")
     
     # First pass: extract features in chunks to find max_len and feature_dim
-    # Use smaller chunks for dimension discovery to save memory
-    logger.info("First pass: Extracting features in chunks to determine dimensions...")
+    # Process ALL samples in chunks to find the true maximum length
+    logger.info("First pass: Extracting features in chunks to determine dimensions (checking ALL samples)...")
     max_len = 0
     feature_dim = None
     
-    # Quick pass to find dimensions (sample every 10th item to speed up)
-    sample_rate = max(1, total_samples // 10000)  # Sample up to 10k items
-    for idx in range(0, total_samples, sample_rate):
-        item = all_samples_info[idx]
-        feature = extract_features(item['sample']["audio"]["array"])
-        if feature_dim is None:
-            feature_dim = feature.shape[1]
-        max_len = max(max_len, feature.shape[0])
-        del feature
-    
-    # Also check a few random samples to ensure we get the true max
-    import random
-    random_indices = random.sample(range(total_samples), min(100, total_samples))
-    for idx in random_indices:
-        item = all_samples_info[idx]
-        feature = extract_features(item['sample']["audio"]["array"])
-        max_len = max(max_len, feature.shape[0])
-        del feature
+    # Process all samples in chunks to find true max_len (critical for memory allocation)
+    for chunk_start in range(0, total_samples, chunk_size):
+        chunk_end = min(chunk_start + chunk_size, total_samples)
+        chunk_info = all_samples_info[chunk_start:chunk_end]
+        
+        for item in chunk_info:
+            feature = extract_features(item['sample']["audio"]["array"])
+            if feature_dim is None:
+                feature_dim = feature.shape[1]
+            max_len = max(max_len, feature.shape[0])
+            del feature
+        
+        # Progress update
+        if chunk_start % (chunk_size * 10) == 0 or chunk_start == total_samples - chunk_size:
+            logger.info(f"Dimension discovery progress: {chunk_start + len(chunk_info)}/{total_samples} samples checked, current max_len: {max_len}")
+        
+        # Force garbage collection periodically
+        if chunk_start % (chunk_size * 20) == 0:
+            gc.collect()
     
     gc.collect()
-    logger.info(f"Max sequence length: {max_len}, Feature dimension: {feature_dim}")
+    
+    # Apply max_sequence_length limit if specified
+    original_max_len = max_len
+    if max_sequence_length is not None and max_len > max_sequence_length:
+        logger.warning(f"Truncating max sequence length from {max_len} to {max_sequence_length} to save memory")
+        max_len = max_sequence_length
+    
+    logger.info(f"Final max sequence length: {max_len} (original: {original_max_len}), Feature dimension: {feature_dim}")
+    
+    # Calculate estimated memory requirements
+    features_memory_gb = (total_samples * max_len * feature_dim * 4) / (1024**3)  # float32 = 4 bytes
+    labels_memory_gb = (total_samples * max_len * 8) / (1024**3)  # int64 = 8 bytes
+    meeting_ids_memory_gb = (total_samples * max_len * 8) / (1024**3)  # object pointer ~8 bytes
+    total_memory_gb = features_memory_gb + labels_memory_gb + meeting_ids_memory_gb
+    
+    logger.info(f"Estimated memory requirements:")
+    logger.info(f"  Features array: {features_memory_gb:.2f} GB")
+    logger.info(f"  Labels array: {labels_memory_gb:.2f} GB")
+    logger.info(f"  Meeting IDs array: {meeting_ids_memory_gb:.2f} GB")
+    logger.info(f"  Total: {total_memory_gb:.2f} GB")
+    
+    # Warn if memory requirements are very high
+    if total_memory_gb > 100:
+        logger.warning(f"WARNING: Very high memory requirement ({total_memory_gb:.2f} GB)!")
+        logger.warning(f"Consider reducing chunk_size or using a smaller dataset subset.")
+        logger.warning(f"Proceeding anyway, but may fail if insufficient memory is available.")
     
     # Pre-allocate numpy arrays to avoid memory fragmentation
     logger.info(f"Pre-allocating arrays for {total_samples} samples...")
-    features = np.zeros((total_samples, max_len, feature_dim), dtype=np.float32)
-    labels = np.full((total_samples, max_len), -100, dtype=np.int64)
-    meeting_ids = np.empty((total_samples, max_len), dtype=object)
+    try:
+        features = np.zeros((total_samples, max_len, feature_dim), dtype=np.float32)
+        labels = np.full((total_samples, max_len), -100, dtype=np.int64)
+        meeting_ids = np.empty((total_samples, max_len), dtype=object)
+    except MemoryError as e:
+        logger.error(f"Memory allocation failed! Required: {total_memory_gb:.2f} GB")
+        logger.error(f"Try: 1) Reducing chunk_size, 2) Using smaller dataset, 3) Requesting more memory")
+        raise
     
     # Second pass: extract features, pad and store (process in chunks)
     logger.info(f"Second pass: Extracting and padding features (chunk_size={chunk_size})...")
@@ -805,22 +837,12 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder
             meeting_id = item['meeting_id']
             sample = item['sample']
             
-            # Update max_len if needed (shouldn't happen, but safety check)
+            # Truncate if longer than max_len (shouldn't happen, but safety check)
             if feature.shape[0] > max_len:
-                logger.warning(f"Found longer sequence ({feature.shape[0]} > {max_len}), need to reallocate!")
-                # This shouldn't happen if sampling was good, but handle it
-                max_len = feature.shape[0]
-                # Reallocate arrays (expensive, but necessary)
-                new_features = np.zeros((total_samples, max_len, feature_dim), dtype=np.float32)
-                new_labels = np.full((total_samples, max_len), -100, dtype=np.int64)
-                new_meeting_ids = np.empty((total_samples, max_len), dtype=object)
-                new_features[:, :features.shape[1], :] = features
-                new_labels[:, :labels.shape[1]] = labels
-                new_meeting_ids[:, :meeting_ids.shape[1]] = meeting_ids
-                features = new_features
-                labels = new_labels
-                meeting_ids = new_meeting_ids
-                gc.collect()
+                if max_sequence_length is None:
+                    logger.error(f"CRITICAL: Found longer sequence ({feature.shape[0]} > {max_len})!")
+                    logger.error(f"This should not happen - we checked all samples. Truncating to {max_len}.")
+                feature = feature[:max_len, :]  # Truncate instead of reallocating
             
             # Map speaker to slot (0 to N-1) and encode using PowerSetEncoder
             speaker_id = sample["speaker_id"]
@@ -952,7 +974,7 @@ def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, 
     print(f"[DER DEBUG] DER calculation: valid frames used = {len(predictions)}, DER = {der}")
     return der
 
-def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speaker_encoder, power_set_encoder, batch_size=4, speaker_to_embedding=None, N=4, chunk_size=500):
+def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speaker_encoder, power_set_encoder, batch_size=4, speaker_to_embedding=None, N=4, chunk_size=500, max_sequence_length=None):
     # Import and log function start
     print_function_start("prepare_data_loaders", 
                         grouped_train_len=len(grouped_train), 
@@ -965,12 +987,16 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
     Args:
         chunk_size: Number of samples to process at once during dataset creation (default: 500)
                    Smaller values use less memory but are slower.
+        max_sequence_length: Optional maximum sequence length to truncate longer sequences (default: None = no limit)
+                            Use this to limit memory usage when working with large datasets.
     """
     # Create datasets with memory-optimized chunk processing
     logger.info(f"Creating datasets with chunk_size={chunk_size} for memory optimization...")
-    train_features, train_labels, train_meeting_ids = create_dataset_from_grouped(grouped_train, speaker_encoder, power_set_encoder, N, chunk_size=chunk_size)
-    val_features, val_labels, val_meeting_ids = create_dataset_from_grouped(grouped_validation, speaker_encoder, power_set_encoder, N, chunk_size=chunk_size)
-    test_features, test_labels, test_meeting_ids = create_dataset_from_grouped(grouped_test, speaker_encoder, power_set_encoder, N, chunk_size=chunk_size)
+    if max_sequence_length is not None:
+        logger.info(f"Using max_sequence_length={max_sequence_length} to limit memory usage")
+    train_features, train_labels, train_meeting_ids = create_dataset_from_grouped(grouped_train, speaker_encoder, power_set_encoder, N, chunk_size=chunk_size, max_sequence_length=max_sequence_length)
+    val_features, val_labels, val_meeting_ids = create_dataset_from_grouped(grouped_validation, speaker_encoder, power_set_encoder, N, chunk_size=chunk_size, max_sequence_length=max_sequence_length)
+    test_features, test_labels, test_meeting_ids = create_dataset_from_grouped(grouped_test, speaker_encoder, power_set_encoder, N, chunk_size=chunk_size, max_sequence_length=max_sequence_length)
     
     # Create speaker ID to index mapping for speaker_ids list
     speaker_to_idx = {}
