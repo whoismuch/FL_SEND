@@ -93,7 +93,8 @@ cd ~/FL_SEND/6nov/FL_SEND
 #   --chunk_size 250: Process 250 samples at a time (reduces peak memory)
 #   --batch_size 2: Smaller batch size (reduces memory during training)
 #   --max_memory_gb 64: Auto-calculate max_sequence_length to fit in 64 GB
-python SEND_PSE_AMI.py --epochs 100 --compute_der_during_training --chunk_size 250 --batch_size 2 --max_memory_gb 64
+# PYTHONUNBUFFERED=1 ensures all print/log statements appear immediately in logs
+PYTHONUNBUFFERED=1 python SEND_PSE_AMI.py --epochs 100 --compute_der_during_training --chunk_size 250 --batch_size 2 --max_memory_gb 64
 
 echo "=== Training Complete ==="
 

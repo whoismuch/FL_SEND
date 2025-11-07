@@ -7,4 +7,6 @@ results/
 .env
 .DS_Store
 out_artifacts/
+centralized_out_artifacts/
+out_artifacts_train_val_correct_proportion
 .idea/

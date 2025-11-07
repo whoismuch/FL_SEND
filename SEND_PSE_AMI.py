@@ -1,8 +1,58 @@
 import os
 import logging
 import re
-logging.basicConfig(level=logging.INFO)
+import sys
+import builtins
+
+# Configure root logger to output ALL logs to stdout with proper formatting
+# This ensures all modules (data_processing, dataset_statistics, etc.) use the same configuration
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+
+# Remove any existing handlers to avoid duplicates
+for handler in root_logger.handlers[:]:
+    root_logger.removeHandler(handler)
+
+# Create stdout handler for INFO and below (goes to .out file)
+stdout_handler = logging.StreamHandler(sys.stdout)
+stdout_handler.setLevel(logging.DEBUG)  # Accept all levels, filter in handler
+stdout_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', 
+                                     datefmt='%Y-%m-%d %H:%M:%S')
+
+# Filter: only INFO and DEBUG go to stdout
+def stdout_filter(record):
+    return record.levelno <= logging.INFO
+
+stdout_handler.addFilter(stdout_filter)
+stdout_handler.setFormatter(stdout_formatter)
+root_logger.addHandler(stdout_handler)
+
+# Create stderr handler for WARNING and above (goes to .err file)
+stderr_handler = logging.StreamHandler(sys.stderr)
+stderr_handler.setLevel(logging.WARNING)  # Only WARNING and above
+stderr_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                                     datefmt='%Y-%m-%d %H:%M:%S')
+stderr_handler.setFormatter(stderr_formatter)
+root_logger.addHandler(stderr_handler)
+
+# Get logger for this module
 logger = logging.getLogger(__name__)
+
+# Override builtins.print globally to use logger for better log visibility
+# This ensures all modules (including dataset_statistics) use the logger
+_original_print = builtins.print
+def print(*args, **kwargs):
+    """Override builtins.print to use logger.info for better log visibility."""
+    # Remove 'file' and 'flush' kwargs if present, as logger handles this
+    kwargs.pop('file', None)
+    kwargs.pop('flush', None)
+    message = ' '.join(str(arg) for arg in args)
+    # Use root logger to ensure it goes through our handlers
+    root_logger.info(message)
+    sys.stdout.flush()  # Ensure immediate output
+
+# Replace builtins.print with our version
+builtins.print = print
 
 import pickle
 import random
@@ -510,8 +560,10 @@ def main():
     # Determine if we're using all data or a subset
     use_all_data = test_size is None
 
-    print("MAIN STARTED")
-    print(f"[{datetime.now()}] MAIN: Starting main()")
+    logger.info("="*80)
+    logger.info("MAIN STARTED")
+    logger.info(f"[{datetime.now()}] MAIN: Starting main()")
+    sys.stdout.flush()  # Ensure output is written immediately
     try:
         # Check GPU availability
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
