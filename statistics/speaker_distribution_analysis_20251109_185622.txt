@@ -1,0 +1,250 @@
+================================================================================
+📊 SPEAKER DISTRIBUTION ANALYSIS
+================================================================================
+
+Analysis started at: 2025-11-09 18:56:22
+Output file: statistics/speaker_distribution_analysis_20251109_185622.txt
+
+
+📥 Loading dataset: edinburghcstr/ami
+   Analyzing all splits: train, validation, test
+   train: 137 meetings from 108502 samples
+   validation: 18 meetings from 13098 samples
+   test: 16 meetings from 12643 samples
+
+🏢 Combining all splits for overall analysis...
+   Total unique meetings across all splits: 171
+
+📊 PER-SPLIT STATISTICS:
+
+   TRAIN split:
+      Meetings: 137
+      Speakers: min=3, max=5, avg=3.99
+      Max overlap: min=3, max=4, avg=3.64
+
+   VALIDATION split:
+      Meetings: 18
+      Speakers: min=4, max=4, avg=4.00
+      Max overlap: min=2, max=4, avg=3.72
+
+   TEST split:
+      Meetings: 16
+      Speakers: min=3, max=4, avg=3.94
+      Max overlap: min=3, max=4, avg=3.69
+
+📊 OVERALL SPEAKER COUNT ANALYSIS (All Splits Combined):
+
+   Overall Statistics:
+   - Minimum speakers: 3
+   - Maximum speakers: 5
+   - Average number of speakers: 3.99
+   - Median number of speakers: 4
+
+   Distribution by number of speakers:
+   # Speakers           # Meetings           Percentage          
+   ------------------------------------------------------------
+   3                    5                      2.92%
+   4                    163                   95.32%
+   5                    3                      1.75%
+
+   Visualization (each '#' = 1%):
+   3 speakers: ## 2.9%
+   4 speakers: ############################################################################################### 95.3%
+   5 speakers: # 1.8%
+
+📊 OVERALL MAXIMUM OVERLAP ANALYSIS (K) - All Splits Combined:
+
+   Overall Maximum Overlap Statistics:
+   - Minimum simultaneously active speakers: 2
+   - Maximum simultaneously active speakers: 4
+   - Average maximum overlap: 3.65
+   - Median maximum overlap: 4
+
+   Distribution by maximum overlap:
+   Max Overlap          # Meetings           Percentage          
+   ------------------------------------------------------------
+   2                    1                      0.58%
+   3                    57                    33.33%
+   4                    113                   66.08%
+
+   Overlap visualization (each '#' = 1%):
+   2 simultaneously:  0.6%
+   3 simultaneously: ################################# 33.3%
+   4 simultaneously: ################################################################## 66.1%
+
+💡 RECOMMENDATIONS:
+
+   1. Current limitation N=4:
+      - Covers 168/171 meetings (98.2%)
+      - Loses information about 3 meetings (1.8%)
+      ⚠️  WARNING: 3 meetings have >4 speakers!
+         These meetings will be processed with information loss.
+         - train split: 3 meetings with >4 speakers
+
+   2. Recommended value for N (based on ALL splits):
+      - Minimum: N = 5 (covers all meetings across all splits)
+      - This ensures coverage for train, validation, AND test sets
+
+   3. Recommended value for K (based on ALL splits):
+      - Minimum: K = 4 (covers all overlaps across all splits)
+      - This ensures coverage for train, validation, AND test sets
+
+   4. Coverage for different K values:
+      K          Meetings Covered     Percentage          
+      --------------------------------------------------
+      1          0/171               0.00%
+      2          1/171               0.58%
+      3          58/171              33.92%
+      4          171/171             100.00% ← Recommended
+      5          171/171             100.00%
+
+   5. Number of classes for different (N, K) combinations:
+      N      K      Classes         Note                          
+      ------------------------------------------------------------
+      5      4      31              ← Recommended (full coverage) 
+      4      3      15              Loses 113 meetings            
+      4      4      16                                            
+      5      3      26              Loses 113 meetings            
+      5      5      32                                            
+      6      3      42              Loses 113 meetings            
+      6      4      57                                            
+      6      5      63                                            
+
+   6. Meetings with >4 speakers:
+      - EN2001a: 5 speakers, max overlap: 3
+      - EN2001d: 5 speakers, max overlap: 4
+      - EN2001e: 5 speakers, max overlap: 3
+
+   7. Meetings with overlap >3:
+      - EN2001d: 5 speakers, max overlap: 4
+      - EN2004a: 4 speakers, max overlap: 4
+      - EN2006a: 4 speakers, max overlap: 4
+      - EN2006b: 4 speakers, max overlap: 4
+      - EN2009d: 4 speakers, max overlap: 4
+      - ES2002a: 4 speakers, max overlap: 4
+      - ES2003d: 4 speakers, max overlap: 4
+      - ES2005c: 4 speakers, max overlap: 4
+      - ES2005d: 4 speakers, max overlap: 4
+      - ES2006c: 4 speakers, max overlap: 4
+      - ES2006d: 4 speakers, max overlap: 4
+      - ES2007d: 4 speakers, max overlap: 4
+      - ES2008b: 4 speakers, max overlap: 4
+      - ES2008c: 4 speakers, max overlap: 4
+      - ES2008d: 4 speakers, max overlap: 4
+      - ES2009a: 4 speakers, max overlap: 4
+      - ES2009b: 4 speakers, max overlap: 4
+      - ES2009c: 4 speakers, max overlap: 4
+      - ES2009d: 4 speakers, max overlap: 4
+      - ES2010a: 4 speakers, max overlap: 4
+      - ES2010b: 4 speakers, max overlap: 4
+      - ES2010c: 4 speakers, max overlap: 4
+      - ES2010d: 4 speakers, max overlap: 4
+      - ES2012b: 4 speakers, max overlap: 4
+      - ES2012c: 4 speakers, max overlap: 4
+      - ES2012d: 4 speakers, max overlap: 4
+      - ES2014b: 4 speakers, max overlap: 4
+      - ES2014c: 4 speakers, max overlap: 4
+      - ES2015a: 4 speakers, max overlap: 4
+      - ES2015b: 4 speakers, max overlap: 4
+      - ES2015c: 4 speakers, max overlap: 4
+      - ES2015d: 4 speakers, max overlap: 4
+      - ES2016c: 4 speakers, max overlap: 4
+      - ES2016d: 4 speakers, max overlap: 4
+      - IB4005: 4 speakers, max overlap: 4
+      - IN1002: 4 speakers, max overlap: 4
+      - IN1005: 4 speakers, max overlap: 4
+      - IN1007: 4 speakers, max overlap: 4
+      - IN1008: 4 speakers, max overlap: 4
+      - IN1009: 4 speakers, max overlap: 4
+      - IN1012: 4 speakers, max overlap: 4
+      - IN1013: 4 speakers, max overlap: 4
+      - IN1014: 4 speakers, max overlap: 4
+      - IN1016: 4 speakers, max overlap: 4
+      - IS1000c: 4 speakers, max overlap: 4
+      - IS1000d: 4 speakers, max overlap: 4
+      - IS1001a: 4 speakers, max overlap: 4
+      - IS1001c: 4 speakers, max overlap: 4
+      - IS1002b: 4 speakers, max overlap: 4
+      - IS1002c: 4 speakers, max overlap: 4
+      - IS1003c: 4 speakers, max overlap: 4
+      - IS1003d: 4 speakers, max overlap: 4
+      - IS1004d: 4 speakers, max overlap: 4
+      - IS1005a: 4 speakers, max overlap: 4
+      - IS1005b: 4 speakers, max overlap: 4
+      - IS1005c: 4 speakers, max overlap: 4
+      - IS1006a: 4 speakers, max overlap: 4
+      - IS1006b: 4 speakers, max overlap: 4
+      - IS1006c: 4 speakers, max overlap: 4
+      - IS1006d: 4 speakers, max overlap: 4
+      - IS1007a: 4 speakers, max overlap: 4
+      - IS1007b: 4 speakers, max overlap: 4
+      - IS1007c: 4 speakers, max overlap: 4
+      - IS1007d: 4 speakers, max overlap: 4
+      - TS3005a: 4 speakers, max overlap: 4
+      - TS3005b: 4 speakers, max overlap: 4
+      - TS3005c: 4 speakers, max overlap: 4
+      - TS3005d: 4 speakers, max overlap: 4
+      - TS3006a: 4 speakers, max overlap: 4
+      - TS3006b: 4 speakers, max overlap: 4
+      - TS3006c: 4 speakers, max overlap: 4
+      - TS3006d: 4 speakers, max overlap: 4
+      - TS3007b: 4 speakers, max overlap: 4
+      - TS3007c: 4 speakers, max overlap: 4
+      - TS3007d: 4 speakers, max overlap: 4
+      - TS3008b: 4 speakers, max overlap: 4
+      - TS3008c: 4 speakers, max overlap: 4
+      - TS3008d: 4 speakers, max overlap: 4
+      - TS3009a: 4 speakers, max overlap: 4
+      - TS3009b: 4 speakers, max overlap: 4
+      - TS3009c: 4 speakers, max overlap: 4
+      - TS3009d: 4 speakers, max overlap: 4
+      - TS3010c: 4 speakers, max overlap: 4
+      - TS3011a: 4 speakers, max overlap: 4
+      - TS3011b: 4 speakers, max overlap: 4
+      - TS3012b: 4 speakers, max overlap: 4
+      - TS3012c: 4 speakers, max overlap: 4
+      - TS3012d: 4 speakers, max overlap: 4
+      - ES2011a: 4 speakers, max overlap: 4
+      - ES2011c: 4 speakers, max overlap: 4
+      - IB4001: 4 speakers, max overlap: 4
+      - IB4003: 4 speakers, max overlap: 4
+      - IB4010: 4 speakers, max overlap: 4
+      - IS1008c: 4 speakers, max overlap: 4
+      - TS3004a: 4 speakers, max overlap: 4
+      - ES2011b: 4 speakers, max overlap: 4
+      - ES2011d: 4 speakers, max overlap: 4
+      - IB4002: 4 speakers, max overlap: 4
+      - IB4011: 4 speakers, max overlap: 4
+      - IS1008d: 4 speakers, max overlap: 4
+      - TS3004b: 4 speakers, max overlap: 4
+      - TS3004d: 4 speakers, max overlap: 4
+      - EN2002a: 4 speakers, max overlap: 4
+      - EN2002b: 4 speakers, max overlap: 4
+      - EN2002d: 4 speakers, max overlap: 4
+      - ES2004a: 4 speakers, max overlap: 4
+      - ES2004c: 4 speakers, max overlap: 4
+      - IS1009a: 4 speakers, max overlap: 4
+      - IS1009b: 4 speakers, max overlap: 4
+      - IS1009d: 4 speakers, max overlap: 4
+      - TS3003a: 4 speakers, max overlap: 4
+      - TS3003b: 4 speakers, max overlap: 4
+      - TS3003d: 4 speakers, max overlap: 4
+
+✅ FINAL RECOMMENDATION:
+
+   Recommended parameters:
+   - N = 5 (maximum number of speakers per meeting)
+   - K = 4 (maximum overlap)
+   - Number of classes = 31
+
+   This will require:
+   - Recreate PowerSetEncoder with max_speakers=5, max_overlap=4
+   - Recreate model with num_classes=31
+   - Retrain the model
+   - This will cover 100% of meetings without information loss
+
+================================================================================
+Analysis completed at: 2025-11-09 18:58:25
+Results saved to: statistics/speaker_distribution_analysis_20251109_185622.txt
+================================================================================
+
