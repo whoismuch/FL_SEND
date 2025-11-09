@@ -1,0 +1,28 @@
+Experiment: exp_10size_2epochs_centralized_2025-11-06-22-11
+Dataset size: 10 records
+Train records: 10
+Validation records: 4
+Test records: 4
+Max epochs: 2
+Actual epochs trained: 2
+Early stopping patience: 5
+Early stopping min delta: 0.001
+Early stopping triggered: No
+Training type: Centralized
+Datetime: 20251106_221110
+
+=== TRAINING DATA STATISTICS ===
+Total training samples: 10
+Total validation samples: 4
+Total test samples: 4
+Total training frames: 9910
+
+=== FINAL RESULTS ===
+Final Test Loss: 281.5973
+Final Test DER: 0.5949
+Final Validation Loss: 329.1566
+Final Validation DER: 0.4876
+Best Validation Loss: 329.1566467285156
+Model Status: TRAINED with centralized learning
+Training Epochs: 2
+Total Execution Time: 139.15 seconds (2.32 minutes)

@@ -1,0 +1,2 @@
+experiment_tag,dataset_size,train_records,val_records,test_records,num_epochs,actual_epochs_trained,early_stopping_triggered,datetime,final_test_loss,final_der,final_val_loss,final_val_der,total_execution_time_seconds,total_execution_time_minutes,device_used,gpu_count
+exp_10size_2epochs_centralized_2025-11-06-23-04,10,10,4,4,2,2,False,2025-11-06 23:06:45,84.85581970214844,0.5949074074074074,63.142812728881836,0.4876190476190476,129.34569811820984,2.1557616353034974,cpu,0

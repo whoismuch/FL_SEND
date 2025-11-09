@@ -724,10 +724,10 @@ class DataStructureAnalyzer:
             plt.tight_layout()
             
             # Сохранение
-            os.makedirs('test_outputs', exist_ok=True)
-            plt.savefig(f'test_outputs/{title}.png', dpi=150, bbox_inches='tight')
+            os.makedirs('experiments/test_outputs', exist_ok=True)
+            plt.savefig(f'experiments/test_outputs/{title}.png', dpi=150, bbox_inches='tight')
             plt.close()
-            print(f"  - Mel-спектрограмма сохранена: test_outputs/{title}.png")
+            print(f"  - Mel-спектрограмма сохранена: experiments/test_outputs/{title}.png")
         except Exception as e:
             print(f"  - Ошибка при сохранении визуализации: {e}")
     
@@ -1586,10 +1586,10 @@ class DataStructureAnalyzer:
         print(report)
         
         # Сохранение отчета
-        os.makedirs('test_outputs', exist_ok=True)
-        with open('test_outputs/data_structure_report.txt', 'w', encoding='utf-8') as f:
+        os.makedirs('experiments/test_outputs', exist_ok=True)
+        with open('experiments/test_outputs/data_structure_report.txt', 'w', encoding='utf-8') as f:
             f.write(report)
-        print("📄 Отчет сохранен: test_outputs/data_structure_report.txt")
+        print("📄 Отчет сохранен: experiments/test_outputs/data_structure_report.txt")
 
 
 def main():

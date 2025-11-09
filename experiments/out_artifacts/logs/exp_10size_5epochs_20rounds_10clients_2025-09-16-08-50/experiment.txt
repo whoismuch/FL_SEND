@@ -1,0 +1,76 @@
+Experiment: exp_10size_5epochs_20rounds_10clients_2025-09-16-08-50
+Num records (meetings): 10
+Num clients: 10
+Num epochs: 5
+Num rounds: 20
+Datetime: 20250916_085039
+
+=== TRAINING DATA STATISTICS ===
+Total training samples across all clients: 20
+Estimated total training frames across all clients: 18862
+
+Client 0:
+  - Train samples: 1
+  - Validation samples: 1
+  - Total samples: 2
+  - Actual frames: 2002
+
+Client 1:
+  - Train samples: 1
+  - Validation samples: 1
+  - Total samples: 2
+  - Actual frames: 2002
+
+Client 2:
+  - Train samples: 1
+  - Validation samples: 1
+  - Total samples: 2
+  - Actual frames: 844
+
+Client 3:
+  - Train samples: 1
+  - Validation samples: 1
+  - Total samples: 2
+  - Actual frames: 2002
+
+Client 4:
+  - Train samples: 1
+  - Validation samples: 1
+  - Total samples: 2
+  - Actual frames: 2002
+
+Client 5:
+  - Train samples: 1
+  - Validation samples: 1
+  - Total samples: 2
+  - Actual frames: 2002
+
+Client 6:
+  - Train samples: 1
+  - Validation samples: 1
+  - Total samples: 2
+  - Actual frames: 2002
+
+Client 7:
+  - Train samples: 1
+  - Validation samples: 1
+  - Total samples: 2
+  - Actual frames: 2002
+
+Client 8:
+  - Train samples: 1
+  - Validation samples: 1
+  - Total samples: 2
+  - Actual frames: 2002
+
+Client 9:
+  - Train samples: 1
+  - Validation samples: 1
+  - Total samples: 2
+  - Actual frames: 2002
+
+=== FINAL RESULTS ===
+Final Test Loss: 233.3509
+Final DER: 0.7106
+Model Status: UPDATED with FL parameters
+Parameters Changed: 117/118 (99.2%)

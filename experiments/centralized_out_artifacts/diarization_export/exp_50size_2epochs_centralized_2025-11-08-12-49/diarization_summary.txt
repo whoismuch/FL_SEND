@@ -1,0 +1,14 @@
+=== DIARIZATION RESULTS REPORT ===
+
+Recording: EN2002a
+  Duration: 26.15 sec
+  Number of segments: 1
+  Unique speakers: 1
+  Speaking time by speakers:
+    MEE071: 26.15 sec (100.0%)
+
+=== OVERALL STATISTICS ===
+Total recordings: 1
+Total duration: 26.15 sec
+Total number of segments: 1
+Average segment duration: 26.150 sec

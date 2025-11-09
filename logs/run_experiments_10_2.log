@@ -1,0 +1,805 @@
+INFO:numexpr.utils:NumExpr defaulting to 8 threads.
+/Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/pyannote/core/notebook.py:134: MatplotlibDeprecationWarning: The get_cmap function was deprecated in Matplotlib 3.7 and will be removed two minor releases later. Use ``matplotlib.colormaps[name]`` or ``matplotlib.colormaps.get_cmap(obj)`` instead.
+  cm = get_cmap("Set1")
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint save hook for _speechbrain_save
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint load hook for _speechbrain_load
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint save hook for save
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint load hook for load
+INFO:speechbrain.utils.quirks:Applied quirks (see `speechbrain.utils.quirks`): [allow_tf32, disable_jit_profiling]
+INFO:speechbrain.utils.quirks:Excluded quirks specified by the `SB_DISABLE_QUIRKS` environment (comma-separated list): []
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint save hook for _save
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint load hook for _recover
+/Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/FL_SEND_PSE_AMI_train_val_correct_proportion.py:25: UserWarning: Module 'speechbrain.pretrained' was deprecated, redirecting to 'speechbrain.inference'. Please update your script. This is a change from SpeechBrain 1.0. See: https://github.com/speechbrain/speechbrain/releases/tag/v1.0.0
+  from speechbrain.pretrained import EncoderClassifier
+/Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/jupyter_client/connect.py:27: DeprecationWarning: Jupyter is migrating its paths to use standard platformdirs
+given by the platformdirs library.  To remove this warning and
+see the appropriate new directories, set the environment variable
+`JUPYTER_PLATFORM_DIRS=1` and then run `jupyter --paths`.
+The use of platformdirs will be the default in `jupyter_core` v6
+  from jupyter_core.paths import jupyter_data_dir
+INFO:speechbrain.utils.fetching:Fetch hyperparams.yaml: Using symlink found at '/Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/hyperparams.yaml'
+INFO:speechbrain.utils.fetching:Fetch custom.py: Fetching from HuggingFace Hub 'speechbrain/spkrec-ecapa-voxceleb' if not cached
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint save hook for _save
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint load hook for _load
+DEBUG:speechbrain.utils.checkpoints:Registered parameter transfer hook for _load
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint save hook for save
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint load hook for load_if_possible
+DEBUG:speechbrain.utils.parameter_transfer:Collecting files (or symlinks) for pretraining in pretrained_models/spkrec-ecapa.
+INFO:speechbrain.utils.fetching:Fetch embedding_model.ckpt: Using symlink found at '/Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/embedding_model.ckpt'
+DEBUG:speechbrain.utils.parameter_transfer:Set local path in self.paths["embedding_model"] = /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/embedding_model.ckpt
+INFO:speechbrain.utils.fetching:Fetch mean_var_norm_emb.ckpt: Using symlink found at '/Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/mean_var_norm_emb.ckpt'
+DEBUG:speechbrain.utils.parameter_transfer:Set local path in self.paths["mean_var_norm_emb"] = /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/mean_var_norm_emb.ckpt
+INFO:speechbrain.utils.fetching:Fetch classifier.ckpt: Using symlink found at '/Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/classifier.ckpt'
+DEBUG:speechbrain.utils.parameter_transfer:Set local path in self.paths["classifier"] = /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/classifier.ckpt
+INFO:speechbrain.utils.fetching:Fetch label_encoder.txt: Using symlink found at '/Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/label_encoder.ckpt'
+DEBUG:speechbrain.utils.parameter_transfer:Set local path in self.paths["label_encoder"] = /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/label_encoder.ckpt
+INFO:speechbrain.utils.parameter_transfer:Loading pretrained files for: embedding_model, mean_var_norm_emb, classifier, label_encoder
+DEBUG:speechbrain.utils.parameter_transfer:Redirecting (loading from local path): embedding_model -> /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/embedding_model.ckpt
+DEBUG:speechbrain.utils.parameter_transfer:Redirecting (loading from local path): mean_var_norm_emb -> /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/mean_var_norm_emb.ckpt
+DEBUG:speechbrain.utils.parameter_transfer:Redirecting (loading from local path): classifier -> /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/classifier.ckpt
+DEBUG:speechbrain.utils.parameter_transfer:Redirecting (loading from local path): label_encoder -> /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/label_encoder.ckpt
+DEBUG:speechbrain.dataio.encoder:Loaded categorical encoding from /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/label_encoder.ckpt
+WARNING:datasets.load:Using the latest cached version of the module from /Users/khumachbayramova/.cache/huggingface/modules/datasets_modules/datasets/edinburghcstr--ami/0d128d0aa8145d0f16f3d5b4da86c5d5759dbe9e8f947fda04b25edb56442bd5 (last modified on Fri Jan 10 19:25:58 2025) since it couldn't be found locally at edinburghcstr/ami., or remotely on the Hugging Face Hub.
+WARNING:datasets.builder:Found cached dataset ami (/Users/khumachbayramova/.cache/huggingface/datasets/edinburghcstr___ami/ihm/0.0.0/0d128d0aa8145d0f16f3d5b4da86c5d5759dbe9e8f947fda04b25edb56442bd5)
+Using device: cpu
+MAIN STARTED
+[2025-10-22 20:29:31.694188] MAIN: Starting main()
+[2025-10-22 20:29:31.694204] MAIN: Using device: cpu
+[2025-10-22 20:29:31.694206] MAIN: Initializing speaker encoder...
+[2025-10-22 20:29:31.861583] MAIN: Speaker encoder initialized successfully
+[2025-10-22 20:29:31.861598] STATS: ========================================== DATASET LOADING ==========================================
+[2025-10-22 20:29:31.861600] STATS: Loading dataset: AMI
+[2025-10-22 20:29:31.861601] STATS: Dataset loaded successfully
+  0%|          | 0/3 [00:00<?, ?it/s]100%|██████████| 3/3 [00:00<00:00, 144.91it/s]
+/Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/librosa/core/intervals.py:15: DeprecationWarning: path is deprecated. Use files() instead. Refer to https://importlib-resources.readthedocs.io/en/latest/using.html#migrating-from-legacy for migration advice.
+  with resources.path("librosa.core", "intervals.msgpack") as imsgpack:
+[2025-10-22 20:29:31.948513] MAIN: Dataset loaded successfully
+[2025-10-22 20:29:31.948538] STATS: Dataset: AMI
+[2025-10-22 20:29:31.948541] STATS: Total samples: 108502
+[2025-10-22 20:29:31.948543] STATS: Using subset of 10 samples for testing
+[2025-10-22 20:29:31.948544] MAIN: Grouping data by meeting ID...
+[2025-10-22 20:29:32.820078] STATS: ========================================== DATA GROUPING ==========================================
+[2025-10-22 20:29:32.820090] STATS: Grouped 1 meetings from training set
+[2025-10-22 20:29:32.820092] STATS: Grouped 1 meetings from validation set
+[2025-10-22 20:29:32.820093] STATS: Grouped 1 meetings from test set
+
+[2025-10-22 20:29:32.820104] STATS: ========================================== MEETING STATISTICS ==========================================
+
+[2025-10-22 20:29:32.820105] STATS: Training set meetings:
+  Meeting EN2001a: 10 audio segments, 0 overlapping segments, max 1 concurrent speakers
+
+[2025-10-22 20:29:32.820128] STATS: Validation set meetings:
+  Meeting ES2011a: 4 audio segments, 1 overlapping segments, max 2 concurrent speakers
+    First 5 overlapping segments:
+      1. Speakers FEE044 & FEE041: 928.14s - 928.29s (duration: 0.15s)
+
+[2025-10-22 20:29:32.820142] STATS: Test set meetings:
+  Meeting EN2002a: 4 audio segments, 0 overlapping segments, max 1 concurrent speakers
+
+[2025-10-22 20:29:32.820148] STATS: ========================================== SUMMARY STATISTICS ==========================================
+Total meetings: 3
+Total audio segments: 18
+Total overlapping segments: 1
+
+ CONCURRENT SPEAKERS ANALYSIS:
+  - Maximum number of concurrent speakers: 2
+  - Average maximum number: 1.3
+  - Median maximum number: 1
+  - Distribution of maximum concurrent speakers:
+    1 speakers: 2 meetings (66.7%)
+    2 speakers: 1 meetings (33.3%)
+
+Training set: 1 meetings, 10 segments, 0 overlaps (avg: 10.0 segments, 0.0 overlaps)
+Validation set: 1 meetings, 4 segments, 1 overlaps (avg: 4.0 segments, 1.0 overlaps)
+Test set: 1 meetings, 4 segments, 0 overlaps (avg: 4.0 segments, 0.0 overlaps)
+[2025-10-22 20:29:32.820172] MAIN: Initializing Power Set Encoder with max_speakers=5, max_overlap=3
+[2025-10-22 20:29:32.820197] MAIN: PSE Configuration: N=5 (max speakers per recording), K=3 (max overlap)
+[2025-10-22 20:29:32.820199] MAIN: Number of classes using C(K,N) = Σ(k=0 to 3) C(5,k) = 26
+
+[2025-10-22 20:29:32.820201] STATS: ========================================== POWER SET ENCODER EXAMPLES ==========================================
+[2025-10-22 20:29:32.820202] STATS: STARTING FUNCTION: print_power_set_encoder_examples
+[2025-10-22 20:29:32.820204] STATS: PowerSetEncoder Configuration:
+[2025-10-22 20:29:32.820205] STATS:   - Max speakers: 5
+[2025-10-22 20:29:32.820206] STATS:   - Max overlap: 3
+[2025-10-22 20:29:32.820207] STATS:   - Number of classes: 26
+[2025-10-22 20:29:32.820208] STATS:   - Formula: C(K,N) = Σ(k=0 to 3) C(5,k)
+
+[2025-10-22 20:29:32.820210] STATS: Encoding/Decoding Examples:
+[2025-10-22 20:29:32.820211] STATS: Speaker IDs     Encoded  Decoded         Match
+[2025-10-22 20:29:32.820216] STATS: --------------- -------- --------------- -----
+[2025-10-22 20:29:32.820221] STATS: []              0        []              ✓    
+[2025-10-22 20:29:32.820228] STATS: [0]             1        [0]             ✓    
+[2025-10-22 20:29:32.820231] STATS: [1]             2        [1]             ✓    
+[2025-10-22 20:29:32.820235] STATS: [0, 1]          6        [0, 1]          ✓    
+[2025-10-22 20:29:32.820238] STATS: [0, 2]          7        [0, 2]          ✓    
+[2025-10-22 20:29:32.820241] STATS: [1, 2]          10       [1, 2]          ✓    
+[2025-10-22 20:29:32.820244] STATS: [0, 1, 2]       16       [0, 1, 2]       ✓    
+
+[2025-10-22 20:29:32.820253] STATS: All Possible Speaker Combinations:
+[2025-10-22 20:29:32.820254] STATS: Combination     Encoded  Description              
+[2025-10-22 20:29:32.820256] STATS: --------------- -------- -------------------------
+[2025-10-22 20:29:32.820258] STATS: []              0        No speakers              
+[2025-10-22 20:29:32.820261] STATS: [0]             1        Speaker 0 only           
+[2025-10-22 20:29:32.820263] STATS: [1]             2        Speaker 1 only           
+[2025-10-22 20:29:32.820264] STATS: [2]             3        Speaker 2 only           
+[2025-10-22 20:29:32.820266] STATS: [3]             4        Speaker 3 only           
+[2025-10-22 20:29:32.820267] STATS: [4]             5        Speaker 4 only           
+[2025-10-22 20:29:32.820270] STATS: [0, 1]          6        2 speakers: [0, 1]       
+[2025-10-22 20:29:32.820272] STATS: [0, 2]          7        2 speakers: [0, 2]       
+[2025-10-22 20:29:32.820274] STATS: [0, 3]          8        2 speakers: [0, 3]       
+[2025-10-22 20:29:32.820276] STATS: [0, 4]          9        2 speakers: [0, 4]       
+[2025-10-22 20:29:32.820278] STATS: [1, 2]          10       2 speakers: [1, 2]       
+[2025-10-22 20:29:32.820280] STATS: [1, 3]          11       2 speakers: [1, 3]       
+[2025-10-22 20:29:32.820281] STATS: [1, 4]          12       2 speakers: [1, 4]       
+[2025-10-22 20:29:32.820283] STATS: [2, 3]          13       2 speakers: [2, 3]       
+[2025-10-22 20:29:32.820285] STATS: [2, 4]          14       2 speakers: [2, 4]       
+[2025-10-22 20:29:32.820286] STATS: [3, 4]          15       2 speakers: [3, 4]       
+[2025-10-22 20:29:32.820288] STATS: [0, 1, 2]       16       Max overlap (3 speakers) 
+[2025-10-22 20:29:32.820290] STATS: [0, 1, 3]       17       Max overlap (3 speakers) 
+[2025-10-22 20:29:32.820292] STATS: [0, 1, 4]       18       Max overlap (3 speakers) 
+[2025-10-22 20:29:32.820293] STATS: [0, 2, 3]       19       Max overlap (3 speakers) 
+[2025-10-22 20:29:32.820295] STATS: [0, 2, 4]       20       Max overlap (3 speakers) 
+[2025-10-22 20:29:32.820296] STATS: [0, 3, 4]       21       Max overlap (3 speakers) 
+[2025-10-22 20:29:32.820298] STATS: [1, 2, 3]       22       Max overlap (3 speakers) 
+[2025-10-22 20:29:32.820300] STATS: [1, 2, 4]       23       Max overlap (3 speakers) 
+[2025-10-22 20:29:32.820301] STATS: [1, 3, 4]       24       Max overlap (3 speakers) 
+[2025-10-22 20:29:32.820303] STATS: [2, 3, 4]       25       Max overlap (3 speakers) 
+
+[2025-10-22 20:29:32.820304] STATS: Edge Cases:
+[2025-10-22 20:29:32.820305] STATS:   - Empty list [] encodes to 0 (no speakers active)
+[2025-10-22 20:29:32.820306] STATS:   - Single speaker [0] encodes to 1
+[2025-10-22 20:29:32.820307] STATS:   - Max overlap combination encodes to 25
+
+[2025-10-22 20:29:32.820308] STATS: Overlap Limitations:
+[2025-10-22 20:29:32.820309] STATS:   - Maximum 3 speakers can be active simultaneously
+[2025-10-22 20:29:32.820310] STATS:   - Total combinations: 26
+
+[2025-10-22 20:29:32.820312] STATS: Formula Breakdown C(K,N) = Σ(k=0 to 3) C(5,k):
+[2025-10-22 20:29:32.820314] STATS:   - C(5,0) = 1 combinations with 0 speakers
+[2025-10-22 20:29:32.820316] STATS:   - C(5,1) = 5 combinations with 1 speakers
+[2025-10-22 20:29:32.820317] STATS:   - C(5,2) = 10 combinations with 2 speakers
+[2025-10-22 20:29:32.820318] STATS:   - C(5,3) = 10 combinations with 3 speakers
+[2025-10-22 20:29:32.820319] STATS:   - Total: 26 classes
+
+[2025-10-22 20:29:32.820320] STATS: Encoding/Decoding Formulas:
+[2025-10-22 20:29:32.820321] STATS: 
+[2025-10-22 20:29:32.820322] STATS: ENCODING: S → class_id
+[2025-10-22 20:29:32.820323] STATS:   1. Sort speaker IDs: S' = sorted(S)
+[2025-10-22 20:29:32.820324] STATS:   2. Find lexicographic index of S'
+[2025-10-22 20:29:32.820325] STATS: 
+[2025-10-22 20:29:32.820326] STATS: DECODING: class_id → S
+[2025-10-22 20:29:32.820327] STATS:   1. Find k: Σ(j=0 to k-1) C(5,j) ≤ class_id < Σ(j=0 to k) C(5,j)
+[2025-10-22 20:29:32.820329] STATS:   2. Reconstruct combination from remaining index
+[2025-10-22 20:29:32.820330] STATS: 
+[2025-10-22 20:29:32.820331] STATS: EXAMPLES WITH CALCULATIONS:
+[2025-10-22 20:29:32.820334] STATS: 
+[2025-10-22 20:29:32.820335] STATS: Example: [] (Empty set)
+[2025-10-22 20:29:32.820337] STATS:   Encoded: 0
+[2025-10-22 20:29:32.820338] STATS:   Decoded: []
+[2025-10-22 20:29:32.820339] STATS:   Calculation:
+INFO:data_processing:Meeting EN2001a: 4 speakers mapped to slots [0, 1, 2, 3]
+INFO:data_processing:Max sequence length: 991
+INFO:data_processing:Meeting ES2011a: 3 speakers mapped to slots [0, 1, 2]
+INFO:data_processing:Max sequence length: 269
+INFO:data_processing:Meeting EN2002a: 3 speakers mapped to slots [0, 1, 2]
+INFO:data_processing:Max sequence length: 138
+[2025-10-22 20:29:32.820340] STATS:     Empty set → index 0
+[2025-10-22 20:29:32.820427] STATS: 
+[2025-10-22 20:29:32.820429] STATS: Example: [0] (Single speaker)
+[2025-10-22 20:29:32.820431] STATS:   Encoded: 1
+[2025-10-22 20:29:32.820432] STATS:   Decoded: [0]
+[2025-10-22 20:29:32.820433] STATS:   Calculation:
+[2025-10-22 20:29:32.820434] STATS:     Speaker 0: offset 1 + speaker_id 0 = 1
+[2025-10-22 20:29:32.820437] STATS: 
+[2025-10-22 20:29:32.820438] STATS: Example: [0, 1] (Two speakers)
+[2025-10-22 20:29:32.820439] STATS:   Encoded: 6
+[2025-10-22 20:29:32.820440] STATS:   Decoded: [0, 1]
+[2025-10-22 20:29:32.820441] STATS:   Calculation:
+[2025-10-22 20:29:32.820443] STATS:     Speakers [0,1]: offset 6 + combo_index 0 = 6
+[2025-10-22 20:29:32.820445] STATS: 
+[2025-10-22 20:29:32.820446] STATS: Example: [0, 1, 2] (Three speakers)
+[2025-10-22 20:29:32.820447] STATS:   Encoded: 16
+[2025-10-22 20:29:32.820448] STATS:   Decoded: [0, 1, 2]
+[2025-10-22 20:29:32.820450] STATS:   Calculation:
+[2025-10-22 20:29:32.820451] STATS:     Speakers [0,1,2]: offset 16 + combo_index 0 = 16
+[2025-10-22 20:29:32.820453] STATS: COMPLETED FUNCTION: print_power_set_encoder_examples
+[2025-10-22 20:29:32.820466] STATS: STARTING FUNCTION: prepare_data_loaders(grouped_train_len=1, grouped_validation_len=1, grouped_test_len=1, batch_size=4, N=5)
+[2025-10-22 20:29:32.820469] STATS: STARTING FUNCTION: create_dataset_from_grouped(grouped_data_len=1, N=5)
+[2025-10-22 20:29:32.964212] STATS: ========================================== DATASET STATISTICS ==========================================
+[2025-10-22 20:29:32.964225] STATS: STARTING FUNCTION: print_dataset_statistics
+[2025-10-22 20:29:32.964227] STATS: Dataset size (number of samples): 10
+[2025-10-22 20:29:32.964230] STATS: Feature shape (samples, frames, mel-bands): (10, 991, 80)
+[2025-10-22 20:29:32.964234] STATS: Label shape: (10, 991)
+[2025-10-22 20:29:32.964237] STATS: Meeting IDs shape: (10, 991)
+[2025-10-22 20:29:32.964242] STATS: Frame size (frames per sample): min=38, max=991, mean=461.7
+[2025-10-22 20:29:32.964301] STATS: Feature dtype: float64, Label dtype: int64
+[2025-10-22 20:29:32.964321] STATS: Example feature[0] shape: (991, 80), min=-78.34, max=1.66
+[2025-10-22 20:29:32.964390] STATS: Example label[0] shape: (991,), values: [-100    1]
+[2025-10-22 20:29:32.964647] STATS: Unique label values in dataset: [-100    1    2    3    4]
+[2025-10-22 20:29:32.964755] STATS: Audio segment length distribution: min=38, max=991, mean=461.7, median=474.0
+[2025-10-22 20:29:32.964807] STATS: COMPLETED FUNCTION: print_dataset_statistics
+[2025-10-22 20:29:32.964815] STATS: COMPLETED FUNCTION: create_dataset_from_grouped - Created dataset with 10 samples, 991 max frames, 80 mel-bands
+[2025-10-22 20:29:32.965161] STATS: STARTING FUNCTION: create_dataset_from_grouped(grouped_data_len=1, N=5)
+[2025-10-22 20:29:32.984781] STATS: ========================================== DATASET STATISTICS ==========================================
+[2025-10-22 20:29:32.984795] STATS: STARTING FUNCTION: print_dataset_statistics
+[2025-10-22 20:29:32.984798] STATS: Dataset size (number of samples): 4
+[2025-10-22 20:29:32.984800] STATS: Feature shape (samples, frames, mel-bands): (4, 269, 80)
+[2025-10-22 20:29:32.984803] STATS: Label shape: (4, 269)
+[2025-10-22 20:29:32.984805] STATS: Meeting IDs shape: (4, 269)
+[2025-10-22 20:29:32.984807] STATS: Frame size (frames per sample): min=16, max=269, mean=131.2
+[2025-10-22 20:29:32.984844] STATS: Feature dtype: float64, Label dtype: int64
+[2025-10-22 20:29:32.984862] STATS: Example feature[0] shape: (269, 80), min=-72.38, max=7.62
+[2025-10-22 20:29:32.984875] STATS: Example label[0] shape: (269,), values: [3]
+[2025-10-22 20:29:32.984931] STATS: Unique label values in dataset: [-100    1    2    3]
+[2025-10-22 20:29:32.984968] STATS: Audio segment length distribution: min=16, max=269, mean=131.2, median=120.0
+[2025-10-22 20:29:32.985004] STATS: COMPLETED FUNCTION: print_dataset_statistics
+[2025-10-22 20:29:32.985007] STATS: COMPLETED FUNCTION: create_dataset_from_grouped - Created dataset with 4 samples, 269 max frames, 80 mel-bands
+[2025-10-22 20:29:32.985018] STATS: STARTING FUNCTION: create_dataset_from_grouped(grouped_data_len=1, N=5)
+[2025-10-22 20:29:33.008333] STATS: ========================================== DATASET STATISTICS ==========================================
+[2025-10-22 20:29:33.008344] STATS: STARTING FUNCTION: print_dataset_statistics
+[2025-10-22 20:29:33.008346] STATS: Dataset size (number of samples): 4
+[2025-10-22 20:29:33.008348] STATS: Feature shape (samples, frames, mel-bands): (4, 138, 80)
+[2025-10-22 20:29:33.008352] STATS: Label shape: (4, 138)
+[2025-10-22 20:29:33.008353] STATS: Meeting IDs shape: (4, 138)
+[2025-10-22 20:29:33.008355] STATS: Frame size (frames per sample): min=38, max=138, mean=108.0
+[2025-10-22 20:29:33.008383] STATS: Feature dtype: float64, Label dtype: int64
+[2025-10-22 20:29:33.008399] STATS: Example feature[0] shape: (138, 80), min=-93.66, max=-13.66
+[2025-10-22 20:29:33.008409] STATS: Example label[0] shape: (138,), values: [2]
+[2025-10-22 20:29:33.008455] STATS: Unique label values in dataset: [-100    1    2    3]
+[2025-10-22 20:29:33.008488] STATS: Audio segment length distribution: min=38, max=138, mean=108.0, median=128.0
+[2025-10-22 20:29:33.008529] STATS: COMPLETED FUNCTION: print_dataset_statistics
+[2025-10-22 20:29:33.008532] STATS: COMPLETED FUNCTION: create_dataset_from_grouped - Created dataset with 4 samples, 138 max frames, 80 mel-bands
+[OverlappingSpeechDataset] Slot->Speaker mapping: {0: 'FEO065', 1: 'MEE067', 2: 'MEE068', 3: 'MEO069'}
+[OverlappingSpeechDataset] Embeddings shape: torch.Size([4, 192])
+[OverlappingSpeechDataset] Slot->Speaker mapping: {0: 'FEE041', 1: 'FEE043', 2: 'FEE044'}
+[OverlappingSpeechDataset] Embeddings shape: torch.Size([3, 192])
+[OverlappingSpeechDataset] Slot->Speaker mapping: {0: 'FEO070', 1: 'FEO072', 2: 'MEE073'}
+[OverlappingSpeechDataset] Embeddings shape: torch.Size([3, 192])
+[2025-10-22 20:29:33.576128] STATS: ========================================== DATA LOADERS CREATION ==========================================
+[2025-10-22 20:29:33.576141] STATS: STARTING FUNCTION: print_data_loaders_info
+[2025-10-22 20:29:33.576143] STATS: Created data loaders with batch size 4
+[2025-10-22 20:29:33.576145] STATS: Training set: 10 samples | 3 batches | 9910 frames
+[2025-10-22 20:29:33.576208] STATS: Validation set: 4 samples | 1 batches | 1076 frames
+[2025-10-22 20:29:33.576245] STATS: Test set: 4 samples | 1 batches | 552 frames
+[2025-10-22 20:29:33.576274] STATS: === EXAMPLE TRAIN SAMPLE ===
+[2025-10-22 20:29:33.576275] STATS: Feature shape: torch.Size([991, 80]), dtype: torch.float32
+[2025-10-22 20:29:33.576279] STATS: Feature (first frame): tensor([-25.7961, -21.6416, -16.6324, -13.3380, -12.1601, -12.7919, -14.0378,
+        -14.8877, -17.3196, -23.8747, -20.1642, -14.1468, -11.4491, -11.4738,
+        -14.0905, -19.3088, -25.9539, -33.7698, -32.3547, -29.1311, -28.5645,
+        -28.0751, -29.4783, -34.3271, -41.1570, -40.3496, -36.6071, -33.9976,
+        -33.8865, -34.8686, -35.8664, -36.6525, -37.4211, -38.2193, -36.4379,
+        -35.8695, -38.0396, -42.2522, -47.5849, -42.9448, -41.8785, -47.9526,
+        -48.7211, -43.4506, -44.3202, -45.9654, -38.6584, -40.9482, -44.7076,
+        -45.1133, -51.1277, -50.1222, -51.6958, -53.1796, -53.4646, -54.9030,
+        -54.5478, -55.6168, -55.2637, -52.1974, -53.0708, -49.8131, -50.6336,
+        -51.5848, -52.7451, -55.4427, -58.7778, -58.6580, -58.5146, -59.1365,
+        -60.0565, -62.9523, -61.9280, -61.2017, -61.9546, -62.1751, -61.5246,
+        -61.7682, -61.8947, -61.8983])
+[2025-10-22 20:29:33.577776] STATS: Speaker embeddings shape: torch.Size([4, 192]), dtype: torch.float32
+[2025-10-22 20:29:33.577780] STATS: Label shape: torch.Size([991]), dtype: torch.int64
+[2025-10-22 20:29:33.577782] STATS: Label (first 10 frames): tensor([1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
+[2025-10-22 20:29:33.577845] STATS: Meeting ID shape: (991,), dtype: object
+[2025-10-22 20:29:33.577859] STATS: Meeting ID (first 10 frames): ['EN2001a' 'EN2001a' 'EN2001a' 'EN2001a' 'EN2001a' 'EN2001a' 'EN2001a'
+ 'EN2001a' 'EN2001a' 'EN2001a']
+[2025-10-22 20:29:33.577992] STATS: Sample = audio segment (feature matrix), batch = group of samples, frame = row in the feature matrix (one time step)
+[2025-10-22 20:29:33.577995] STATS: Frames are NOT independent: the model takes their sequence/context into account
+[2025-10-22 20:29:33.577996] STATS: COMPLETED FUNCTION: print_data_loaders_info
+[2025-10-22 20:29:33.578003] STATS: COMPLETED FUNCTION: prepare_data_loaders - Created 3 data loaders: train(3 batches), val(1 batches), test(1 batches)
+
+[2025-10-22 20:29:33.578006] STATS: ========================================== EXPERIMENT CONFIGURATION ==========================================
+Number of clients: 1
+Number of rounds: 1
+Number of epochs per round: 2
+Test size: 10
+
+[2025-10-22 20:29:33.578008] STATS: ========================================== SPEAKER DISTRIBUTION ANALYSIS ==========================================
+  Meeting EN2001a: 4 unique speakers
+
+Total unique speakers across all meetings: 4
+Speakers per meeting:
+  Min: 4
+  Max: 4
+  Mean: 4.0
+  Median: 4
+[2025-10-22 20:29:33.578019] MAIN: Creating SEND model...
+
+[2025-10-22 20:29:33.617663] STATS: ========================================== SEND MODEL STATISTICS ==========================================
+[2025-10-22 20:29:33.617679] STATS: STARTING FUNCTION: print_send_model_statistics
+[2025-10-22 20:29:33.617951] STATS: Model Architecture:
+[2025-10-22 20:29:33.617953] STATS:   - Model type: SENDModel
+[2025-10-22 20:29:33.617954] STATS:   - Total parameters: 20,906,011
+[2025-10-22 20:29:33.617958] STATS:   - Trainable parameters: 20,906,011
+[2025-10-22 20:29:33.617960] STATS:   - Non-trainable parameters: 0
+[2025-10-22 20:29:33.617961] STATS: Model Configuration:
+[2025-10-22 20:29:33.617989] STATS:   - Input dimension: 80
+[2025-10-22 20:29:33.617991] STATS:   - Hidden dimension: 512
+[2025-10-22 20:29:33.617992] STATS:   - Number of classes: 26
+[2025-10-22 20:29:33.617993] STATS:   - Dropout probability: 0.1
+[2025-10-22 20:29:33.617997] STATS: Layer Structure:
+[2025-10-22 20:29:33.618010] STATS:   - speech_encoder.0.0.input_lin: Linear (41,472 params)
+[2025-10-22 20:29:33.618016] STATS:   - speech_encoder.0.0.linear: Linear (262,656 params)
+[2025-10-22 20:29:33.618021] STATS:   - speech_encoder.0.0.memory: Linear (262,656 params)
+[2025-10-22 20:29:33.618025] STATS:   - speech_encoder.0.1: Dropout (0 params)
+[2025-10-22 20:29:33.618031] STATS:   - speech_encoder.1.0.linear: Linear (262,656 params)
+[2025-10-22 20:29:33.618035] STATS:   - speech_encoder.1.0.memory: Linear (262,656 params)
+[2025-10-22 20:29:33.618038] STATS:   - speech_encoder.1.1: Dropout (0 params)
+[2025-10-22 20:29:33.618045] STATS:   - speech_encoder.2.0.linear: Linear (262,656 params)
+[2025-10-22 20:29:33.618049] STATS:   - speech_encoder.2.0.memory: Linear (262,656 params)
+[2025-10-22 20:29:33.618052] STATS:   - speech_encoder.2.1: Dropout (0 params)
+[2025-10-22 20:29:33.618058] STATS:   - speech_encoder.3.0.linear: Linear (262,656 params)
+[2025-10-22 20:29:33.618062] STATS:   - speech_encoder.3.0.memory: Linear (262,656 params)
+[2025-10-22 20:29:33.618065] STATS:   - speech_encoder.3.1: Dropout (0 params)
+[2025-10-22 20:29:33.618071] STATS:   - speech_encoder.4.0.linear: Linear (262,656 params)
+[2025-10-22 20:29:33.618075] STATS:   - speech_encoder.4.0.memory: Linear (262,656 params)
+[2025-10-22 20:29:33.618078] STATS:   - speech_encoder.4.1: Dropout (0 params)
+[2025-10-22 20:29:33.618084] STATS:   - speech_encoder.5.0.linear: Linear (262,656 params)
+[2025-10-22 20:29:33.618088] STATS:   - speech_encoder.5.0.memory: Linear (262,656 params)
+[2025-10-22 20:29:33.618091] STATS:   - speech_encoder.5.1: Dropout (0 params)
+[2025-10-22 20:29:33.618097] STATS:   - speech_encoder.6.0.linear: Linear (262,656 params)
+[2025-10-22 20:29:33.618100] STATS:   - speech_encoder.6.0.memory: Linear (262,656 params)
+[2025-10-22 20:29:33.618103] STATS:   - speech_encoder.6.1: Dropout (0 params)
+[2025-10-22 20:29:33.618109] STATS:   - speech_encoder.7.0.linear: Linear (262,656 params)
+[2025-10-22 20:29:33.618113] STATS:   - speech_encoder.7.0.memory: Linear (262,656 params)
+[2025-10-22 20:29:33.618117] STATS:   - speech_encoder.7.1: Dropout (0 params)
+[2025-10-22 20:29:33.618122] STATS:   - speaker_encoder.0: Linear (98,816 params)
+[2025-10-22 20:29:33.618126] STATS:   - speaker_encoder.1: ReLU (0 params)
+[2025-10-22 20:29:33.618129] STATS:   - speaker_encoder.2: Dropout (0 params)
+[2025-10-22 20:29:33.618133] STATS:   - speaker_encoder.3: Linear (262,656 params)
+[2025-10-22 20:29:33.618136] STATS:   - speaker_encoder.4: ReLU (0 params)
+[2025-10-22 20:29:33.618139] STATS:   - speaker_encoder.5: Dropout (0 params)
+[2025-10-22 20:29:33.618143] STATS:   - speaker_encoder.6: Linear (262,656 params)
+[2025-10-22 20:29:33.618146] STATS:   - speaker_encoder.7: Dropout (0 params)
+[2025-10-22 20:29:33.618150] STATS:   - ci_scorer: Linear (513 params)
+[2025-10-22 20:29:33.618160] STATS:   - cd_scorer.layers.0.self_attn.out_proj: NonDynamicallyQuantizableLinear (262,656 params)
+[2025-10-22 20:29:33.618165] STATS:   - cd_scorer.layers.0.linear1: Linear (1,050,624 params)
+[2025-10-22 20:29:33.618168] STATS:   - cd_scorer.layers.0.dropout: Dropout (0 params)
+[2025-10-22 20:29:33.618172] STATS:   - cd_scorer.layers.0.linear2: Linear (1,049,088 params)
+[2025-10-22 20:29:33.618177] STATS:   - cd_scorer.layers.0.norm1: LayerNorm (1,024 params)
+[2025-10-22 20:29:33.618181] STATS:   - cd_scorer.layers.0.norm2: LayerNorm (1,024 params)
+[2025-10-22 20:29:33.618184] STATS:   - cd_scorer.layers.0.dropout1: Dropout (0 params)
+[2025-10-22 20:29:33.618187] STATS:   - cd_scorer.layers.0.dropout2: Dropout (0 params)
+[2025-10-22 20:29:33.618194] STATS:   - cd_scorer.layers.1.self_attn.out_proj: NonDynamicallyQuantizableLinear (262,656 params)
+[2025-10-22 20:29:33.618198] STATS:   - cd_scorer.layers.1.linear1: Linear (1,050,624 params)
+[2025-10-22 20:29:33.618202] STATS:   - cd_scorer.layers.1.dropout: Dropout (0 params)
+[2025-10-22 20:29:33.618205] STATS:   - cd_scorer.layers.1.linear2: Linear (1,049,088 params)
+[2025-10-22 20:29:33.618209] STATS:   - cd_scorer.layers.1.norm1: LayerNorm (1,024 params)
+[2025-10-22 20:29:33.618213] STATS:   - cd_scorer.layers.1.norm2: LayerNorm (1,024 params)
+[2025-10-22 20:29:33.618217] STATS:   - cd_scorer.layers.1.dropout1: Dropout (0 params)
+[2025-10-22 20:29:33.618219] STATS:   - cd_scorer.layers.1.dropout2: Dropout (0 params)
+[2025-10-22 20:29:33.618227] STATS:   - cd_scorer.layers.2.self_attn.out_proj: NonDynamicallyQuantizableLinear (262,656 params)
+[2025-10-22 20:29:33.618231] STATS:   - cd_scorer.layers.2.linear1: Linear (1,050,624 params)
+[2025-10-22 20:29:33.618234] STATS:   - cd_scorer.layers.2.dropout: Dropout (0 params)
+[2025-10-22 20:29:33.618238] STATS:   - cd_scorer.layers.2.linear2: Linear (1,049,088 params)
+[2025-10-22 20:29:33.618242] STATS:   - cd_scorer.layers.2.norm1: LayerNorm (1,024 params)
+[2025-10-22 20:29:33.618246] STATS:   - cd_scorer.layers.2.norm2: LayerNorm (1,024 params)
+[2025-10-22 20:29:33.618249] STATS:   - cd_scorer.layers.2.dropout1: Dropout (0 params)
+[2025-10-22 20:29:33.618252] STATS:   - cd_scorer.layers.2.dropout2: Dropout (0 params)
+[2025-10-22 20:29:33.618258] STATS:   - cd_scorer.layers.3.self_attn.out_proj: NonDynamicallyQuantizableLinear (262,656 params)
+[2025-10-22 20:29:33.618262] STATS:   - cd_scorer.layers.3.linear1: Linear (1,050,624 params)
+[2025-10-22 20:29:33.618265] STATS:   - cd_scorer.layers.3.dropout: Dropout (0 params)
+[2025-10-22 20:29:33.618269] STATS:   - cd_scorer.layers.3.linear2: Linear (1,049,088 params)
+[2025-10-22 20:29:33.618273] STATS:   - cd_scorer.layers.3.norm1: LayerNorm (1,024 params)
+[2025-10-22 20:29:33.618277] STATS:   - cd_scorer.layers.3.norm2: LayerNorm (1,024 params)
+[2025-10-22 20:29:33.618280] STATS:   - cd_scorer.layers.3.dropout1: Dropout (0 params)
+[2025-10-22 20:29:33.618283] STATS:   - cd_scorer.layers.3.dropout2: Dropout (0 params)
+[2025-10-22 20:29:33.618291] STATS:   - post_net.0.0.linear: Linear (262,656 params)
+INFO:data_processing:Starting data processing for clients...
+INFO:data_processing:Training data: 1 meetings
+INFO:data_processing:Validation data: 1 meetings
+INFO:data_processing:Processing training data...
+INFO:data_processing:Found 4 unique speakers in training data: {'MEO069': 0, 'MEE068': 1, 'MEE067': 2, 'FEO065': 3}
+INFO:data_processing:Processing training meetings for overlapping segments...
+INFO:data_processing:Processing training meeting EN2001a with 10 samples
+INFO:data_processing:Adding non-overlapping segments...
+INFO:data_processing:Finding real overlapping segments...
+INFO:data_processing:Found 0 natural overlapping segments
+INFO:data_processing:Training meeting EN2001a statistics:
+INFO:data_processing:  - Original segments: 10
+INFO:data_processing:  - Natural overlaps: 0
+INFO:data_processing:
+Training Dataset Statistics:
+INFO:data_processing:Training meetings processed: 1
+INFO:data_processing:Training original segments: 10
+INFO:data_processing:Training natural overlaps: 0
+INFO:data_processing:Training total segments: 10
+INFO:data_processing:Training natural overlap ratio: 0.00%
+INFO:data_processing:Processing validation data...
+INFO:data_processing:Found 3 unique speakers in validation data: {'FEE044': 0, 'FEE041': 1, 'FEE043': 2}
+INFO:data_processing:Processing validation meeting ES2011a with 4 samples
+INFO:data_processing:Validation meetings processed: 1
+INFO:data_processing:Validation original segments: 4
+INFO:data_processing:Validation natural overlaps: 1
+INFO:data_processing:Validation total segments: 5
+INFO:data_processing:Validation natural overlap ratio: 25.00%
+INFO:data_processing:
+Speaker Mapping Separation:
+INFO:data_processing:Training speakers: 4 - ['MEO069', 'MEE068', 'MEE067', 'FEO065']
+INFO:data_processing:Validation speakers: 3 - ['FEE044', 'FEE041', 'FEE043']
+INFO:data_processing:✓ No speaker overlap between train and validation sets - good separation!
+INFO:data_processing:
+Balancing training dataset...
+INFO:data_processing:
+Training Dataset Statistics:
+INFO:data_processing:Non-overlapping samples: 10
+INFO:data_processing:Natural overlapping samples: 0
+INFO:data_processing:Total samples: 10
+INFO:data_processing:
+Splitting 10 samples among 1 clients...
+INFO:data_processing:Created 1 client sample groups
+INFO:data_processing:Creating data loaders for clients...
+INFO:data_processing:
+Processing client 0 with 10 samples
+INFO:data_processing:Client 0 sample distribution:
+INFO:data_processing:  - Non-overlapping: 10
+INFO:data_processing:  - Natural overlaps: 0
+INFO:data_processing:All sequence lengths for client 0: {991}
+INFO:data_processing:Processing validation data for client 0...
+INFO:data_processing:Created data loaders for client 0
+INFO:data_processing:
+Data processing completed successfully - created 1 clients
+[93mWARNING [0m:   DEPRECATED FEATURE: flwr.simulation.start_simulation() is deprecated.
+	Instead, use the `flwr run` CLI command to start a local simulation in your Flower app, as shown for example below:
+
+		$ flwr new  # Create a new Flower app from a template
+
+		$ flwr run  # Run the Flower app in Simulation Mode
+
+	Using `start_simulation()` is deprecated.
+
+            This is a deprecated feature. It will be removed
+            entirely in future versions of Flower.
+        
+WARNING:flwr:DEPRECATED FEATURE: flwr.simulation.start_simulation() is deprecated.
+	Instead, use the `flwr run` CLI command to start a local simulation in your Flower app, as shown for example below:
+
+		$ flwr new  # Create a new Flower app from a template
+
+		$ flwr run  # Run the Flower app in Simulation Mode
+
+	Using `start_simulation()` is deprecated.
+
+            This is a deprecated feature. It will be removed
+            entirely in future versions of Flower.
+        
+[92mINFO [0m:      Starting Flower simulation, config: num_rounds=1, no round_timeout
+INFO:flwr:Starting Flower simulation, config: num_rounds=1, no round_timeout
+2025-10-22 20:29:36,405	INFO worker.py:1771 -- Started a local Ray instance.
+[92mINFO [0m:      Flower VCE: Ray initialized with resources: {'node:__internal_head__': 1.0, 'CPU': 1.0, 'object_store_memory': 2147483648.0, 'node:127.0.0.1': 1.0, 'memory': 6175626036.0}
+INFO:flwr:Flower VCE: Ray initialized with resources: {'node:__internal_head__': 1.0, 'CPU': 1.0, 'object_store_memory': 2147483648.0, 'node:127.0.0.1': 1.0, 'memory': 6175626036.0}
+[92mINFO [0m:      Optimize your simulation with Flower VCE: https://flower.ai/docs/framework/how-to-run-simulations.html
+INFO:flwr:Optimize your simulation with Flower VCE: https://flower.ai/docs/framework/how-to-run-simulations.html
+[92mINFO [0m:      Flower VCE: Resources for each Virtual Client: {'num_cpus': 1, 'num_gpus': 0}
+INFO:flwr:Flower VCE: Resources for each Virtual Client: {'num_cpus': 1, 'num_gpus': 0}
+[92mINFO [0m:      Flower VCE: Creating VirtualClientEngineActorPool with 1 actors
+INFO:flwr:Flower VCE: Creating VirtualClientEngineActorPool with 1 actors
+[92mINFO [0m:      [INIT]
+INFO:flwr:[INIT]
+[92mINFO [0m:      Using initial global parameters provided by strategy
+INFO:flwr:Using initial global parameters provided by strategy
+[92mINFO [0m:      Starting evaluation of initial global parameters
+INFO:flwr:Starting evaluation of initial global parameters
+[92mINFO [0m:      Evaluation returned no results (`None`)
+INFO:flwr:Evaluation returned no results (`None`)
+[92mINFO [0m:      
+INFO:flwr:
+[92mINFO [0m:      [ROUND 1]
+INFO:flwr:[ROUND 1]
+[92mINFO [0m:      configure_fit: strategy sampled 1 clients (out of 1)
+INFO:flwr:configure_fit: strategy sampled 1 clients (out of 1)
+[36m(ClientAppActor pid=63760)[0m /Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/jupyter_client/connect.py:27: DeprecationWarning: Jupyter is migrating its paths to use standard platformdirs
+[36m(ClientAppActor pid=63760)[0m given by the platformdirs library.  To remove this warning and
+[36m(ClientAppActor pid=63760)[0m see the appropriate new directories, set the environment variable
+[36m(ClientAppActor pid=63760)[0m `JUPYTER_PLATFORM_DIRS=1` and then run `jupyter --paths`.
+[36m(ClientAppActor pid=63760)[0m The use of platformdirs will be the default in `jupyter_core` v6
+[36m(ClientAppActor pid=63760)[0m   from jupyter_core.paths import jupyter_data_dir
+[36m(ClientAppActor pid=63760)[0m /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/data_processing.py:11: UserWarning: Module 'speechbrain.pretrained' was deprecated, redirecting to 'speechbrain.inference'. Please update your script. This is a change from SpeechBrain 1.0. See: https://github.com/speechbrain/speechbrain/releases/tag/v1.0.0
+[36m(ClientAppActor pid=63760)[0m   from speechbrain.pretrained import EncoderClassifier
+[36m(ClientAppActor pid=63760)[0m /Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/pyannote/core/notebook.py:134: MatplotlibDeprecationWarning: The get_cmap function was deprecated in Matplotlib 3.7 and will be removed two minor releases later. Use ``matplotlib.colormaps[name]`` or ``matplotlib.colormaps.get_cmap(obj)`` instead.
+[36m(ClientAppActor pid=63760)[0m   cm = get_cmap("Set1")
+[33m(raylet)[0m [2025-10-22 20:29:46,352 E 63755 3595246] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-10-22_20-29-34_440637_63734 is over 95% full, available space: 4091371520; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-10-22 20:29:56,352 E 63755 3595246] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-10-22_20-29-34_440637_63734 is over 95% full, available space: 4090429440; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-10-22 20:30:06,452 E 63755 3595246] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-10-22_20-29-34_440637_63734 is over 95% full, available space: 4090351616; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-10-22 20:30:16,453 E 63755 3595246] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-10-22_20-29-34_440637_63734 is over 95% full, available space: 4090068992; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-10-22 20:30:26,454 E 63755 3595246] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-10-22_20-29-34_440637_63734 is over 95% full, available space: 4089991168; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-10-22 20:30:36,455 E 63755 3595246] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-10-22_20-29-34_440637_63734 is over 95% full, available space: 4089786368; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-10-22 20:30:46,458 E 63755 3595246] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-10-22_20-29-34_440637_63734 is over 95% full, available space: 4089638912; capacity: 494384795648. Object creation will fail if spilling is required.
+[36m(ClientAppActor pid=63760)[0m /Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/pyannote/metrics/utils.py:200: UserWarning: 'uem' was approximated by the union of 'reference' and 'hypothesis' extents.
+[36m(ClientAppActor pid=63760)[0m   warnings.warn(
+[2025-10-22 20:29:33.618295] STATS:   - post_net.0.0.memory: Linear (262,656 params)
+[2025-10-22 20:29:33.618376] STATS:   - post_net.0.1: Dropout (0 params)
+[2025-10-22 20:29:33.618384] STATS:   - post_net.1.0.linear: Linear (262,656 params)
+[2025-10-22 20:29:33.618388] STATS:   - post_net.1.0.memory: Linear (262,656 params)
+[2025-10-22 20:29:33.618391] STATS:   - post_net.1.1: Dropout (0 params)
+[2025-10-22 20:29:33.618397] STATS:   - post_net.2.0.linear: Linear (262,656 params)
+[2025-10-22 20:29:33.618401] STATS:   - post_net.2.0.memory: Linear (262,656 params)
+[2025-10-22 20:29:33.618404] STATS:   - post_net.2.1: Dropout (0 params)
+[2025-10-22 20:29:33.618410] STATS:   - post_net.3.0.linear: Linear (262,656 params)
+[2025-10-22 20:29:33.618414] STATS:   - post_net.3.0.memory: Linear (262,656 params)
+[2025-10-22 20:29:33.618417] STATS:   - post_net.3.1: Dropout (0 params)
+[2025-10-22 20:29:33.618423] STATS:   - post_net.4.0.linear: Linear (262,656 params)
+[2025-10-22 20:29:33.618427] STATS:   - post_net.4.0.memory: Linear (262,656 params)
+[2025-10-22 20:29:33.618430] STATS:   - post_net.4.1: Dropout (0 params)
+[2025-10-22 20:29:33.618436] STATS:   - post_net.5.0.linear: Linear (262,656 params)
+[2025-10-22 20:29:33.618440] STATS:   - post_net.5.0.memory: Linear (262,656 params)
+[2025-10-22 20:29:33.618443] STATS:   - post_net.5.1: Dropout (0 params)
+[2025-10-22 20:29:33.618448] STATS:   - classifier.0: Linear (262,656 params)
+[2025-10-22 20:29:33.618452] STATS:   - classifier.1: ReLU (0 params)
+[2025-10-22 20:29:33.618455] STATS:   - classifier.2: Dropout (0 params)
+[2025-10-22 20:29:33.618459] STATS:   - classifier.3: Linear (13,338 params)
+[2025-10-22 20:29:33.618461] STATS:   - Total layers: 88
+[2025-10-22 20:29:33.618463] STATS: Memory Estimation:
+[2025-10-22 20:29:33.618464] STATS:   - Model size: ~79.8 MB
+[2025-10-22 20:29:33.618466] STATS:   - Training memory: ~239.3 MB (including gradients and optimizer)
+[2025-10-22 20:29:33.618468] STATS: COMPLETED FUNCTION: print_send_model_statistics
+[2025-10-22 20:29:33.618469] MAIN: Splitting data for federated learning...
+[OverlappingSpeechDataset] Slot->Speaker mapping: {0: 'FEO065', 1: 'MEE067', 2: 'MEE068', 3: 'MEO069'}
+[OverlappingSpeechDataset] Embeddings shape: torch.Size([4, 192])
+[OverlappingSpeechDataset] Slot->Speaker mapping: {0: 'FEE041', 1: 'FEE043', 2: 'FEE044'}
+[OverlappingSpeechDataset] Embeddings shape: torch.Size([3, 192])
+
+[2025-10-22 20:29:34.218573] STATS: ========================================== CLIENT DATA SPLIT STATISTICS ==========================================
+[2025-10-22 20:29:34.218587] STATS: STARTING FUNCTION: print_client_split_statistics
+[2025-10-22 20:29:34.218589] STATS: Federated Learning Configuration:
+[2025-10-22 20:29:34.218590] STATS:   - Number of clients: 1
+[2025-10-22 20:29:34.218591] STATS:   - Split strategy: meeting_based
+[2025-10-22 20:29:34.218592] STATS:   - Total meetings in training set: 1
+[2025-10-22 20:29:34.218594] STATS:   - Actual clients created: 1
+
+[2025-10-22 20:29:34.218595] STATS: Client Data Distribution:
+[2025-10-22 20:29:34.218597] STATS: Client     Train Batches   Val Batches  Train Samples   Val Samples 
+[2025-10-22 20:29:34.218601] STATS: ---------- --------------- ------------ --------------- ------------
+[2025-10-22 20:29:34.218614] STATS: 0          3               2            12              8           
+
+[2025-10-22 20:29:34.218619] STATS: Split Summary:
+[2025-10-22 20:29:34.218620] STATS:   - Total train samples (approx): 12
+[2025-10-22 20:29:34.218622] STATS:   - Total validation samples (approx): 8
+[2025-10-22 20:29:34.218623] STATS:   - Total samples (approx): 20
+[2025-10-22 20:29:34.218624] STATS:   - Clients with data: 1/1
+
+[2025-10-22 20:29:34.218632] STATS: Balance Analysis:
+[2025-10-22 20:29:34.218633] STATS:   - Train samples per client: min=12, max=12, mean=12.0, std=0.0
+[2025-10-22 20:29:34.218763] STATS:   - Val samples per client: min=8, max=8, mean=8.0, std=0.0
+[2025-10-22 20:29:34.218788] STATS:   - Total samples per client: min=20, max=20, mean=20.0, std=0.0
+[2025-10-22 20:29:34.218857] STATS:   - Balance coefficients (lower=better): train=0.000, val=0.000, total=0.000
+
+[2025-10-22 20:29:34.218861] STATS: Data Loader Analysis:
+[2025-10-22 20:29:34.218862] STATS:   - Each client has train_loader and val_loader
+[2025-10-22 20:29:34.218863] STATS:   - Batch size: 4 (approximate)
+[2025-10-22 20:29:34.218864] STATS:   - Data loaders include collate function for padding
+[2025-10-22 20:29:34.218866] STATS:   - Features are padded to max sequence length in batch
+
+[2025-10-22 20:29:34.218867] STATS: Data Quality Checks:
+[2025-10-22 20:29:34.218869] STATS:   - Empty clients: 0/1
+[2025-10-22 20:29:34.218870] STATS:   - Clients with data: 1/1
+
+[2025-10-22 20:29:34.218872] STATS: Training Readiness:
+[2025-10-22 20:29:34.218874] STATS:   - Client 0: Ready for training (3 train batches, 2 val batches)
+[2025-10-22 20:29:34.218877] STATS:   - Clients ready for training: 1/1
+
+[2025-10-22 20:29:34.218878] STATS: Recommendations:
+[2025-10-22 20:29:34.218882] STATS: COMPLETED FUNCTION: print_client_split_statistics
+[2025-10-22 20:29:34.218884] MAIN: Split data among 1 clients
+[2025-10-22 20:29:34.219314] MAIN: Client 0: 10 train samples, 5 val samples, 15 total samples, 14865 frames
+[2025-10-22 20:29:34.219330] MAIN: Total training samples across all clients: 15
+[2025-10-22 20:29:34.219332] MAIN: Total training frames across all clients: 14865
+[2025-10-22 20:29:34.219334] MAIN: Average frames per sample: 991.0
+[2025-10-22 20:29:34.219338] MAIN: Note: test_size=10 refers to number of meeting recordings, not individual training samples
+[2025-10-22 20:29:34.219339] MAIN: Each meeting recording contains multiple audio segments, each segment becomes multiple training samples
+[2025-10-22 20:29:34.219341] MAIN: Each training sample contains multiple frames (time steps) for sequence learning
+[2025-10-22 20:29:34.219342] MAIN: Computing speaker embeddings for train set...
+Starting federated learning simulation...
+✓ SaveFinalParams strategy initialized
+Available GPUs: 0, GPUs per client: 0
+
+==================== STARTING FEDERATED LEARNING ====================
+
+✓ Round 1: configure_fit called
+[36m(ClientAppActor pid=63760)[0m [client_fn] Got cid from context.node_config['partition-id']: 0
+[36m(ClientAppActor pid=63760)[0m [2025-10-22 20:29:42.502274] MAIN: Creating client 0
+[36m(ClientAppActor pid=63760)[0m [2025-10-22 20:29:42.546662] MAIN: Client 0 created and ready
+[36m(ClientAppActor pid=63760)[0m [2025-10-22 20:29:42.546713] SENDClient: Initializing client 15394439440
+[36m(ClientAppActor pid=63760)[0m [2025-10-22 20:29:43.071310] SENDClient: Initialization complete for client 15394439440
+[36m(ClientAppActor pid=63760)[0m [DEBUG] SENDClient: train_loader size: 3
+[36m(ClientAppActor pid=63760)[0m [DEBUG] SENDClient: val_loader size: 2
+[36m(ClientAppActor pid=63760)[0m === CLIENT LOG: fit started ===
+[36m(ClientAppActor pid=63760)[0m [DEBUG] fit: train_loader size: 3
+[36m(ClientAppActor pid=63760)[0m [DEBUG] fit: number of batches: 3
+[36m(ClientAppActor pid=63760)[0m [2025-10-22 20:29:43.090141] SENDClient: Starting fit for client 15394439440
+[36m(ClientAppActor pid=63760)[0m [2025-10-22 20:29:43.133914] SENDClient: First batch in fit for client 15394439440 (epoch 1/2)
+[36m(ClientAppActor pid=63760)[0m Batch 0, Loss: 5.4185
+[36m(ClientAppActor pid=63760)[0m Batch 0, labels shape: torch.Size([3964]), unique labels: tensor([-100,    1,    3,    4])
+[36m(ClientAppActor pid=63760)[0m Batch 0, outputs shape: torch.Size([3964, 26]), unique preds: tensor([ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16, 17,
+[36m(ClientAppActor pid=63760)[0m         20, 22, 23, 25])
+[36m(ClientAppActor pid=63760)[0m [DER DEBUG] DER calculation: valid frames used = 4617, DER = 1.0628113493610556
+[36m(ClientAppActor pid=63760)[0m [DEBUG] Epoch 1/2 unique labels: [1 2 3 4]
+[36m(ClientAppActor pid=63760)[0m [DEBUG] Epoch 1/2 unique predictions: [ 0  1  2  3  4  6  7  9 10 11 12 13 14 15 16 17 20 21 22]
+[33m(raylet)[0m [2025-10-22 20:30:56,559 E 63755 3595246] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-10-22_20-29-34_440637_63734 is over 95% full, available space: 4088516608; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-10-22 20:31:06,560 E 63755 3595246] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-10-22_20-29-34_440637_63734 is over 95% full, available space: 4088442880; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-10-22 20:31:16,561 E 63755 3595246] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-10-22_20-29-34_440637_63734 is over 95% full, available space: 4088262656; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-10-22 20:31:26,564 E 63755 3595246] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-10-22_20-29-34_440637_63734 is over 95% full, available space: 4088123392; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-10-22 20:31:36,572 E 63755 3595246] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-10-22_20-29-34_440637_63734 is over 95% full, available space: 4087853056; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-10-22 20:31:46,672 E 63755 3595246] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-10-22_20-29-34_440637_63734 is over 95% full, available space: 4087791616; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-10-22 20:31:56,673 E 63755 3595246] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-10-22_20-29-34_440637_63734 is over 95% full, available space: 4087259136; capacity: 494384795648. Object creation will fail if spilling is required.
+[33m(raylet)[0m [2025-10-22 20:32:06,770 E 63755 3595246] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-10-22_20-29-34_440637_63734 is over 95% full, available space: 4087144448; capacity: 494384795648. Object creation will fail if spilling is required.
+[92mINFO [0m:      aggregate_fit: received 1 results and 0 failures
+INFO:flwr:aggregate_fit: received 1 results and 0 failures
+[92mINFO [0m:      configure_evaluate: strategy sampled 1 clients (out of 1)
+INFO:flwr:configure_evaluate: strategy sampled 1 clients (out of 1)
+[92mINFO [0m:      aggregate_evaluate: received 1 results and 0 failures
+INFO:flwr:aggregate_evaluate: received 1 results and 0 failures
+[93mWARNING [0m:   No evaluate_metrics_aggregation_fn provided
+WARNING:flwr:No evaluate_metrics_aggregation_fn provided
+[92mINFO [0m:      
+INFO:flwr:
+[92mINFO [0m:      [SUMMARY]
+INFO:flwr:[SUMMARY]
+[92mINFO [0m:      Run finished 1 round(s) in 152.35s
+INFO:flwr:Run finished 1 round(s) in 152.35s
+[92mINFO [0m:      	History (loss, distributed):
+INFO:flwr:	History (loss, distributed):
+[92mINFO [0m:      		round 1: 264.16990661621094
+INFO:flwr:		round 1: 264.16990661621094
+[92mINFO [0m:      
+INFO:flwr:
+[36m(ClientAppActor pid=63760)[0m [2025-10-22 20:30:54.905211] SENDClient: Epoch 1/2 summary for client 15394439440: min_loss=5.418501853942871, max_loss=6201.76416015625, mean_loss=2109.9108985265098, acc=0.02794022092267706, DER=1.0628113493610556
+[36m(ClientAppActor pid=63760)[0m [2025-10-22 20:30:54.905761] SENDClient: First batch in fit for client 15394439440 (epoch 2/2)
+[36m(ClientAppActor pid=63760)[0m Batch 0, Loss: 18138.1758
+[36m(ClientAppActor pid=63760)[0m Batch 0, labels shape: torch.Size([3964]), unique labels: tensor([-100,    2,    3,    4])
+[36m(ClientAppActor pid=63760)[0m Batch 0, outputs shape: torch.Size([3964, 26]), unique preds: tensor([ 1,  2,  6,  8, 17])
+[36m(ClientAppActor pid=63760)[0m [DER DEBUG] DER calculation: valid frames used = 4617, DER = 0.4554905782975956
+[36m(ClientAppActor pid=63760)[0m [DEBUG] Epoch 2/2 unique labels: [1 2 3 4]
+[36m(ClientAppActor pid=63760)[0m [DEBUG] Epoch 2/2 unique predictions: [1 3]
+[36m(ClientAppActor pid=63760)[0m [2025-10-22 20:32:08.135292] SENDClient: Epoch 2/2 summary for client 15394439440: min_loss=0.0, max_loss=18138.17578125, mean_loss=7309.551432291667, acc=0.5445094217024041, DER=0.4554905782975956
+[36m(ClientAppActor pid=63760)[0m [2025-10-22 20:32:08.135332] SENDClient: Finished fit for client 15394439440, total time: 145.00 sec
+[36m(ClientAppActor pid=63760)[0m === CLIENT LOG: fit finished ===
+[36m(ClientAppActor pid=63760)[0m === CLIENT LOG: train_loader length: 3 ===
+✓ Round 1: aggregate_fit called with 1 results, 0 failures
+✓ Round 1: Parameters aggregated and saved
+[36m(ClientAppActor pid=63760)[0m [client_fn] Got cid from context.node_config['partition-id']: 0
+[36m(ClientAppActor pid=63760)[0m [2025-10-22 20:32:08.479990] MAIN: Creating client 0
+[36m(ClientAppActor pid=63760)[0m [2025-10-22 20:32:08.519079] MAIN: Client 0 created and ready
+[36m(ClientAppActor pid=63760)[0m [2025-10-22 20:32:08.519139] SENDClient: Initializing client 15517901648
+[36m(ClientAppActor pid=63760)[0m [2025-10-22 20:32:08.519475] SENDClient: Initialization complete for client 15517901648
+[36m(ClientAppActor pid=63760)[0m [DEBUG] SENDClient: train_loader size: 3
+[36m(ClientAppActor pid=63760)[0m [DEBUG] SENDClient: val_loader size: 2
+[36m(ClientAppActor pid=63760)[0m === CLIENT LOG: evaluate started ===
+[36m(ClientAppActor pid=63760)[0m [2025-10-22 20:32:08.531411] SENDClient: Starting evaluate for client 15517901648
+[36m(ClientAppActor pid=63760)[0m [2025-10-22 20:32:08.547874] SENDClient: First batch in evaluate for client 15517901648
+[36m(ClientAppActor pid=63760)[0m Eval batch 0, labels shape: torch.Size([1076]), unique labels: [-100    1    2    3]
+[36m(ClientAppActor pid=63760)[0m Eval batch 0, outputs shape: torch.Size([1076, 26]), unique preds: [1 2 3]
+[36m(ClientAppActor pid=63760)[0m [DER DEBUG] DER calculation: valid frames used = 540, DER = 0.48828828828828824
+[36m(ClientAppActor pid=63760)[0m [2025-10-22 20:32:09.016702] SENDClient: Eval summary for client 15517901648: min_loss=102.0688, max_loss=426.2711, mean_loss=264.1699
+[36m(ClientAppActor pid=63760)[0m [2025-10-22 20:32:09.016757] SENDClient: Finished evaluate for client 15517901648, total time: 0.47 sec
+[36m(ClientAppActor pid=63760)[0m === CLIENT LOG: evaluate finished ===
+
+=== DEBUG: Simulation Results ===
+History type: <class 'flwr.server.history.History'>
+History attributes: ['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'add_loss_centralized', 'add_loss_distributed', 'add_metrics_centralized', 'add_metrics_distributed', 'add_metrics_distributed_fit', 'losses_centralized', 'losses_distributed', 'metrics_centralized', 'metrics_distributed', 'metrics_distributed_fit']
+History losses: [(1, 264.16990661621094)]
+History metrics: {}
+Strategy type: <class '__main__.main.<locals>.SaveFinalParams'>
+Strategy attributes: ['__abstractmethods__', '__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__slots__', '__str__', '__subclasshook__', '__weakref__', '_abc_impl', 'accept_failures', 'aggregate_evaluate', 'aggregate_fit', 'configure_evaluate', 'configure_fit', 'evaluate', 'evaluate_fn', 'evaluate_metrics_aggregation_fn', 'final_parameters', 'fit_metrics_aggregation_fn', 'fraction_evaluate', 'fraction_fit', 'initial_parameters', 'initialize_parameters', 'inplace', 'min_available_clients', 'min_evaluate_clients', 'min_fit_clients', 'num_evaluation_clients', 'num_fit_clients', 'on_evaluate_config_fn', 'on_fit_config_fn']
+Strategy initial_parameters: False
+Strategy final_parameters: True
+Strategy final_parameters type: <class 'flwr.common.typing.Parameters'>
+=== END DEBUG ===
+
+✓ Got final parameters from custom strategy's final_parameters
+
+==================== UPDATING MODEL WITH FINAL PARAMETERS ====================
+
+Model updated with final federated learning parameters
+✓ Model parameters successfully updated - 116/118 parameters changed (98.3%)
+
+==================== TESTING STARTED (UPDATED MODEL) ====================
+
+[FINAL TEST DEBUG] Model parameters changed: True
+[FINAL TEST DEBUG] Final parameters shape: 120
+[FINAL TEST DEBUG] Test dataset size: 4
+[FINAL TEST DEBUG] Test dataset speaker_id_list: ['FEO070', 'FEO072', 'MEE073']
+[FINAL TEST DEBUG] Model has 118 parameters
+[FINAL TEST DEBUG] Processing batch 0
+[FINAL TEST DEBUG] Batch 0: unique predictions: [3]
+[FINAL TEST DEBUG] Batch 0: unique labels: [-100    1    2    3]
+[FINAL TEST DEBUG] Batch 0: loss: 6850.2686
+[FINAL TEST DEBUG] First prediction: 3
+[FINAL TEST] Using speaker_id_list from test dataset: ['FEO070', 'FEO072', 'MEE073']
+[FINAL TEST DEBUG] Recording EN2002a:
+  - Unique predictions: [3]
+  - Unique labels: [1 2 3]
+  - Prediction distribution: [  0   0   0 432]
+  - Label distribution: [  0 175 138 119]
+[DER DEBUG] Frame 0: label=2, pred=3, true_indices={1}, pred_indices={2}
+[DER DEBUG] Frame 1: label=2, pred=3, true_indices={1}, pred_indices={2}
+[DER DEBUG] Frame 2: label=2, pred=3, true_indices={1}, pred_indices={2}
+[DER DEBUG] Frame 3: label=2, pred=3, true_indices={1}, pred_indices={2}
+[DER DEBUG] Frame 4: label=2, pred=3, true_indices={1}, pred_indices={2}
+[DER DEBUG] Frame 5: label=2, pred=3, true_indices={1}, pred_indices={2}
+[DER DEBUG] Frame 6: label=2, pred=3, true_indices={1}, pred_indices={2}
+[DER DEBUG] Frame 7: label=2, pred=3, true_indices={1}, pred_indices={2}
+[DER DEBUG] Frame 8: label=2, pred=3, true_indices={1}, pred_indices={2}
+[DER DEBUG] Frame 9: label=2, pred=3, true_indices={1}, pred_indices={2}
+[DER DEBUG] Power set encoder max_speakers: 5
+[DER DEBUG] Valid speaker indices: 0 to 4
+[DER DEBUG] Unique label values: {1, 2, 3}
+[DER DEBUG] Unique pred values: {3}
+[DER DEBUG] Active speakers per frame (labels): min=1, max=1, mean=1.00
+[DER DEBUG] Active speakers per frame (preds): min=1, max=1, mean=1.00
+[DER DEBUG] Reference segments (first 10): [(<Segment(0, 0.01)>, 0, 'speaker_FEO072'), (<Segment(0.01, 0.02)>, 0, 'speaker_FEO072'), (<Segment(0.02, 0.03)>, 0, 'speaker_FEO072'), (<Segment(0.03, 0.04)>, 0, 'speaker_FEO072'), (<Segment(0.04, 0.05)>, 0, 'speaker_FEO072'), (<Segment(0.05, 0.06)>, 0, 'speaker_FEO072'), (<Segment(0.06, 0.07)>, 0, 'speaker_FEO072'), (<Segment(0.07, 0.08)>, 0, 'speaker_FEO072'), (<Segment(0.08, 0.09)>, 0, 'speaker_FEO072'), (<Segment(0.09, 0.1)>, 0, 'speaker_FEO072')]
+/Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/pyannote/metrics/utils.py:200: UserWarning: 'uem' was approximated by the union of 'reference' and 'hypothesis' extents.
+  warnings.warn(
+INFO:diarization_export:Created RTTM file: out_artifacts_train_val_correct_proportion/diarization_export/exp_10size_2epochs_1rounds_1clients_2025-10-22-20-32/EN2002a.rttm with 1 segments
+INFO:diarization_export:Created CTM file: out_artifacts_train_val_correct_proportion/diarization_export/exp_10size_2epochs_1rounds_1clients_2025-10-22-20-32/EN2002a.ctm with 1 segments
+[DER DEBUG] Hypothesis segments (first 10): [(<Segment(0, 0.01)>, 0, 'speaker_MEE073'), (<Segment(0.01, 0.02)>, 0, 'speaker_MEE073'), (<Segment(0.02, 0.03)>, 0, 'speaker_MEE073'), (<Segment(0.03, 0.04)>, 0, 'speaker_MEE073'), (<Segment(0.04, 0.05)>, 0, 'speaker_MEE073'), (<Segment(0.05, 0.06)>, 0, 'speaker_MEE073'), (<Segment(0.06, 0.07)>, 0, 'speaker_MEE073'), (<Segment(0.07, 0.08)>, 0, 'speaker_MEE073'), (<Segment(0.08, 0.09)>, 0, 'speaker_MEE073'), (<Segment(0.09, 0.1)>, 0, 'speaker_MEE073')]
+[DER DEBUG] Frame shift: 0.01s, Total duration: 4.32s
+[DER DEBUG] DER calculation: valid frames used = 432, DER = 0.5949074074074074
+Test recordings processed: 1
+DER per recording: {'EN2002a': 0.5949074074074074}
+Average DER: 0.5949074074074074
+
+==================== TESTING FINISHED ====================
+
+Final Test Loss: 6850.2686
+Final DER: 0.5949
+Final Test Loss: 6850.2686
+Final DER: 0.5949
+
+===== EXPORTING DIARIZATION RESULTS =====
+[DER DEBUG] DER calculation: valid frames used = 432, DER = 0.5949074074074074
+Diarization results export completed:
+  RTTM: 1 files
+    - out_artifacts_train_val_correct_proportion/diarization_export/exp_10size_2epochs_1rounds_1clients_2025-10-22-20-32/EN2002a.rttm
+  CTM: 1 files
+    - out_artifacts_train_val_correct_proportion/diarization_export/exp_10size_2epochs_1rounds_1clients_2025-10-22-20-32/EN2002a.ctm
+  SUMMARY: 1 files
+    - out_artifacts_train_val_correct_proportion/diarization_export/exp_10size_2epochs_1rounds_1clients_2025-10-22-20-32/diarization_summary.txt
+  METRICS: 1 files
+    - out_artifacts_train_val_correct_proportion/diarization_export/exp_10size_2epochs_1rounds_1clients_2025-10-22-20-32/diarization_metrics.txt
+
+[2025-10-22 20:32:09.459687] STATS: ========================================== FINAL RESULTS ==========================================
+Final DER: 0.5949
+Best DER: 0.5949
+Total experiment time: 157.77 seconds
+
+===== SAVING FINAL RESULTS TO FILE =====
+Results will be saved to: out_artifacts_train_val_correct_proportion/logs/exp_10size_2epochs_1rounds_1clients_2025-10-22-20-32/experiment.txt
+Experiment: exp_10size_2epochs_1rounds_1clients_2025-10-22-20-32
+Num records (meetings): 10
+Num clients: 1
+Num epochs: 2
+Num rounds: 1
+Datetime: 20251022_203209
+
+=== TRAINING DATA STATISTICS ===
+Total training samples across all clients: 15
+Estimated total training frames across all clients: 14865
+
+Client 0:
+  - Train samples: 10
+  - Validation samples: 5
+  - Total samples: 15
+  - Actual frames: 14865
+
+=== FINAL RESULTS ===
+Final Test Loss: 6850.2686
+Final DER: 0.5949
+Model Status: UPDATED with FL parameters
+Parameters Changed: 116/118 (98.3%)
+Results saved to out_artifacts_train_val_correct_proportion/logs/exp_10size_2epochs_1rounds_1clients_2025-10-22-20-32/experiment.txt
+
+===== SAVING METRICS TO CSV FILES =====
+Detailed metrics saved to: out_artifacts_train_val_correct_proportion/logs/exp_10size_2epochs_1rounds_1clients_2025-10-22-20-32/detailed_metrics.csv
+Shape: (2, 7)
+Columns: ['round', 'client_id', 'epoch', 'train_loss', 'val_loss', 'der', 'acc']
+Round summary saved to: out_artifacts_train_val_correct_proportion/logs/exp_10size_2epochs_1rounds_1clients_2025-10-22-20-32/round_summary.csv
+Shape: (1, 8)
+Final results saved to: out_artifacts_train_val_correct_proportion/logs/exp_10size_2epochs_1rounds_1clients_2025-10-22-20-32/experiment_results.csv
+Client comparison saved to: out_artifacts_train_val_correct_proportion/logs/exp_10size_2epochs_1rounds_1clients_2025-10-22-20-32/client_comparison.csv
+All CSV files saved successfully!
+
+===== CREATING EPOCH PROGRESS ANALYSIS =====
+Epoch progress analysis saved to: out_artifacts_train_val_correct_proportion/logs/exp_10size_2epochs_1rounds_1clients_2025-10-22-20-32/epoch_progress.csv
+Shape: (2, 8)
+Pivot tables created for train_loss and DER
+Process completed.
+[33m(raylet)[0m [2025-10-22 20:32:16,871 E 63755 3595246] (raylet) file_system_monitor.cc:111: /tmp/ray/session_2025-10-22_20-29-34_440637_63734 is over 95% full, available space: 3827920896; capacity: 494384795648. Object creation will fail if spilling is required.

@@ -1,0 +1,14 @@
+=== DIARIZATION RESULTS REPORT ===
+
+Recording: EN2002a
+  Duration: 93.75 sec
+  Number of segments: 1
+  Unique speakers: 1
+  Speaking time by speakers:
+    FEO070: 93.75 sec (100.0%)
+
+=== OVERALL STATISTICS ===
+Total recordings: 1
+Total duration: 93.75 sec
+Total number of segments: 1
+Average segment duration: 93.750 sec

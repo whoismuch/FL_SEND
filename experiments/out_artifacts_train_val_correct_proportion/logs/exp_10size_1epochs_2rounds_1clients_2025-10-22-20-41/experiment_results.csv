@@ -1,0 +1,2 @@
+experiment_tag,test_size,num_clients,num_epochs,num_rounds,datetime,final_test_loss,final_der,device_used,gpu_count
+exp_10size_1epochs_2rounds_1clients_2025-10-22-20-41,10,1,1,2,2025-10-22 20:41:09,778.6752319335938,0.5949074074074074,cpu,0

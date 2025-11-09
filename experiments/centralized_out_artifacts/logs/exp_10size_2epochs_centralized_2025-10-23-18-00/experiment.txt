@@ -1,0 +1,19 @@
+Experiment: exp_10size_2epochs_centralized_2025-10-23-18-00
+Num records (dataset): 10
+Num epochs: 2
+Training type: Centralized
+Datetime: 20251023_180055
+
+=== TRAINING DATA STATISTICS ===
+Total training samples: 10
+Total validation samples: 4
+Total test samples: 4
+Total training frames: 9910
+
+=== FINAL RESULTS ===
+Final Test Loss: 248.4124
+Final Test DER: 0.5949
+Final Validation Loss: 248.3814
+Final Validation DER: 0.4876
+Model Status: TRAINED with centralized learning
+Training Epochs: 2

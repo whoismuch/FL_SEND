@@ -147,7 +147,7 @@ def test_export_functionality():
         print(f"  {rec_id}: {len(predictions)} frames ({duration:.2f} sec)")
     
     # Create directory for test export with experiment-like structure
-    test_output_dir = "out_artifacts/diarization_export/test_exp_3size_1epochs_1rounds_2clients_2025-09-14-20-00"
+    test_output_dir = "experiments/out_artifacts/diarization_export/test_exp_3size_1epochs_1rounds_2clients_2025-09-14-20-00"
     os.makedirs(test_output_dir, exist_ok=True)
     
     print(f"\nExporting results to directory: {test_output_dir}")
