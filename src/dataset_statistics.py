@@ -90,10 +90,10 @@ def print_meeting_statistics(grouped_train: Dict, grouped_validation: Dict, grou
         grouped_validation: Dictionary of meeting_id to samples for validation set
         grouped_test: Dictionary of meeting_id to samples for test set
     """
-    print(f"\n[{datetime.now()}] STATS: ========================================== MEETING STATISTICS ==========================================")
+    print(f"\n STATS: ========================================== MEETING STATISTICS ==========================================")
     
     # Training set statistics
-    print(f"\n[{datetime.now()}] STATS: Training set meetings:")
+    print(f"\n STATS: Training set meetings:")
     train_audio_counts = []
     train_overlap_counts = []
     train_max_concurrent = []
@@ -120,7 +120,7 @@ def print_meeting_statistics(grouped_train: Dict, grouped_validation: Dict, grou
                       f"(duration: {overlap['duration']:.2f}s)")
     
     # Validation set statistics
-    print(f"\n[{datetime.now()}] STATS: Validation set meetings:")
+    print(f"\n STATS: Validation set meetings:")
     val_audio_counts = []
     val_overlap_counts = []
     val_max_concurrent = []
@@ -147,7 +147,7 @@ def print_meeting_statistics(grouped_train: Dict, grouped_validation: Dict, grou
                       f"(duration: {overlap['duration']:.2f}s)")
     
     # Test set statistics
-    print(f"\n[{datetime.now()}] STATS: Test set meetings:")
+    print(f"\n STATS: Test set meetings:")
     test_audio_counts = []
     test_overlap_counts = []
     test_max_concurrent = []
@@ -177,7 +177,7 @@ def print_meeting_statistics(grouped_train: Dict, grouped_validation: Dict, grou
     all_counts = train_audio_counts + val_audio_counts + test_audio_counts
     all_overlap_counts = train_overlap_counts + val_overlap_counts + test_overlap_counts
     all_max_concurrent = train_max_concurrent + val_max_concurrent + test_max_concurrent
-    print(f"\n[{datetime.now()}] STATS: ========================================== SUMMARY STATISTICS ==========================================")
+    print(f"\n STATS: ========================================== SUMMARY STATISTICS ==========================================")
     print(f"Total meetings: {len(all_counts)}")
     print(f"Total audio segments: {sum(all_counts)}")
     print(f"Total overlapping segments: {sum(all_overlap_counts)}")
@@ -214,9 +214,9 @@ def print_dataset_overview(dataset_name: str, total_samples: int, test_size: int
         total_samples: Total number of samples in the dataset
         test_size: Number of samples used for testing
     """
-    print(f"[{datetime.now()}] STATS: Dataset: {dataset_name}")
-    print(f"[{datetime.now()}] STATS: Total samples: {total_samples}")
-    print(f"[{datetime.now()}] STATS: Using subset of {test_size} samples for testing")
+    print(f" STATS: Dataset: {dataset_name}")
+    print(f" STATS: Total samples: {total_samples}")
+    print(f" STATS: Using subset of {test_size} samples for testing")
 
 
 def print_grouping_results(grouped_train: Dict, grouped_validation: Dict, grouped_test: Dict) -> None:
@@ -228,10 +228,10 @@ def print_grouping_results(grouped_train: Dict, grouped_validation: Dict, groupe
         grouped_validation: Dictionary of meeting_id to samples for validation set
         grouped_test: Dictionary of meeting_id to samples for test set
     """
-    print(f"[{datetime.now()}] STATS: ========================================== DATA GROUPING ==========================================")
-    print(f"[{datetime.now()}] STATS: Grouped {len(grouped_train)} meetings from training set")
-    print(f"[{datetime.now()}] STATS: Grouped {len(grouped_validation)} meetings from validation set")
-    print(f"[{datetime.now()}] STATS: Grouped {len(grouped_test)} meetings from test set")
+    print(f" STATS: ========================================== DATA GROUPING ==========================================")
+    print(f" STATS: Grouped {len(grouped_train)} meetings from training set")
+    print(f" STATS: Grouped {len(grouped_validation)} meetings from validation set")
+    print(f" STATS: Grouped {len(grouped_test)} meetings from test set")
 
 
 def print_experiment_config(num_clients: int, num_rounds: int, num_epochs: int, test_size: int) -> None:
@@ -244,7 +244,7 @@ def print_experiment_config(num_clients: int, num_rounds: int, num_epochs: int, 
         num_epochs: Number of training epochs per round
         test_size: Number of samples used for testing
     """
-    print(f"\n[{datetime.now()}] STATS: ========================================== EXPERIMENT CONFIGURATION ==========================================")
+    print(f"\n STATS: ========================================== EXPERIMENT CONFIGURATION ==========================================")
     print(f"Number of clients: {num_clients}")
     print(f"Number of rounds: {num_rounds}")
     print(f"Number of epochs per round: {num_epochs}")
@@ -262,7 +262,7 @@ def print_training_progress(round_num: int, epoch_num: int, train_loss: float, v
         val_loss: Validation loss
         der: Diarization Error Rate
     """
-    print(f"[{datetime.now()}] Round {round_num}, Epoch {epoch_num}: Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, DER: {der:.4f}")
+    print(f" Round {round_num}, Epoch {epoch_num}: Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, DER: {der:.4f}")
 
 
 def print_final_results(final_der: float, best_der: float, total_time: float) -> None:
@@ -274,7 +274,7 @@ def print_final_results(final_der: float, best_der: float, total_time: float) ->
         best_der: Best DER score achieved
         total_time: Total experiment time in seconds
     """
-    print(f"\n[{datetime.now()}] STATS: ========================================== FINAL RESULTS ==========================================")
+    print(f"\n STATS: ========================================== FINAL RESULTS ==========================================")
     print(f"Final DER: {final_der:.4f}")
     print(f"Best DER: {best_der:.4f}")
     print(f"Total experiment time: {total_time:.2f} seconds")
@@ -287,7 +287,7 @@ def analyze_speaker_distribution(grouped_data: Dict) -> None:
     Args:
         grouped_data: Dictionary of meeting_id to samples
     """
-    print(f"\n[{datetime.now()}] STATS: ========================================== SPEAKER DISTRIBUTION ANALYSIS ==========================================")
+    print(f"\n STATS: ========================================== SPEAKER DISTRIBUTION ANALYSIS ==========================================")
     
     all_speakers = set()
     meeting_speaker_counts = []
@@ -313,9 +313,9 @@ def print_data_loading_info(dataset_name: str) -> None:
     Args:
         dataset_name: Name of the dataset being loaded
     """
-    print(f"[{datetime.now()}] STATS: ========================================== DATASET LOADING ==========================================")
-    print(f"[{datetime.now()}] STATS: Loading dataset: {dataset_name}")
-    print(f"[{datetime.now()}] STATS: Dataset loaded successfully")
+    print(f" STATS: ========================================== DATASET LOADING ==========================================")
+    print(f" STATS: Loading dataset: {dataset_name}")
+    print(f" STATS: Dataset loaded successfully")
 
 
 def print_function_start(function_name: str, **kwargs) -> None:
@@ -327,7 +327,7 @@ def print_function_start(function_name: str, **kwargs) -> None:
         **kwargs: Function parameters
     """
     params_str = ", ".join([f"{k}={v}" for k, v in kwargs.items()])
-    print(f"[{datetime.now()}] STATS: STARTING FUNCTION: {function_name}({params_str})")
+    print(f"STATS: STARTING FUNCTION: {function_name}({params_str})")
 
 
 def print_function_end(function_name: str, result_summary: str = "") -> None:
@@ -339,9 +339,9 @@ def print_function_end(function_name: str, result_summary: str = "") -> None:
         result_summary: Optional summary of results
     """
     if result_summary:
-        print(f"[{datetime.now()}] STATS: COMPLETED FUNCTION: {function_name} - {result_summary}")
+        print(f"STATS: COMPLETED FUNCTION: {function_name} - {result_summary}")
     else:
-        print(f"[{datetime.now()}] STATS: COMPLETED FUNCTION: {function_name}")
+        print(f"STATS: COMPLETED FUNCTION: {function_name}")
 
 
 def print_dataset_statistics(features, labels, meeting_ids, raw_features) -> None:
@@ -356,22 +356,22 @@ def print_dataset_statistics(features, labels, meeting_ids, raw_features) -> Non
     """
     import numpy as np
     
-    print(f"[{datetime.now()}] STATS: ========================================== DATASET STATISTICS ==========================================")
-    print(f"[{datetime.now()}] STATS: STARTING FUNCTION: print_dataset_statistics")
+    print(f"STATS: ========================================== DATASET STATISTICS ==========================================")
+    print(f"STATS: STARTING FUNCTION: print_dataset_statistics")
     
-    print(f"[{datetime.now()}] STATS: Dataset size (number of samples): {features.shape[0]}")
-    print(f"[{datetime.now()}] STATS: Feature shape (samples, frames, mel-bands): {features.shape}")
-    print(f"[{datetime.now()}] STATS: Label shape: {labels.shape}")
-    print(f"[{datetime.now()}] STATS: Meeting IDs shape: {meeting_ids.shape}")
+    print(f"STATS: Dataset size (number of samples): {features.shape[0]}")
+    print(f"STATS: Feature shape (samples, frames, mel-bands): {features.shape}")
+    print(f"STATS: Label shape: {labels.shape}")
+    print(f"STATS: Meeting IDs shape: {meeting_ids.shape}")
     
     # Frame size statistics - compute from padded features if raw_features not available
     if raw_features and len(raw_features) > 0:
         frame_sizes = [f.shape[0] for f in raw_features]
-        print(f"[{datetime.now()}] STATS: Frame size (frames per sample): min={np.min(frame_sizes)}, max={np.max(frame_sizes)}, mean={np.mean(frame_sizes):.1f}")
+        print(f"STATS: Frame size (frames per sample): min={np.min(frame_sizes)}, max={np.max(frame_sizes)}, mean={np.mean(frame_sizes):.1f}")
         
         # Audio segment length distribution
         segment_lengths = [f.shape[0] for f in raw_features]
-        print(f"[{datetime.now()}] STATS: Audio segment length distribution: min={np.min(segment_lengths)}, max={np.max(segment_lengths)}, mean={np.mean(segment_lengths):.1f}, median={np.median(segment_lengths)}")
+        print(f"STATS: Audio segment length distribution: min={np.min(segment_lengths)}, max={np.max(segment_lengths)}, mean={np.mean(segment_lengths):.1f}, median={np.median(segment_lengths)}")
     else:
         # Compute from padded features by finding actual lengths (non-padded parts)
         # Labels with -100 indicate padding, so we can find actual lengths
@@ -387,20 +387,20 @@ def print_dataset_statistics(features, labels, meeting_ids, raw_features) -> Non
         
         if len(actual_lengths) > 0:
             actual_lengths = np.array(actual_lengths)
-            print(f"[{datetime.now()}] STATS: Frame size (frames per sample): min={np.min(actual_lengths)}, max={np.max(actual_lengths)}, mean={np.mean(actual_lengths):.1f}")
-            print(f"[{datetime.now()}] STATS: Audio segment length distribution: min={np.min(actual_lengths)}, max={np.max(actual_lengths)}, mean={np.mean(actual_lengths):.1f}, median={np.median(actual_lengths)}")
+            print(f"STATS: Frame size (frames per sample): min={np.min(actual_lengths)}, max={np.max(actual_lengths)}, mean={np.mean(actual_lengths):.1f}")
+            print(f"STATS: Audio segment length distribution: min={np.min(actual_lengths)}, max={np.max(actual_lengths)}, mean={np.mean(actual_lengths):.1f}, median={np.median(actual_lengths)}")
         else:
-            print(f"[{datetime.now()}] STATS: Frame size: Unable to compute (no valid data)")
+            print(f"STATS: Frame size: Unable to compute (no valid data)")
     
     # Data types
-    print(f"[{datetime.now()}] STATS: Feature dtype: {features.dtype}, Label dtype: {labels.dtype}")
+    print(f"STATS: Feature dtype: {features.dtype}, Label dtype: {labels.dtype}")
     
     # Example sample analysis
-    print(f"[{datetime.now()}] STATS: Example feature[0] shape: {features[0].shape}, min={features[0].min():.2f}, max={features[0].max():.2f}")
-    print(f"[{datetime.now()}] STATS: Example label[0] shape: {labels[0].shape}, values: {np.unique(labels[0])}")
-    print(f"[{datetime.now()}] STATS: Unique label values in dataset: {np.unique(labels)}")
+    print(f"STATS: Example feature[0] shape: {features[0].shape}, min={features[0].min():.2f}, max={features[0].max():.2f}")
+    print(f"STATS: Example label[0] shape: {labels[0].shape}, values: {np.unique(labels[0])}")
+    print(f"STATS: Unique label values in dataset: {np.unique(labels)}")
     
-    print(f"[{datetime.now()}] STATS: COMPLETED FUNCTION: print_dataset_statistics")
+    print(f"STATS: COMPLETED FUNCTION: print_dataset_statistics")
 
 
 def print_data_loaders_info(train_dataset, val_dataset, test_dataset, train_loader, val_loader, test_loader, batch_size: int) -> None:
@@ -416,28 +416,28 @@ def print_data_loaders_info(train_dataset, val_dataset, test_dataset, train_load
         test_loader: Test data loader
         batch_size: Batch size used
     """
-    print(f"[{datetime.now()}] STATS: ========================================== DATA LOADERS CREATION ==========================================")
-    print(f"[{datetime.now()}] STATS: STARTING FUNCTION: print_data_loaders_info")
+    print(f"STATS: ========================================== DATA LOADERS CREATION ==========================================")
+    print(f"STATS: STARTING FUNCTION: print_data_loaders_info")
     
-    print(f"[{datetime.now()}] STATS: Created data loaders with batch size {batch_size}")
-    print(f"[{datetime.now()}] STATS: Training set: {len(train_dataset)} samples | {len(train_loader)} batches | {len(train_dataset) * train_dataset[0][0].shape[0]} frames")
-    print(f"[{datetime.now()}] STATS: Validation set: {len(val_dataset)} samples | {len(val_loader)} batches | {len(val_dataset) * val_dataset[0][0].shape[0]} frames")
-    print(f"[{datetime.now()}] STATS: Test set: {len(test_dataset)} samples | {len(test_loader)} batches | {len(test_dataset) * test_dataset[0][0].shape[0]} frames")
+    print(f"STATS: Created data loaders with batch size {batch_size}")
+    print(f"STATS: Training set: {len(train_dataset)} samples | {len(train_loader)} batches | {len(train_dataset) * train_dataset[0][0].shape[0]} frames")
+    print(f"STATS: Validation set: {len(val_dataset)} samples | {len(val_loader)} batches | {len(val_dataset) * val_dataset[0][0].shape[0]} frames")
+    print(f"STATS: Test set: {len(test_dataset)} samples | {len(test_loader)} batches | {len(test_dataset) * test_dataset[0][0].shape[0]} frames")
 
     # Example of a single sample from train_dataset
     feature, all_embeddings, label, meeting_id = train_dataset[0]
-    print(f"[{datetime.now()}] STATS: === EXAMPLE TRAIN SAMPLE ===")
-    print(f"[{datetime.now()}] STATS: Feature shape: {feature.shape}, dtype: {feature.dtype}")
-    print(f"[{datetime.now()}] STATS: Feature (first frame): {feature[0]}")
-    print(f"[{datetime.now()}] STATS: Speaker embeddings shape: {all_embeddings.shape}, dtype: {all_embeddings.dtype}")
-    print(f"[{datetime.now()}] STATS: Label shape: {label.shape}, dtype: {label.dtype}")
-    print(f"[{datetime.now()}] STATS: Label (first 10 frames): {label[:10]}")
-    print(f"[{datetime.now()}] STATS: Meeting ID shape: {meeting_id.shape}, dtype: {meeting_id.dtype}")
-    print(f"[{datetime.now()}] STATS: Meeting ID (first 10 frames): {meeting_id[:10]}")
-    print(f"[{datetime.now()}] STATS: Sample = audio segment (feature matrix), batch = group of samples, frame = row in the feature matrix (one time step)")
-    print(f"[{datetime.now()}] STATS: Frames are NOT independent: the model takes their sequence/context into account")
+    print(f"STATS: === EXAMPLE TRAIN SAMPLE ===")
+    print(f"STATS: Feature shape: {feature.shape}, dtype: {feature.dtype}")
+    print(f"STATS: Feature (first frame): {feature[0]}")
+    print(f"STATS: Speaker embeddings shape: {all_embeddings.shape}, dtype: {all_embeddings.dtype}")
+    print(f"STATS: Label shape: {label.shape}, dtype: {label.dtype}")
+    print(f"STATS: Label (first 10 frames): {label[:10]}")
+    print(f"STATS: Meeting ID shape: {meeting_id.shape}, dtype: {meeting_id.dtype}")
+    print(f"STATS: Meeting ID (first 10 frames): {meeting_id[:10]}")
+    print(f"STATS: Sample = audio segment (feature matrix), batch = group of samples, frame = row in the feature matrix (one time step)")
+    print(f"STATS: Frames are NOT independent: the model takes their sequence/context into account")
     
-    print(f"[{datetime.now()}] STATS: COMPLETED FUNCTION: print_data_loaders_info")
+    print(f"STATS: COMPLETED FUNCTION: print_data_loaders_info")
 
 
 def print_power_set_encoder_examples(power_set_encoder) -> None:
@@ -447,18 +447,18 @@ def print_power_set_encoder_examples(power_set_encoder) -> None:
     Args:
         power_set_encoder: PowerSetEncoder instance to demonstrate
     """
-    print(f"\n[{datetime.now()}] STATS: ========================================== POWER SET ENCODER EXAMPLES ==========================================")
-    print(f"[{datetime.now()}] STATS: STARTING FUNCTION: print_power_set_encoder_examples")
+    print(f"\n STATS: ========================================== POWER SET ENCODER EXAMPLES ==========================================")
+    print(f" STATS: STARTING FUNCTION: print_power_set_encoder_examples")
     
     max_speakers = power_set_encoder.max_speakers
     max_overlap = power_set_encoder.max_overlap
     num_classes = power_set_encoder.num_classes
     
-    print(f"[{datetime.now()}] STATS: PowerSetEncoder Configuration:")
-    print(f"[{datetime.now()}] STATS:   - Max speakers: {max_speakers}")
-    print(f"[{datetime.now()}] STATS:   - Max overlap: {max_overlap}")
-    print(f"[{datetime.now()}] STATS:   - Number of classes: {num_classes}")
-    print(f"[{datetime.now()}] STATS:   - Formula: C(K,N) = Σ(k=0 to {max_overlap}) C({max_speakers},k)")
+    print(f" STATS: PowerSetEncoder Configuration:")
+    print(f" STATS:   - Max speakers: {max_speakers}")
+    print(f" STATS:   - Max overlap: {max_overlap}")
+    print(f" STATS:   - Number of classes: {num_classes}")
+    print(f" STATS:   - Formula: C(K,N) = Σ(k=0 to {max_overlap}) C({max_speakers},k)")
     
     # Test cases for encoding/decoding
     test_cases = [
@@ -475,9 +475,9 @@ def print_power_set_encoder_examples(power_set_encoder) -> None:
     if max_overlap >= 4 and max_speakers >= 4:
         test_cases.append([0, 1, 2, 3])  # Four speakers
     
-    print(f"\n[{datetime.now()}] STATS: Encoding/Decoding Examples:")
-    print(f"[{datetime.now()}] STATS: {'Speaker IDs':<15} {'Encoded':<8} {'Decoded':<15} {'Match':<5}")
-    print(f"[{datetime.now()}] STATS: {'-'*15} {'-'*8} {'-'*15} {'-'*5}")
+    print(f"\n STATS: Encoding/Decoding Examples:")
+    print(f" STATS: {'Speaker IDs':<15} {'Encoded':<8} {'Decoded':<15} {'Match':<5}")
+    print(f" STATS: {'-'*15} {'-'*8} {'-'*15} {'-'*5}")
     
     for speaker_ids in test_cases:
         if len(speaker_ids) > max_overlap:
@@ -498,15 +498,15 @@ def print_power_set_encoder_examples(power_set_encoder) -> None:
             speaker_str = str(speaker_ids) if speaker_ids else "[]"
             decoded_str = str(decoded) if decoded else "[]"
             
-            print(f"[{datetime.now()}] STATS: {speaker_str:<15} {encoded:<8} {decoded_str:<15} {match:<5}")
+            print(f" STATS: {speaker_str:<15} {encoded:<8} {decoded_str:<15} {match:<5}")
         except ValueError as e:
             speaker_str = str(speaker_ids) if speaker_ids else "[]"
-            print(f"[{datetime.now()}] STATS: {speaker_str:<15} {'ERROR':<8} {'ERROR':<15} {'✗':<5} ({str(e)})")
+            print(f" STATS: {speaker_str:<15} {'ERROR':<8} {'ERROR':<15} {'✗':<5} ({str(e)})")
     
     # Show all possible combinations
-    print(f"\n[{datetime.now()}] STATS: All Possible Speaker Combinations:")
-    print(f"[{datetime.now()}] STATS: {'Combination':<15} {'Encoded':<8} {'Description':<25}")
-    print(f"[{datetime.now()}] STATS: {'-'*15} {'-'*8} {'-'*25}")
+    print(f"\n STATS: All Possible Speaker Combinations:")
+    print(f" STATS: {'Combination':<15} {'Encoded':<8} {'Description':<25}")
+    print(f" STATS: {'-'*15} {'-'*8} {'-'*25}")
     
     for i in range(num_classes):
         decoded = power_set_encoder.decode(i)
@@ -521,41 +521,41 @@ def print_power_set_encoder_examples(power_set_encoder) -> None:
             description = f"{len(decoded)} speakers: {decoded}"
         
         decoded_str = str(decoded) if decoded else "[]"
-        print(f"[{datetime.now()}] STATS: {decoded_str:<15} {i:<8} {description:<25}")
+        print(f" STATS: {decoded_str:<15} {i:<8} {description:<25}")
     
     # Demonstrate edge cases
-    print(f"\n[{datetime.now()}] STATS: Edge Cases:")
-    print(f"[{datetime.now()}] STATS:   - Empty list [] encodes to 0 (no speakers active)")
-    print(f"[{datetime.now()}] STATS:   - Single speaker [0] encodes to 1")
-    print(f"[{datetime.now()}] STATS:   - Max overlap combination encodes to {num_classes - 1}")
+    print(f"\n STATS: Edge Cases:")
+    print(f" STATS:   - Empty list [] encodes to 0 (no speakers active)")
+    print(f" STATS:   - Single speaker [0] encodes to 1")
+    print(f" STATS:   - Max overlap combination encodes to {num_classes - 1}")
     
     # Show overlap limitations
-    print(f"\n[{datetime.now()}] STATS: Overlap Limitations:")
-    print(f"[{datetime.now()}] STATS:   - Maximum {max_overlap} speakers can be active simultaneously")
-    print(f"[{datetime.now()}] STATS:   - Total combinations: {num_classes}")
+    print(f"\n STATS: Overlap Limitations:")
+    print(f" STATS:   - Maximum {max_overlap} speakers can be active simultaneously")
+    print(f" STATS:   - Total combinations: {num_classes}")
     
     # Calculate and show the formula breakdown
     from math import comb
-    print(f"\n[{datetime.now()}] STATS: Formula Breakdown C(K,N) = Σ(k=0 to {max_overlap}) C({max_speakers},k):")
+    print(f"\n STATS: Formula Breakdown C(K,N) = Σ(k=0 to {max_overlap}) C({max_speakers},k):")
     total = 0
     for k in range(max_overlap + 1):
         combinations_k = comb(max_speakers, k)
         total += combinations_k
-        print(f"[{datetime.now()}] STATS:   - C({max_speakers},{k}) = {combinations_k} combinations with {k} speakers")
-    print(f"[{datetime.now()}] STATS:   - Total: {total} classes")
+        print(f" STATS:   - C({max_speakers},{k}) = {combinations_k} combinations with {k} speakers")
+    print(f" STATS:   - Total: {total} classes")
     
     # Show encoding and decoding formulas with examples
-    print(f"\n[{datetime.now()}] STATS: Encoding/Decoding Formulas:")
-    print(f"[{datetime.now()}] STATS: ")
-    print(f"[{datetime.now()}] STATS: ENCODING: S → class_id")
-    print(f"[{datetime.now()}] STATS:   1. Sort speaker IDs: S' = sorted(S)")
-    print(f"[{datetime.now()}] STATS:   2. Find lexicographic index of S'")
-    print(f"[{datetime.now()}] STATS: ")
-    print(f"[{datetime.now()}] STATS: DECODING: class_id → S")
-    print(f"[{datetime.now()}] STATS:   1. Find k: Σ(j=0 to k-1) C({max_speakers},j) ≤ class_id < Σ(j=0 to k) C({max_speakers},j)")
-    print(f"[{datetime.now()}] STATS:   2. Reconstruct combination from remaining index")
-    print(f"[{datetime.now()}] STATS: ")
-    print(f"[{datetime.now()}] STATS: EXAMPLES WITH CALCULATIONS:")
+    print(f"\n STATS: Encoding/Decoding Formulas:")
+    print(f" STATS: ")
+    print(f" STATS: ENCODING: S → class_id")
+    print(f" STATS:   1. Sort speaker IDs: S' = sorted(S)")
+    print(f" STATS:   2. Find lexicographic index of S'")
+    print(f" STATS: ")
+    print(f" STATS: DECODING: class_id → S")
+    print(f" STATS:   1. Find k: Σ(j=0 to k-1) C({max_speakers},j) ≤ class_id < Σ(j=0 to k) C({max_speakers},j)")
+    print(f" STATS:   2. Reconstruct combination from remaining index")
+    print(f" STATS: ")
+    print(f" STATS: EXAMPLES WITH CALCULATIONS:")
     
     # Show calculation examples
     examples = [
@@ -574,20 +574,20 @@ def print_power_set_encoder_examples(power_set_encoder) -> None:
         encoded = power_set_encoder.encode(speaker_set)
         decoded = power_set_encoder.decode(encoded)
         
-        print(f"[{datetime.now()}] STATS: ")
-        print(f"[{datetime.now()}] STATS: Example: {speaker_set} ({description})")
-        print(f"[{datetime.now()}] STATS:   Encoded: {encoded}")
-        print(f"[{datetime.now()}] STATS:   Decoded: {decoded}")
+        print(f" STATS: ")
+        print(f" STATS: Example: {speaker_set} ({description})")
+        print(f" STATS:   Encoded: {encoded}")
+        print(f" STATS:   Decoded: {decoded}")
         
         # Show calculation breakdown for simple cases
-        print(f"[{datetime.now()}] STATS:   Calculation:")
+        print(f" STATS:   Calculation:")
         if not speaker_set:
-            print(f"[{datetime.now()}] STATS:     Empty set → index 0")
+            print(f" STATS:     Empty set → index 0")
         elif len(speaker_set) == 1:
             s = speaker_set[0]
             # Single speaker: index = C(n,0) + s = 1 + s
             offset = comb(max_speakers, 0)  # C(n,0) = 1
-            print(f"[{datetime.now()}] STATS:     Speaker {s}: offset {offset} + speaker_id {s} = {offset + s}")
+            print(f" STATS:     Speaker {s}: offset {offset} + speaker_id {s} = {offset + s}")
         elif len(speaker_set) == 2:
             s1, s2 = sorted(speaker_set)
             # Two speakers: index = C(n,0) + C(n,1) + combination_index
@@ -597,7 +597,7 @@ def print_power_set_encoder_examples(power_set_encoder) -> None:
             for i in range(s1):
                 combo_idx += comb(max_speakers - i - 1, 2 - 1)  # C(n-i-1, 1)
             combo_idx += s2 - s1 - 1  # Position within the s1-th group
-            print(f"[{datetime.now()}] STATS:     Speakers [{s1},{s2}]: offset {offset} + combo_index {combo_idx} = {offset + combo_idx}")
+            print(f" STATS:     Speakers [{s1},{s2}]: offset {offset} + combo_index {combo_idx} = {offset + combo_idx}")
         elif len(speaker_set) == 3:
             s1, s2, s3 = sorted(speaker_set)
             # Three speakers: index = C(n,0) + C(n,1) + C(n,2) + combination_index
@@ -609,9 +609,9 @@ def print_power_set_encoder_examples(power_set_encoder) -> None:
             for j in range(s1 + 1, s2):
                 combo_idx += comb(max_speakers - j - 1, 3 - 2)  # C(n-j-1, 1)
             combo_idx += s3 - s2 - 1  # Position within the [s1,s2] group
-            print(f"[{datetime.now()}] STATS:     Speakers [{s1},{s2},{s3}]: offset {offset} + combo_index {combo_idx} = {offset + combo_idx}")
+            print(f" STATS:     Speakers [{s1},{s2},{s3}]: offset {offset} + combo_index {combo_idx} = {offset + combo_idx}")
     
-    print(f"[{datetime.now()}] STATS: COMPLETED FUNCTION: print_power_set_encoder_examples")
+    print(f" STATS: COMPLETED FUNCTION: print_power_set_encoder_examples")
 
 
 def print_send_model_statistics(model) -> None:
@@ -621,21 +621,21 @@ def print_send_model_statistics(model) -> None:
     Args:
         model: SENDModel instance to analyze
     """
-    print(f"\n[{datetime.now()}] STATS: ========================================== SEND MODEL STATISTICS ==========================================")
-    print(f"[{datetime.now()}] STATS: STARTING FUNCTION: print_send_model_statistics")
+    print(f"\n STATS: ========================================== SEND MODEL STATISTICS ==========================================")
+    print(f" STATS: STARTING FUNCTION: print_send_model_statistics")
     
     # Get model parameters
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     
-    print(f"[{datetime.now()}] STATS: Model Architecture:")
-    print(f"[{datetime.now()}] STATS:   - Model type: SENDModel")
-    print(f"[{datetime.now()}] STATS:   - Total parameters: {total_params:,}")
-    print(f"[{datetime.now()}] STATS:   - Trainable parameters: {trainable_params:,}")
-    print(f"[{datetime.now()}] STATS:   - Non-trainable parameters: {total_params - trainable_params:,}")
+    print(f" STATS: Model Architecture:")
+    print(f" STATS:   - Model type: SENDModel")
+    print(f" STATS:   - Total parameters: {total_params:,}")
+    print(f" STATS:   - Trainable parameters: {trainable_params:,}")
+    print(f" STATS:   - Non-trainable parameters: {total_params - trainable_params:,}")
     
     # Model configuration
-    print(f"[{datetime.now()}] STATS: Model Configuration:")
+    print(f" STATS: Model Configuration:")
     
     # Extract configuration from model structure
     input_dim = None
@@ -673,29 +673,29 @@ def print_send_model_statistics(model) -> None:
     except:
         pass
     
-    print(f"[{datetime.now()}] STATS:   - Input dimension: {input_dim if input_dim else 'Unknown'}")
-    print(f"[{datetime.now()}] STATS:   - Hidden dimension: {hidden_dim if hidden_dim else 'Unknown'}")
-    print(f"[{datetime.now()}] STATS:   - Number of classes: {num_classes if num_classes else 'Unknown'}")
-    print(f"[{datetime.now()}] STATS:   - Dropout probability: {dropout_p if dropout_p else 'Unknown'}")
+    print(f" STATS:   - Input dimension: {input_dim if input_dim else 'Unknown'}")
+    print(f" STATS:   - Hidden dimension: {hidden_dim if hidden_dim else 'Unknown'}")
+    print(f" STATS:   - Number of classes: {num_classes if num_classes else 'Unknown'}")
+    print(f" STATS:   - Dropout probability: {dropout_p if dropout_p else 'Unknown'}")
     
     # Layer information
-    print(f"[{datetime.now()}] STATS: Layer Structure:")
+    print(f" STATS: Layer Structure:")
     layer_count = 0
     for name, module in model.named_modules():
         if len(list(module.children())) == 0:  # Leaf modules only
             layer_count += 1
             param_count = sum(p.numel() for p in module.parameters())
-            print(f"[{datetime.now()}] STATS:   - {name}: {type(module).__name__} ({param_count:,} params)")
+            print(f" STATS:   - {name}: {type(module).__name__} ({param_count:,} params)")
     
-    print(f"[{datetime.now()}] STATS:   - Total layers: {layer_count}")
+    print(f" STATS:   - Total layers: {layer_count}")
     
     # Memory estimation
     param_size_mb = total_params * 4 / (1024 * 1024)  # Assuming float32
-    print(f"[{datetime.now()}] STATS: Memory Estimation:")
-    print(f"[{datetime.now()}] STATS:   - Model size: ~{param_size_mb:.1f} MB")
-    print(f"[{datetime.now()}] STATS:   - Training memory: ~{param_size_mb * 3:.1f} MB (including gradients and optimizer)")
+    print(f" STATS: Memory Estimation:")
+    print(f" STATS:   - Model size: ~{param_size_mb:.1f} MB")
+    print(f" STATS:   - Training memory: ~{param_size_mb * 3:.1f} MB (including gradients and optimizer)")
     
-    print(f"[{datetime.now()}] STATS: COMPLETED FUNCTION: print_send_model_statistics")
+    print(f" STATS: COMPLETED FUNCTION: print_send_model_statistics")
 
 
 def print_client_split_statistics(client_data: List, num_clients: int, grouped_train: Dict) -> None:
@@ -707,24 +707,24 @@ def print_client_split_statistics(client_data: List, num_clients: int, grouped_t
         num_clients: Number of clients in federated learning
         grouped_train: Original grouped training data for comparison
     """
-    print(f"\n[{datetime.now()}] STATS: ========================================== CLIENT DATA SPLIT STATISTICS ==========================================")
-    print(f"[{datetime.now()}] STATS: STARTING FUNCTION: print_client_split_statistics")
+    print(f"\n STATS: ========================================== CLIENT DATA SPLIT STATISTICS ==========================================")
+    print(f" STATS: STARTING FUNCTION: print_client_split_statistics")
     
     if not client_data:
-        print(f"[{datetime.now()}] STATS: ERROR: No client data provided")
+        print(f" STATS: ERROR: No client data provided")
         return
     
     # Basic split information
-    print(f"[{datetime.now()}] STATS: Federated Learning Configuration:")
-    print(f"[{datetime.now()}] STATS:   - Number of clients: {num_clients}")
-    print(f"[{datetime.now()}] STATS:   - Split strategy: meeting_based")
-    print(f"[{datetime.now()}] STATS:   - Total meetings in training set: {len(grouped_train)}")
-    print(f"[{datetime.now()}] STATS:   - Actual clients created: {len(client_data)}")
+    print(f" STATS: Federated Learning Configuration:")
+    print(f" STATS:   - Number of clients: {num_clients}")
+    print(f" STATS:   - Split strategy: meeting_based")
+    print(f" STATS:   - Total meetings in training set: {len(grouped_train)}")
+    print(f" STATS:   - Actual clients created: {len(client_data)}")
     
     # Client-specific statistics
-    print(f"\n[{datetime.now()}] STATS: Client Data Distribution:")
-    print(f"[{datetime.now()}] STATS: {'Client':<10} {'Train Batches':<15} {'Val Batches':<12} {'Train Samples':<15} {'Val Samples':<12}")
-    print(f"[{datetime.now()}] STATS: {'-'*10} {'-'*15} {'-'*12} {'-'*15} {'-'*12}")
+    print(f"\n STATS: Client Data Distribution:")
+    print(f" STATS: {'Client':<10} {'Train Batches':<15} {'Val Batches':<12} {'Train Samples':<15} {'Val Samples':<12}")
+    print(f" STATS: {'-'*10} {'-'*15} {'-'*12} {'-'*15} {'-'*12}")
     
     total_train_samples = 0
     total_val_samples = 0
@@ -732,7 +732,7 @@ def print_client_split_statistics(client_data: List, num_clients: int, grouped_t
     
     for client_id, (train_loader, val_loader) in enumerate(client_data):
         if train_loader is None or val_loader is None:
-            print(f"[{datetime.now()}] STATS: {client_id:<10} {'MISSING':<15} {'MISSING':<12} {'MISSING':<15} {'MISSING':<12}")
+            print(f" STATS: {client_id:<10} {'MISSING':<15} {'MISSING':<12} {'MISSING':<15} {'MISSING':<12}")
             continue
         
         # Extract information from data loaders
@@ -749,14 +749,14 @@ def print_client_split_statistics(client_data: List, num_clients: int, grouped_t
         if train_batches > 0 or val_batches > 0:
             clients_with_data += 1
         
-        print(f"[{datetime.now()}] STATS: {client_id:<10} {train_batches:<15} {val_batches:<12} {train_samples:<15} {val_samples:<12}")
+        print(f" STATS: {client_id:<10} {train_batches:<15} {val_batches:<12} {train_samples:<15} {val_samples:<12}")
     
     # Summary statistics
-    print(f"\n[{datetime.now()}] STATS: Split Summary:")
-    print(f"[{datetime.now()}] STATS:   - Total train samples (approx): {total_train_samples:,}")
-    print(f"[{datetime.now()}] STATS:   - Total validation samples (approx): {total_val_samples:,}")
-    print(f"[{datetime.now()}] STATS:   - Total samples (approx): {total_train_samples + total_val_samples:,}")
-    print(f"[{datetime.now()}] STATS:   - Clients with data: {clients_with_data}/{len(client_data)}")
+    print(f"\n STATS: Split Summary:")
+    print(f" STATS:   - Total train samples (approx): {total_train_samples:,}")
+    print(f" STATS:   - Total validation samples (approx): {total_val_samples:,}")
+    print(f" STATS:   - Total samples (approx): {total_train_samples + total_val_samples:,}")
+    print(f" STATS:   - Clients with data: {clients_with_data}/{len(client_data)}")
     
     # Balance analysis
     if len(client_data) > 0:
@@ -776,27 +776,27 @@ def print_client_split_statistics(client_data: List, num_clients: int, grouped_t
         
         if client_total_samples:
             import numpy as np
-            print(f"\n[{datetime.now()}] STATS: Balance Analysis:")
-            print(f"[{datetime.now()}] STATS:   - Train samples per client: min={min(client_train_samples)}, max={max(client_train_samples)}, mean={np.mean(client_train_samples):.1f}, std={np.std(client_train_samples):.1f}")
-            print(f"[{datetime.now()}] STATS:   - Val samples per client: min={min(client_val_samples)}, max={max(client_val_samples)}, mean={np.mean(client_val_samples):.1f}, std={np.std(client_val_samples):.1f}")
-            print(f"[{datetime.now()}] STATS:   - Total samples per client: min={min(client_total_samples)}, max={max(client_total_samples)}, mean={np.mean(client_total_samples):.1f}, std={np.std(client_total_samples):.1f}")
+            print(f"\n STATS: Balance Analysis:")
+            print(f" STATS:   - Train samples per client: min={min(client_train_samples)}, max={max(client_train_samples)}, mean={np.mean(client_train_samples):.1f}, std={np.std(client_train_samples):.1f}")
+            print(f" STATS:   - Val samples per client: min={min(client_val_samples)}, max={max(client_val_samples)}, mean={np.mean(client_val_samples):.1f}, std={np.std(client_val_samples):.1f}")
+            print(f" STATS:   - Total samples per client: min={min(client_total_samples)}, max={max(client_total_samples)}, mean={np.mean(client_total_samples):.1f}, std={np.std(client_total_samples):.1f}")
             
             # Coefficient of variation (lower is better for balance)
             cv_train = np.std(client_train_samples) / np.mean(client_train_samples) if np.mean(client_train_samples) > 0 else 0
             cv_val = np.std(client_val_samples) / np.mean(client_val_samples) if np.mean(client_val_samples) > 0 else 0
             cv_total = np.std(client_total_samples) / np.mean(client_total_samples) if np.mean(client_total_samples) > 0 else 0
             
-            print(f"[{datetime.now()}] STATS:   - Balance coefficients (lower=better): train={cv_train:.3f}, val={cv_val:.3f}, total={cv_total:.3f}")
+            print(f" STATS:   - Balance coefficients (lower=better): train={cv_train:.3f}, val={cv_val:.3f}, total={cv_total:.3f}")
     
     # Data loader analysis
-    print(f"\n[{datetime.now()}] STATS: Data Loader Analysis:")
-    print(f"[{datetime.now()}] STATS:   - Each client has train_loader and val_loader")
-    print(f"[{datetime.now()}] STATS:   - Batch size: 4 (approximate)")
-    print(f"[{datetime.now()}] STATS:   - Data loaders include collate function for padding")
-    print(f"[{datetime.now()}] STATS:   - Features are padded to max sequence length in batch")
+    print(f"\n STATS: Data Loader Analysis:")
+    print(f" STATS:   - Each client has train_loader and val_loader")
+    print(f" STATS:   - Batch size: 4 (approximate)")
+    print(f" STATS:   - Data loaders include collate function for padding")
+    print(f" STATS:   - Features are padded to max sequence length in batch")
     
     # Data quality checks
-    print(f"\n[{datetime.now()}] STATS: Data Quality Checks:")
+    print(f"\n STATS: Data Quality Checks:")
     empty_clients = 0
     for train_loader, val_loader in client_data:
         if train_loader is None or val_loader is None:
@@ -804,34 +804,34 @@ def print_client_split_statistics(client_data: List, num_clients: int, grouped_t
         elif len(train_loader) == 0 and len(val_loader) == 0:
             empty_clients += 1
     
-    print(f"[{datetime.now()}] STATS:   - Empty clients: {empty_clients}/{len(client_data)}")
-    print(f"[{datetime.now()}] STATS:   - Clients with data: {len(client_data) - empty_clients}/{len(client_data)}")
+    print(f" STATS:   - Empty clients: {empty_clients}/{len(client_data)}")
+    print(f" STATS:   - Clients with data: {len(client_data) - empty_clients}/{len(client_data)}")
     
     if empty_clients > 0:
-        print(f"[{datetime.now()}] STATS:   - WARNING: Some clients have no data!")
+        print(f" STATS:   - WARNING: Some clients have no data!")
     
     # Training readiness check
-    print(f"\n[{datetime.now()}] STATS: Training Readiness:")
+    print(f"\n STATS: Training Readiness:")
     ready_clients = 0
     for client_id, (train_loader, val_loader) in enumerate(client_data):
         if train_loader is not None and val_loader is not None:
             if len(train_loader) > 0 and len(val_loader) > 0:
                 ready_clients += 1
-                print(f"[{datetime.now()}] STATS:   - Client {client_id}: Ready for training ({len(train_loader)} train batches, {len(val_loader)} val batches)")
+                print(f" STATS:   - Client {client_id}: Ready for training ({len(train_loader)} train batches, {len(val_loader)} val batches)")
             else:
-                print(f"[{datetime.now()}] STATS:   - Client {client_id}: Not ready (empty loaders)")
+                print(f" STATS:   - Client {client_id}: Not ready (empty loaders)")
         else:
-            print(f"[{datetime.now()}] STATS:   - Client {client_id}: Not ready (missing loaders)")
+            print(f" STATS:   - Client {client_id}: Not ready (missing loaders)")
     
-    print(f"[{datetime.now()}] STATS:   - Clients ready for training: {ready_clients}/{len(client_data)}")
+    print(f" STATS:   - Clients ready for training: {ready_clients}/{len(client_data)}")
     
     # Recommendations
-    print(f"\n[{datetime.now()}] STATS: Recommendations:")
+    print(f"\n STATS: Recommendations:")
     if 'cv_total' in locals() and cv_total > 0.3:
-        print(f"[{datetime.now()}] STATS:   - Consider rebalancing: high sample count variation (CV={cv_total:.3f})")
+        print(f" STATS:   - Consider rebalancing: high sample count variation (CV={cv_total:.3f})")
     if empty_clients > 0:
-        print(f"[{datetime.now()}] STATS:   - Fix empty clients before training")
+        print(f" STATS:   - Fix empty clients before training")
     if ready_clients < len(client_data):
-        print(f"[{datetime.now()}] STATS:   - Ensure all clients have valid data loaders before federated training")
+        print(f" STATS:   - Ensure all clients have valid data loaders before federated training")
     
-    print(f"[{datetime.now()}] STATS: COMPLETED FUNCTION: print_client_split_statistics")
+    print(f" STATS: COMPLETED FUNCTION: print_client_split_statistics")

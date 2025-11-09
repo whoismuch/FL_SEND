@@ -356,7 +356,7 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
             f.write("="*80 + "\n")
     
     for epoch in range(epochs):
-        print(f"[{datetime.now()}] Starting epoch {epoch+1}/{epochs}")
+        print(f" Starting epoch {epoch+1}/{epochs}")
         train_loss = 0.0
         batch_losses = []
         # Group predictions by meeting_id for proper DER calculation
@@ -364,11 +364,11 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         lab_by_rec = defaultdict(list)
             
         total_batches = len(train_loader)
-        print(f"[{datetime.now()}] Epoch {epoch+1}/{epochs}: Processing {total_batches} batches...")
+        print(f" Epoch {epoch+1}/{epochs}: Processing {total_batches} batches...")
         
         for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(train_loader):
             if batch_idx == 0:
-                print(f"[{datetime.now()}] First batch in epoch {epoch+1}")
+                print(f" First batch in epoch {epoch+1}")
             features, speaker_embeddings, labels = features.to(device), speaker_embeddings.to(device), labels.to(device)
             speaker_embeddings = speaker_embeddings.float()
             optimizer.zero_grad()
@@ -400,7 +400,7 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
             # Progress indicator for batches
             if batch_idx % max(1, total_batches // 10) == 0 or batch_idx == total_batches - 1:
                 progress = (batch_idx + 1) / total_batches * 100
-                print(f"[{datetime.now()}] Epoch {epoch+1} Progress: {progress:.1f}% ({batch_idx+1}/{total_batches}) - Loss: {loss.item():.4f}")
+                print(f" Epoch {epoch+1} Progress: {progress:.1f}% ({batch_idx+1}/{total_batches}) - Loss: {loss.item():.4f}")
             
             if batch_idx == 0:
                 print(f"Batch {batch_idx}, labels shape: {labels.shape}, unique labels: {torch.unique(labels)}")
@@ -409,10 +409,10 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         # Calculate DER per recording and aggregate (only if requested)
         ders = {}
         if compute_der_during_training:
-            print(f"[{datetime.now()}] Computing DER for {len(pred_by_rec)} recordings...")
+            print(f" Computing DER for {len(pred_by_rec)} recordings...")
             for i, rec_id in enumerate(pred_by_rec):
                 if pred_by_rec[rec_id] and lab_by_rec[rec_id]:
-                    print(f"[{datetime.now()}] Processing recording {i+1}/{len(pred_by_rec)}: {rec_id}")
+                    print(f" Processing recording {i+1}/{len(pred_by_rec)}: {rec_id}")
                     # Get speaker_id_list from the dataset
                     speaker_id_list = train_loader.dataset.get_speaker_id_list() if hasattr(train_loader.dataset, 'get_speaker_id_list') else None
                     ders[rec_id] = calculate_der(
@@ -424,9 +424,9 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                         frame_shift=0.01,
                         uri=rec_id
                     )
-                    print(f"[{datetime.now()}] Recording {rec_id} DER: {ders[rec_id]:.4f}")
+                    print(f" Recording {rec_id} DER: {ders[rec_id]:.4f}")
         else:
-            print(f"[{datetime.now()}] Skipping DER computation during training for speed (set compute_der_during_training=True to enable)")
+            print(f" Skipping DER computation during training for speed (set compute_der_during_training=True to enable)")
         
         # Metrics per epoch
         mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
@@ -455,10 +455,10 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         print(f"TIME: {datetime.now().strftime('%H:%M:%S')}")
         print(f"{'='*80}\n")
         
-        print(f"[{datetime.now()}] Epoch {epoch+1}/{epochs} summary: min_loss={min(batch_losses) if batch_losses else 'nan'}, max_loss={max(batch_losses) if batch_losses else 'nan'}, mean_loss={mean_loss}, acc={acc}, DER={der if compute_der_during_training else 'skipped'}")
+        print(f" Epoch {epoch+1}/{epochs} summary: min_loss={min(batch_losses) if batch_losses else 'nan'}, max_loss={max(batch_losses) if batch_losses else 'nan'}, mean_loss={mean_loss}, acc={acc}, DER={der if compute_der_during_training else 'skipped'}")
         
         # Validation after each epoch
-        print(f"[{datetime.now()}] Running validation for epoch {epoch+1}...")
+        print(f" Running validation for epoch {epoch+1}...")
         val_loss, val_der, _, _ = evaluate_model(model, val_loader, device, power_set_encoder)
         
         # Early stopping logic
@@ -467,10 +467,10 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
             best_val_loss = val_loss
             patience_counter = 0
             best_model_state = model.state_dict().copy()
-            print(f"[{datetime.now()}] ✅ Validation improved! New best val_loss: {val_loss:.4f}")
+            print(f" ✅ Validation improved! New best val_loss: {val_loss:.4f}")
         else:
             patience_counter += 1
-            print(f"[{datetime.now()}] ⚠️  No improvement for {patience_counter}/{early_stopping_patience} epochs")
+            print(f" ⚠️  No improvement for {patience_counter}/{early_stopping_patience} epochs")
         
         # CAPS progress output with validation metrics
         val_der_display = f"{val_der:.4f}" if not np.isnan(val_der) else "N/A"
@@ -502,14 +502,14 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         
         # Early stopping check
         if patience_counter >= early_stopping_patience:
-            print(f"[{datetime.now()}] 🛑 Early stopping triggered! No improvement for {early_stopping_patience} epochs.")
-            print(f"[{datetime.now()}] Best validation loss: {best_val_loss:.4f}")
+            print(f" 🛑 Early stopping triggered! No improvement for {early_stopping_patience} epochs.")
+            print(f" Best validation loss: {best_val_loss:.4f}")
             break
     
     # Restore best model
     if best_model_state is not None:
         model.load_state_dict(best_model_state)
-        print(f"[{datetime.now()}] ✅ Restored best model (val_loss: {best_val_loss:.4f})")
+        print(f" ✅ Restored best model (val_loss: {best_val_loss:.4f})")
     
     return epoch_metrics
 
@@ -526,7 +526,7 @@ def evaluate_model(model, val_loader, device, power_set_encoder):
     with torch.no_grad():
         for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(val_loader):
             if batch_idx == 0:
-                print(f"[{datetime.now()}] First batch in evaluation")
+                print(f" First batch in evaluation")
             features, speaker_embeddings, labels = features.to(device), speaker_embeddings.to(device), labels.to(device)
             speaker_embeddings = speaker_embeddings.float()
             outputs = model(features, speaker_embeddings)
@@ -555,10 +555,10 @@ def evaluate_model(model, val_loader, device, power_set_encoder):
     
     # Calculate DER per recording and aggregate
     ders = {}
-    print(f"[{datetime.now()}] Computing DER for {len(pred_by_rec)} recordings in evaluation...")
+    print(f" Computing DER for {len(pred_by_rec)} recordings in evaluation...")
     for i, rec_id in enumerate(pred_by_rec):
         if pred_by_rec[rec_id] and lab_by_rec[rec_id]:
-            print(f"[{datetime.now()}] Processing recording {i+1}/{len(pred_by_rec)}: {rec_id}")
+            print(f" Processing recording {i+1}/{len(pred_by_rec)}: {rec_id}")
             # Get speaker_id_list from the dataset
             speaker_id_list = val_loader.dataset.get_speaker_id_list() if hasattr(val_loader.dataset, 'get_speaker_id_list') else None
             ders[rec_id] = calculate_der(
@@ -570,9 +570,9 @@ def evaluate_model(model, val_loader, device, power_set_encoder):
                 frame_shift=0.01,
                 uri=rec_id
             )
-            print(f"[{datetime.now()}] Recording {rec_id} DER: {ders[rec_id]:.4f}")
+            print(f" Recording {rec_id} DER: {ders[rec_id]:.4f}")
     
-    print(f"[{datetime.now()}] Eval summary: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={np.mean(batch_losses):.4f}")
+    print(f" Eval summary: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={np.mean(batch_losses):.4f}")
     # Average DER across recordings
     der = np.mean(list(ders.values())) if ders else float('nan')
     mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
@@ -613,52 +613,52 @@ def main():
 
     logger.info("="*80)
     logger.info("MAIN STARTED")
-    logger.info(f"[{datetime.now()}] MAIN: Starting main()")
+    logger.info(f"MAIN: Starting main()")
     sys.stdout.flush()  # Ensure output is written immediately
     try:
         # Check GPU availability
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"[{datetime.now()}] MAIN: Using device: {device}")
+        print(f"MAIN: Using device: {device}")
         
         # Debug GPU information
         if torch.cuda.is_available():
-            print(f"[{datetime.now()}] MAIN: CUDA available: True")
-            print(f"[{datetime.now()}] MAIN: CUDA device count: {torch.cuda.device_count()}")
-            print(f"[{datetime.now()}] MAIN: Current CUDA device: {torch.cuda.current_device()}")
-            print(f"[{datetime.now()}] MAIN: CUDA device name: {torch.cuda.get_device_name(0)}")
+            print(f"MAIN: CUDA available: True")
+            print(f"MAIN: CUDA device count: {torch.cuda.device_count()}")
+            print(f"MAIN: Current CUDA device: {torch.cuda.current_device()}")
+            print(f"MAIN: CUDA device name: {torch.cuda.get_device_name(0)}")
         else:
-            print(f"[{datetime.now()}] MAIN: CUDA available: False - Using CPU")
+            print(f"MAIN: CUDA available: False - Using CPU")
         
         # Initialize speaker encoder
-        print(f"[{datetime.now()}] MAIN: Initializing speaker encoder...")
+        print(f"MAIN: Initializing speaker encoder...")
         speaker_encoder = EncoderClassifier.from_hparams(
             source="speechbrain/spkrec-ecapa-voxceleb",
             savedir="pretrained_models/spkrec-ecapa",
             run_opts={"device": device}
         ).to(device)
-        print(f"[{datetime.now()}] MAIN: Speaker encoder initialized successfully")
+        print(f"MAIN: Speaker encoder initialized successfully")
         
         # Load and preprocess data
         print_data_loading_info("AMI")
         dataset = load_dataset("edinburghcstr/ami", "ihm")
-        print(f"[{datetime.now()}] MAIN: Dataset loaded successfully")
+        print(f"MAIN: Dataset loaded successfully")
         
         # Determine dataset sizes
         if use_all_data:
             train_size = len(dataset["train"])
             val_size = len(dataset["validation"])
             test_size = len(dataset["test"])
-            print(f"[{datetime.now()}] MAIN: Using ALL data - Train: {train_size}, Val: {val_size}, Test: {test_size}")
+            print(f"MAIN: Using ALL data - Train: {train_size}, Val: {val_size}, Test: {test_size}")
         else:
             train_size = test_size
             val_size = round(test_size/0.7*0.3)
             test_size = round(test_size/0.7*0.3)
-            print(f"[{datetime.now()}] MAIN: Using SUBSET - Train: {train_size}, Val: {val_size}, Test: {test_size}")
+            print(f"MAIN: Using SUBSET - Train: {train_size}, Val: {val_size}, Test: {test_size}")
         
         print_dataset_overview("AMI", len(dataset["train"]), train_size)
         
         # Group data by meeting ID for all splits
-        print(f"[{datetime.now()}] MAIN: Grouping data by meeting ID...")
+        print(f"MAIN: Grouping data by meeting ID...")
         grouped_train = group_by_meeting(dataset["train"].select(range(train_size)))
         grouped_validation = group_by_meeting(dataset["validation"].select(range(val_size)))
         grouped_test = group_by_meeting(dataset["test"].select(range(test_size)))
@@ -670,16 +670,16 @@ def main():
         
         # PSE/SEND Configuration: Fixed N and K (as per original paper)
         N = 5  # Maximum number of target speakers per recording
-        K = 3  # Maximum simultaneous overlap (2-4 as per paper)
+        K = 4  # Maximum simultaneous overlap (2-4 as per paper)
         
         # Initialize Power Set Encoder with fixed N and K
-        print(f"[{datetime.now()}] MAIN: Initializing Power Set Encoder with max_speakers={N}, max_overlap={K}")
+        print(f"MAIN: Initializing Power Set Encoder with max_speakers={N}, max_overlap={K}")
         power_set_encoder = PowerSetEncoder(max_speakers=N, max_overlap=K)
 
         # Calculate number of classes using C(K,N) formula
         num_classes = power_set_encoder.num_classes
-        print(f"[{datetime.now()}] MAIN: PSE Configuration: N={N} (max speakers per recording), K={K} (max overlap)")
-        print(f"[{datetime.now()}] MAIN: Number of classes using C(K,N) = Σ(k=0 to {K}) C({N},k) = {num_classes}")
+        print(f"MAIN: PSE Configuration: N={N} (max speakers per recording), K={K} (max overlap)")
+        print(f"MAIN: Number of classes using C(K,N) = Σ(k=0 to {K}) C({N},k) = {num_classes}")
         
         # Print PowerSetEncoder examples and statistics
         print_power_set_encoder_examples(power_set_encoder)
@@ -701,13 +701,13 @@ def main():
             usable_memory_bytes = (max_memory_gb * 0.8) * (1024**3)
             max_sequence_length = int(usable_memory_bytes / (estimated_train_samples * bytes_per_frame))
             
-            print(f"[{datetime.now()}] MAIN: Auto-calculated max_sequence_length={max_sequence_length} based on:")
-            print(f"[{datetime.now()}] MAIN:   - Estimated train samples: {estimated_train_samples}")
-            print(f"[{datetime.now()}] MAIN:   - Max memory: {max_memory_gb} GB")
-            print(f"[{datetime.now()}] MAIN:   - Usable memory (80%): {max_memory_gb * 0.8:.1f} GB")
-            print(f"[{datetime.now()}] MAIN:   - Estimated memory usage: {(estimated_train_samples * max_sequence_length * bytes_per_frame) / (1024**3):.2f} GB")
+            print(f"MAIN: Auto-calculated max_sequence_length={max_sequence_length} based on:")
+            print(f"MAIN:   - Estimated train samples: {estimated_train_samples}")
+            print(f"MAIN:   - Max memory: {max_memory_gb} GB")
+            print(f"MAIN:   - Usable memory (80%): {max_memory_gb * 0.8:.1f} GB")
+            print(f"MAIN:   - Estimated memory usage: {(estimated_train_samples * max_sequence_length * bytes_per_frame) / (1024**3):.2f} GB")
         else:
-            print(f"[{datetime.now()}] MAIN: Using user-specified max_sequence_length={max_sequence_length}")
+            print(f"MAIN: Using user-specified max_sequence_length={max_sequence_length}")
         
         # Prepare data loaders for training and evaluation
         train_loader, val_loader, test_loader = prepare_data_loaders(
@@ -717,8 +717,8 @@ def main():
         
         # Print experiment configuration
         print_experiment_config(1, 1, epochs, train_size)  # Single centralized training
-        print(f"[{datetime.now()}] MAIN: Early stopping patience: {early_stopping_patience} epochs")
-        print(f"[{datetime.now()}] MAIN: Early stopping min delta: {early_stopping_min_delta}")
+        print(f"MAIN: Early stopping patience: {early_stopping_patience} epochs")
+        print(f"MAIN: Early stopping min delta: {early_stopping_min_delta}")
 
         
         # Get all unique speakers for speaker embedding computation
@@ -729,22 +729,22 @@ def main():
         #             speaker_ids.add(sample["speaker_id"])
         # all_speaker_ids = sorted(list(speaker_ids))
         # speaker_id_list = all_speaker_ids[:N]  # Limit to N slots for PSE consistency
-        # print(f"[{datetime.now()}] MAIN: Detected {len(all_speaker_ids)} unique speakers in dataset: {all_speaker_ids}")
-        # print(f"[{datetime.now()}] MAIN: Using first {len(speaker_id_list)} speakers for PSE slots: {speaker_id_list}")
-        # print(f"[{datetime.now()}] MAIN: Note: PSE uses fixed N={N} slots per recording, not all {len(all_speaker_ids)} speakers")
+        # print(f"MAIN: Detected {len(all_speaker_ids)} unique speakers in dataset: {all_speaker_ids}")
+        # print(f"MAIN: Using first {len(speaker_id_list)} speakers for PSE slots: {speaker_id_list}")
+        # print(f"MAIN: Note: PSE uses fixed N={N} slots per recording, not all {len(all_speaker_ids)} speakers")
         
         # Analyze speaker distribution
         analyze_speaker_distribution(grouped_train)
         
         # Create and train model
-        print(f"[{datetime.now()}] MAIN: Creating SEND model...")
+        print(f"MAIN: Creating SEND model...")
         model = SENDModel(num_classes=num_classes).to(device)
         
         # Print SENDModel statistics
         print_send_model_statistics(model)
         
         # Use centralized training data loaders directly
-        print(f"[{datetime.now()}] MAIN: Using centralized training data loaders...")
+        print(f"MAIN: Using centralized training data loaders...")
         
         # Calculate and display actual training samples information
         total_training_samples = len(train_loader.dataset)
@@ -766,21 +766,21 @@ def main():
                 else:
                     total_training_frames = total_training_samples * 100  # Fallback estimate
         
-        print(f"[{datetime.now()}] MAIN: Training samples: {total_training_samples}")
-        print(f"[{datetime.now()}] MAIN: Validation samples: {total_validation_samples}")
-        print(f"[{datetime.now()}] MAIN: Test samples: {total_test_samples}")
-        print(f"[{datetime.now()}] MAIN: Total training frames: {total_training_frames}")
+        print(f"MAIN: Training samples: {total_training_samples}")
+        print(f"MAIN: Validation samples: {total_validation_samples}")
+        print(f"MAIN: Test samples: {total_test_samples}")
+        print(f"MAIN: Total training frames: {total_training_frames}")
         
         # Additional information about data distribution
         if total_training_samples > 0:
             avg_frames_per_sample = total_training_frames / total_training_samples
-            print(f"[{datetime.now()}] MAIN: Average frames per sample: {avg_frames_per_sample:.1f}")
+            print(f"MAIN: Average frames per sample: {avg_frames_per_sample:.1f}")
             if use_all_data:
-                print(f"[{datetime.now()}] MAIN: Using ALL available data from AMI dataset")
+                print(f"MAIN: Using ALL available data from AMI dataset")
             else:
-                print(f"[{datetime.now()}] MAIN: Note: test_size={train_size} refers to number of dataset records selected for training")
-            print(f"[{datetime.now()}] MAIN: Each meeting recording contains multiple audio segments, each segment becomes multiple training samples")
-            print(f"[{datetime.now()}] MAIN: Each training sample contains multiple frames (time steps) for sequence learning")
+                print(f"MAIN: Note: test_size={train_size} refers to number of dataset records selected for training")
+            print(f"MAIN: Each meeting recording contains multiple audio segments, each segment becomes multiple training samples")
+            print(f"MAIN: Each training sample contains multiple frames (time steps) for sequence learning")
         
         # Create experiment directories early
         dt_str = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -796,33 +796,33 @@ def main():
         os.makedirs(artifact_logs_dir, exist_ok=True)
         os.makedirs(artifact_plots_dir, exist_ok=True)
         
-        print(f"[{datetime.now()}] MAIN: Experiment tag: {exp_tag}")
-        print(f"[{datetime.now()}] MAIN: Logs directory: {artifact_logs_dir}")
-        print(f"[{datetime.now()}] MAIN: Plots directory: {artifact_plots_dir}")
+        print(f"MAIN: Experiment tag: {exp_tag}")
+        print(f"MAIN: Logs directory: {artifact_logs_dir}")
+        print(f"MAIN: Plots directory: {artifact_plots_dir}")
         
         # Compute speaker embeddings for train set
-        print(f"[{datetime.now()}] MAIN: Computing speaker embeddings for train set...")
+        print(f"MAIN: Computing speaker embeddings for train set...")
         speaker_to_embedding = compute_speaker_embeddings(grouped_train, speaker_encoder)
         
         # === CENTRALIZED TRAINING ===
         print("\n==================== STARTING CENTRALIZED TRAINING ====================\n")
         
         # Train the model
-        print(f"[{datetime.now()}] MAIN: DER computation during training: {'ENABLED' if compute_der_during_training else 'DISABLED (faster training)'}")
+        print(f"MAIN: DER computation during training: {'ENABLED' if compute_der_during_training else 'DISABLED (faster training)'}")
         
         # Create progress log file path
         progress_log_file = os.path.join(artifact_logs_dir, "training_progress.txt")
-        print(f"[{datetime.now()}] MAIN: Progress will be logged to: {progress_log_file}")
+        print(f"MAIN: Progress will be logged to: {progress_log_file}")
         
         training_metrics = train_model(model, train_loader, val_loader, device, power_set_encoder, epochs, compute_der_during_training, progress_log_file, early_stopping_patience, early_stopping_min_delta)
         
         # Evaluate on validation set
-        print(f"[{datetime.now()}] MAIN: Evaluating on validation set...")
+        print(f"MAIN: Evaluating on validation set...")
         val_loss, val_der, val_pred_by_rec, val_lab_by_rec = evaluate_model(model, val_loader, device, power_set_encoder)
         
-        print(f"[{datetime.now()}] MAIN: Training completed successfully")
-        print(f"[{datetime.now()}] MAIN: Final validation loss: {val_loss:.4f}")
-        print(f"[{datetime.now()}] MAIN: Final validation DER: {val_der:.4f}")
+        print(f"MAIN: Training completed successfully")
+        print(f"MAIN: Final validation loss: {val_loss:.4f}")
+        print(f"MAIN: Final validation DER: {val_der:.4f}")
         
         # Store training metrics for plotting
         epoch_metrics = training_metrics

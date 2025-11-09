@@ -248,7 +248,7 @@ class SENDClient(NumPyClient):
         speaker_encoder: EncoderClassifier,
         speaker_to_embedding: Dict[int, np.ndarray]
     ):
-        print(f"[{datetime.now()}] SENDClient: Initializing client {id(self)}")
+        print(f"SENDClient: Initializing client {id(self)}")
         self.model = model
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -258,7 +258,7 @@ class SENDClient(NumPyClient):
         self.speaker_to_embedding = speaker_to_embedding
         self.optimizer = optim.Adam(model.parameters())
         self.criterion = nn.CrossEntropyLoss()
-        print(f"[{datetime.now()}] SENDClient: Initialization complete for client {id(self)}")
+        print(f"SENDClient: Initialization complete for client {id(self)}")
         print(f"[DEBUG] SENDClient: train_loader size: {len(self.train_loader)}")
         print(f"[DEBUG] SENDClient: val_loader size: {len(self.val_loader)}")
         if len(self.train_loader) == 0:
@@ -278,7 +278,7 @@ class SENDClient(NumPyClient):
         print("=== CLIENT LOG: fit started ===")
         print(f"[DEBUG] fit: train_loader size: {len(self.train_loader)}")
         print(f"[DEBUG] fit: number of batches: {len(self.train_loader)}")
-        print(f"[{datetime.now()}] SENDClient: Starting fit for client {id(self)}")
+        print(f"SENDClient: Starting fit for client {id(self)}")
         self.set_parameters(parameters)
         self.model.train()
         epochs = config.get("epochs", 1)
@@ -293,7 +293,7 @@ class SENDClient(NumPyClient):
             
             for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(self.train_loader):
                 if batch_idx == 0:
-                    print(f"[{datetime.now()}] SENDClient: First batch in fit for client {id(self)} (epoch {epoch+1}/{epochs})")
+                    print(f"SENDClient: First batch in fit for client {id(self)} (epoch {epoch+1}/{epochs})")
                 features, speaker_embeddings, labels = features.to(self.device), speaker_embeddings.to(self.device), labels.to(self.device)
                 speaker_embeddings = speaker_embeddings.float()
                 self.optimizer.zero_grad()
@@ -356,7 +356,7 @@ class SENDClient(NumPyClient):
             der = np.mean(list(ders.values())) if ders else float('nan')
             print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique labels: {np.unique(all_labels) if all_labels else 'EMPTY'}")
             print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique predictions: {np.unique(all_predictions) if all_predictions else 'EMPTY'}")
-            print(f"[{datetime.now()}] SENDClient: Epoch {epoch+1}/{epochs} summary for client {id(self)}: min_loss={min(batch_losses) if batch_losses else 'nan'}, max_loss={max(batch_losses) if batch_losses else 'nan'}, mean_loss={mean_loss}, acc={acc}, DER={der}")
+            print(f"SENDClient: Epoch {epoch+1}/{epochs} summary for client {id(self)}: min_loss={min(batch_losses) if batch_losses else 'nan'}, max_loss={max(batch_losses) if batch_losses else 'nan'}, mean_loss={mean_loss}, acc={acc}, DER={der}")
             # Collect metrics for this epoch
             epoch_metrics.append({
                 "train_loss": float(mean_loss),
@@ -364,7 +364,7 @@ class SENDClient(NumPyClient):
                 "der": float(der) if not np.isnan(der) else None,
             })
         elapsed = time.time() - start_time
-        print(f"[{datetime.now()}] SENDClient: Finished fit for client {id(self)}, total time: {elapsed:.2f} sec")
+        print(f"SENDClient: Finished fit for client {id(self)}, total time: {elapsed:.2f} sec")
         print("=== CLIENT LOG: fit finished ===")
         print(f"=== CLIENT LOG: train_loader length: {len(self.train_loader)} ===")
         # Return epoch_metrics for aggregation and plotting (as JSON string)
@@ -372,7 +372,7 @@ class SENDClient(NumPyClient):
     
     def evaluate(self, parameters, config):
         print("=== CLIENT LOG: evaluate started ===")
-        print(f"[{datetime.now()}] SENDClient: Starting evaluate for client {id(self)}")
+        print(f"SENDClient: Starting evaluate for client {id(self)}")
         self.set_parameters(parameters)
         self.model.eval()
         val_loss = 0.0
@@ -385,7 +385,7 @@ class SENDClient(NumPyClient):
         with torch.no_grad():
             for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(self.val_loader):
                 if batch_idx == 0:
-                    print(f"[{datetime.now()}] SENDClient: First batch in evaluate for client {id(self)}")
+                    print(f"SENDClient: First batch in evaluate for client {id(self)}")
                 features, speaker_embeddings, labels = features.to(self.device), speaker_embeddings.to(self.device), labels.to(self.device)
                 speaker_embeddings = speaker_embeddings.float()
                 outputs = self.model(features, speaker_embeddings)
@@ -427,9 +427,9 @@ class SENDClient(NumPyClient):
                     uri=rec_id
                 )
         
-        print(f"[{datetime.now()}] SENDClient: Eval summary for client {id(self)}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={np.mean(batch_losses):.4f}")
+        print(f"SENDClient: Eval summary for client {id(self)}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={np.mean(batch_losses):.4f}")
         elapsed = time.time() - start_time
-        print(f"[{datetime.now()}] SENDClient: Finished evaluate for client {id(self)}, total time: {elapsed:.2f} sec")
+        print(f"SENDClient: Finished evaluate for client {id(self)}, total time: {elapsed:.2f} sec")
         # Average DER across recordings
         der = np.mean(list(ders.values())) if ders else float('nan')
         print("=== CLIENT LOG: evaluate finished ===")
@@ -470,31 +470,31 @@ def main():
     num_clients = args.num_clients
 
     print("MAIN STARTED")
-    print(f"[{datetime.now()}] MAIN: Starting main()")
+    print(f"MAIN: Starting main()")
     try:
         # Check GPU availability
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"[{datetime.now()}] MAIN: Using device: {device}")
+        print(f"MAIN: Using device: {device}")
         
         # Initialize speaker encoder
-        print(f"[{datetime.now()}] MAIN: Initializing speaker encoder...")
+        print(f"MAIN: Initializing speaker encoder...")
         speaker_encoder = EncoderClassifier.from_hparams(
             source="speechbrain/spkrec-ecapa-voxceleb",
             savedir="pretrained_models/spkrec-ecapa",
             run_opts={"device": device}
         ).to(device)
-        print(f"[{datetime.now()}] MAIN: Speaker encoder initialized successfully")
+        print(f"MAIN: Speaker encoder initialized successfully")
         
         # Load and preprocess data
         print_data_loading_info("AMI")
         dataset = load_dataset("edinburghcstr/ami", "ihm")
-        print(f"[{datetime.now()}] MAIN: Dataset loaded successfully")
+        print(f"MAIN: Dataset loaded successfully")
         
         # Take a small subset for testing
         print_dataset_overview("AMI", len(dataset["train"]), test_size)
         
         # Group data by meeting ID for all splits
-        print(f"[{datetime.now()}] MAIN: Grouping data by meeting ID...")
+        print(f"MAIN: Grouping data by meeting ID...")
         grouped_train = group_by_meeting(dataset["train"].select(range(test_size)))
         grouped_validation = group_by_meeting(dataset["validation"].select(range(round(test_size/0.7*0.3))))
         grouped_test = group_by_meeting(dataset["test"].select(range(round(test_size/0.7*0.3))))
@@ -509,13 +509,13 @@ def main():
         K = 3  # Maximum simultaneous overlap (2-4 as per paper)
         
         # Initialize Power Set Encoder with fixed N and K
-        print(f"[{datetime.now()}] MAIN: Initializing Power Set Encoder with max_speakers={N}, max_overlap={K}")
+        print(f"MAIN: Initializing Power Set Encoder with max_speakers={N}, max_overlap={K}")
         power_set_encoder = PowerSetEncoder(max_speakers=N, max_overlap=K)
 
         # Calculate number of classes using C(K,N) formula
         num_classes = power_set_encoder.num_classes
-        print(f"[{datetime.now()}] MAIN: PSE Configuration: N={N} (max speakers per recording), K={K} (max overlap)")
-        print(f"[{datetime.now()}] MAIN: Number of classes using C(K,N) = Σ(k=0 to {K}) C({N},k) = {num_classes}")
+        print(f"MAIN: PSE Configuration: N={N} (max speakers per recording), K={K} (max overlap)")
+        print(f"MAIN: Number of classes using C(K,N) = Σ(k=0 to {K}) C({N},k) = {num_classes}")
         
         # Print PowerSetEncoder examples and statistics
         print_power_set_encoder_examples(power_set_encoder)
@@ -537,22 +537,22 @@ def main():
         #             speaker_ids.add(sample["speaker_id"])
         # all_speaker_ids = sorted(list(speaker_ids))
         # speaker_id_list = all_speaker_ids[:N]  # Limit to N slots for PSE consistency
-        # print(f"[{datetime.now()}] MAIN: Detected {len(all_speaker_ids)} unique speakers in dataset: {all_speaker_ids}")
-        # print(f"[{datetime.now()}] MAIN: Using first {len(speaker_id_list)} speakers for PSE slots: {speaker_id_list}")
-        # print(f"[{datetime.now()}] MAIN: Note: PSE uses fixed N={N} slots per recording, not all {len(all_speaker_ids)} speakers")
+        # print(f"MAIN: Detected {len(all_speaker_ids)} unique speakers in dataset: {all_speaker_ids}")
+        # print(f"MAIN: Using first {len(speaker_id_list)} speakers for PSE slots: {speaker_id_list}")
+        # print(f"MAIN: Note: PSE uses fixed N={N} slots per recording, not all {len(all_speaker_ids)} speakers")
         
         # Analyze speaker distribution
         analyze_speaker_distribution(grouped_train)
         
         # Create and train model
-        print(f"[{datetime.now()}] MAIN: Creating SEND model...")
+        print(f"MAIN: Creating SEND model...")
         model = SENDModel(num_classes=num_classes).to(device)
         
         # Print SENDModel statistics
         print_send_model_statistics(model)
         
         # Split data for federated learning with fewer clients
-        print(f"[{datetime.now()}] MAIN: Splitting data for federated learning...")
+        print(f"MAIN: Splitting data for federated learning...")
         client_data = split_data_for_clients(grouped_train, grouped_validation, num_clients, speaker_encoder, power_set_encoder)
         
         # Print detailed statistics about client data split
@@ -562,7 +562,7 @@ def main():
         if not client_data or len(client_data) < num_clients:
             raise ValueError(f"Not enough data for {num_clients} clients. Only {len(client_data) if client_data else 0} clients can be created.")
         
-        print(f"[{datetime.now()}] MAIN: Split data among {len(client_data)} clients")
+        print(f"MAIN: Split data among {len(client_data)} clients")
         
         # Calculate and display actual training samples information
         total_training_samples = 0
@@ -603,28 +603,28 @@ def main():
                 'actual_frames': client_frames
             })
             
-            print(f"[{datetime.now()}] MAIN: Client {client_idx}: {client_train_samples} train samples, {client_val_samples} val samples, {client_total_samples} total samples, {client_frames} frames")
+            print(f"MAIN: Client {client_idx}: {client_train_samples} train samples, {client_val_samples} val samples, {client_total_samples} total samples, {client_frames} frames")
         
-        print(f"[{datetime.now()}] MAIN: Total training samples across all clients: {total_training_samples}")
-        print(f"[{datetime.now()}] MAIN: Total training frames across all clients: {total_training_frames}")
+        print(f"MAIN: Total training samples across all clients: {total_training_samples}")
+        print(f"MAIN: Total training frames across all clients: {total_training_frames}")
         
         # Additional information about data distribution
         if total_training_samples > 0:
             avg_frames_per_sample = total_training_frames / total_training_samples
-            print(f"[{datetime.now()}] MAIN: Average frames per sample: {avg_frames_per_sample:.1f}")
-            print(f"[{datetime.now()}] MAIN: Note: test_size={test_size} refers to number of meeting recordings, not individual training samples")
-            print(f"[{datetime.now()}] MAIN: Each meeting recording contains multiple audio segments, each segment becomes multiple training samples")
-            print(f"[{datetime.now()}] MAIN: Each training sample contains multiple frames (time steps) for sequence learning")
+            print(f"MAIN: Average frames per sample: {avg_frames_per_sample:.1f}")
+            print(f"MAIN: Note: test_size={test_size} refers to number of meeting recordings, not individual training samples")
+            print(f"MAIN: Each meeting recording contains multiple audio segments, each segment becomes multiple training samples")
+            print(f"MAIN: Each training sample contains multiple frames (time steps) for sequence learning")
         
         # Compute speaker embeddings for train set
-        print(f"[{datetime.now()}] MAIN: Computing speaker embeddings for train set...")
+        print(f"MAIN: Computing speaker embeddings for train set...")
         speaker_to_embedding = compute_speaker_embeddings(grouped_train, speaker_encoder)
         
         # Define client function for simulation
         def client_fn(context: Context):
             cid = context.node_config['partition-id']
             print(f"[client_fn] Got cid from context.node_config['partition-id']: {cid}")
-            print(f"[{datetime.now()}] MAIN: Creating client {cid}")
+            print(f"MAIN: Creating client {cid}")
             try:
                 client_idx = int(cid)
                 if client_idx >= len(client_data):
@@ -632,7 +632,7 @@ def main():
                 train_loader, val_loader = client_data[client_idx]
                 # Create new model instance for each client
                 client_model = SENDModel(num_classes=num_classes).to(device)
-                print(f"[{datetime.now()}] MAIN: Client {cid} created and ready")
+                print(f"MAIN: Client {cid} created and ready")
                 return SENDClient(
                     model=client_model,
                     train_loader=train_loader,

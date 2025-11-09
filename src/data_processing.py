@@ -707,61 +707,238 @@ def group_by_meeting(dataset_split):
         grouped.setdefault(meeting_id, []).append(sample)
     return grouped
 
-def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder, N=4, chunk_size=500, max_sequence_length=None):
-    """Create dataset from grouped data with proper padding and fixed N slots per recording.
+def _create_overlapping_segment(current, next_seg, sr=16000):
+    """Create an overlapping audio segment from two overlapping segments.
     
-    Memory-optimized version that processes data in chunks to reduce peak memory usage.
+    Args:
+        current: First segment dict with 'audio', 'begin_time', 'end_time', 'speaker_id'
+        next_seg: Second segment dict with 'audio', 'begin_time', 'end_time', 'speaker_id'
+        sr: Sample rate (default: 16000)
+        
+    Returns:
+        dict: Overlapping sample with combined audio and list of speaker_ids, or None if no valid overlap
+    """
+    # Check if segments overlap
+    if not (next_seg["begin_time"] < current["end_time"] and next_seg["end_time"] > current["begin_time"]):
+        return None
+    
+    # Calculate overlap boundaries
+    overlap_begin = max(current["begin_time"], next_seg["begin_time"])
+    overlap_end = min(current["end_time"], next_seg["end_time"])
+    
+    if overlap_end <= overlap_begin:
+        return None
+    
+    # Get audio segments
+    current_audio = current["audio"]["array"]
+    next_audio = next_seg["audio"]["array"]
+    
+    # Calculate overlap duration in samples
+    current_start = int((overlap_begin - current["begin_time"]) * sr)
+    current_end = int((overlap_end - current["begin_time"]) * sr)
+    next_start = int((overlap_begin - next_seg["begin_time"]) * sr)
+    next_end = int((overlap_end - next_seg["begin_time"]) * sr)
+    
+    # Ensure indices are within bounds
+    current_start = max(0, min(current_start, len(current_audio)))
+    current_end = max(0, min(current_end, len(current_audio)))
+    next_start = max(0, min(next_start, len(next_audio)))
+    next_end = max(0, min(next_end, len(next_audio)))
+    
+    # Extract overlapping portions
+    current_overlap = current_audio[current_start:current_end]
+    next_overlap = next_audio[next_start:next_end]
+    
+    # Ensure both segments have the same length
+    min_length = min(len(current_overlap), len(next_overlap))
+    if min_length <= 0:
+        return None
+    
+    current_overlap = current_overlap[:min_length]
+    next_overlap = next_overlap[:min_length]
+    
+    # Combine audio segments
+    combined_audio = current_overlap + next_overlap
+    
+    # Normalize
+    if np.max(np.abs(combined_audio)) > 0:
+        combined_audio = combined_audio / np.max(np.abs(combined_audio))
+    
+    # Create overlapping sample
+    return {
+        "audio": {"array": combined_audio},
+        "speaker_id": [current["speaker_id"], next_seg["speaker_id"]],
+        "begin_time": overlap_begin,
+        "end_time": overlap_end
+    }
+
+
+def _process_meeting_with_overlaps(meeting_id, samples, N=4):
+    """Process a single meeting to detect and create overlapping segments.
+    
+    Args:
+        meeting_id: ID of the meeting
+        samples: List of sample dicts for this meeting
+        N: Maximum number of speaker slots
+        
+    Returns:
+        tuple: (all_samples_info, meeting_original_count, meeting_overlaps_count)
+            where all_samples_info is a list of dicts with 'meeting_id', 'sample', 'speaker_to_slot', 'is_overlap'
+    """
+    # Create speaker-to-slot mapping for this recording (max N slots)
+    meeting_speakers = list(set(sample["speaker_id"] for sample in samples))
+    speaker_to_slot = {}
+    for i, speaker_id in enumerate(meeting_speakers[:N]):
+        speaker_to_slot[speaker_id] = i
+    
+    logger.info(f"Meeting {meeting_id}: {len(meeting_speakers)} speakers mapped to slots {list(speaker_to_slot.values())}")
+    
+    # Sort samples by begin_time to detect overlaps
+    sorted_samples = sorted(samples, key=lambda x: x["begin_time"])
+    meeting_original = 0
+    meeting_overlaps = 0
+    all_samples_info = []
+    
+    # Add all original non-overlapping segments
+    logger.info(f"  [OVERLAP PROCESSING] Meeting {meeting_id}: Adding {len(sorted_samples)} original segments...")
+    for sample in sorted_samples:
+        all_samples_info.append({
+            'meeting_id': meeting_id,
+            'sample': sample,
+            'speaker_to_slot': speaker_to_slot,
+            'is_overlap': False
+        })
+        meeting_original += 1
+    
+    # Find and create overlapping segments
+    logger.info(f"  [OVERLAP PROCESSING] Meeting {meeting_id}: Detecting overlapping segments...")
+    overlap_examples = []  # For logging examples
+    for i in range(len(sorted_samples)):
+        current = sorted_samples[i]
+        for j in range(i + 1, len(sorted_samples)):
+            next_seg = sorted_samples[j]
+            
+            overlap_sample = _create_overlapping_segment(current, next_seg)
+            if overlap_sample is not None:
+                all_samples_info.append({
+                    'meeting_id': meeting_id,
+                    'sample': overlap_sample,
+                    'speaker_to_slot': speaker_to_slot,
+                    'is_overlap': True
+                })
+                meeting_overlaps += 1
+                
+                # Save examples for logging (first 3)
+                if len(overlap_examples) < 3:
+                    overlap_examples.append({
+                        'speakers': overlap_sample['speaker_id'],
+                        'time': (overlap_sample['begin_time'], overlap_sample['end_time']),
+                        'duration': overlap_sample['end_time'] - overlap_sample['begin_time']
+                    })
+    
+    # Log examples of overlapping segments with labels
+    if overlap_examples:
+        logger.info(f"  [OVERLAP PROCESSING] Examples of overlapping segments for meeting {meeting_id}:")
+        for idx, example in enumerate(overlap_examples, 1):
+            speakers = example['speakers']
+            time_range = example['time']
+            duration = example['duration']
+            # Determine slots for these speakers
+            slot_indices = []
+            for spk_id in speakers:
+                if spk_id in speaker_to_slot:
+                    slot_indices.append(speaker_to_slot[spk_id])
+            logger.info(f"    Example {idx}: Speakers {speakers} -> Slots {slot_indices}, "
+                       f"Time: {time_range[0]:.2f}s-{time_range[1]:.2f}s ({duration:.2f}s)")
+    
+    logger.info(f"  [OVERLAP PROCESSING] Meeting {meeting_id} statistics:")
+    logger.info(f"    - Original segments: {meeting_original}")
+    logger.info(f"    - Overlapping segments created: {meeting_overlaps}")
+    if meeting_original > 0:
+        logger.info(f"    - Overlap ratio: {meeting_overlaps/meeting_original:.2%}")
+    
+    if meeting_overlaps > 0:
+        logger.info(f"    ✓ CONFIRMED: Found and processed {meeting_overlaps} overlapping segments for meeting {meeting_id}")
+    
+    return all_samples_info, meeting_original, meeting_overlaps
+
+
+def _process_all_meetings_with_overlaps(grouped_data, N=4):
+    """Process all meetings to detect and create overlapping segments.
     
     Args:
         grouped_data: Dictionary of meeting_id to samples
-        speaker_encoder: Speaker encoder model
-        power_set_encoder: PowerSetEncoder instance for encoding speaker combinations
-        N: Maximum number of speaker slots per recording (fixed for PSE)
-        chunk_size: Number of samples to process at once (default: 500)
-        max_sequence_length: Optional maximum sequence length to truncate longer sequences (default: None = no limit)
+        N: Maximum number of speaker slots
         
     Returns:
-        Tuple of (features, labels, meeting_ids): Dataset with padded features and meeting IDs
+        tuple: (all_samples_info, total_original_segments, total_overlapping_segments)
     """
-    # Log function start
-    print_function_start("create_dataset_from_grouped", 
-                        grouped_data_len=len(grouped_data), 
-                        N=N)
+    logger.info("=" * 80)
+    logger.info("OVERLAPPING SPEECH PROCESSING: ENABLED")
+    logger.info("=" * 80)
+    logger.info("Processing overlapping speech segments for each meeting...")
     
-    # First pass: extract features and find max length (process in chunks to save memory)
-    logger.info("First pass: Extracting features and finding max length...")
-    max_len = 0
-    total_samples = 0
-    feature_dim = None
-    
-    # Collect all samples first (lightweight - just references)
+    total_meetings = len(grouped_data)
+    total_original_segments = 0
+    total_overlapping_segments = 0
     all_samples_info = []
+    
     for meeting_id, samples in grouped_data.items():
-        # Create speaker-to-slot mapping for this recording (max N slots)
-        meeting_speakers = list(set(sample["speaker_id"] for sample in samples))
-        speaker_to_slot = {}
-        for i, speaker_id in enumerate(meeting_speakers[:N]):  # Limit to N slots
-            speaker_to_slot[speaker_id] = i
-        
-        logger.info(f"Meeting {meeting_id}: {len(meeting_speakers)} speakers mapped to slots {list(speaker_to_slot.values())}")
-        
-        for sample in samples:
-            all_samples_info.append({
-                'meeting_id': meeting_id,
-                'sample': sample,
-                'speaker_to_slot': speaker_to_slot
-            })
+        try:
+            meeting_samples_info, meeting_original, meeting_overlaps = _process_meeting_with_overlaps(
+                meeting_id, samples, N
+            )
+            all_samples_info.extend(meeting_samples_info)
+            total_original_segments += meeting_original
+            total_overlapping_segments += meeting_overlaps
+        except Exception as e:
+            logger.error(f"Error processing meeting {meeting_id} for overlaps: {str(e)}")
+            continue
     
-    total_samples = len(all_samples_info)
-    logger.info(f"Total samples to process: {total_samples}")
+    # Log overall statistics
+    logger.info("=" * 80)
+    logger.info("OVERLAPPING SPEECH PROCESSING: COMPLETE")
+    logger.info("=" * 80)
+    logger.info(f"Total meetings processed: {total_meetings}")
+    logger.info(f"Total original segments: {total_original_segments}")
+    logger.info(f"Total overlapping segments created: {total_overlapping_segments}")
+    logger.info(f"Total segments (original + overlaps): {len(all_samples_info)}")
+    if total_original_segments > 0:
+        logger.info(f"Overall overlap ratio: {total_overlapping_segments/total_original_segments:.2%}")
     
-    # First pass: extract features in chunks to find max_len and feature_dim
-    # Process ALL samples in chunks to find the true maximum length
+    # Confirmation message
+    if total_overlapping_segments > 0:
+        logger.info("")
+        logger.info("✓✓✓ CONFIRMATION: OVERLAPPING SPEECH SUCCESSFULLY PROCESSED ✓✓✓")
+        logger.info(f"   - {total_overlapping_segments} overlapping segments were detected and added to the dataset")
+        logger.info(f"   - These segments will be used for training with multi-speaker labels")
+        logger.info("")
+    else:
+        logger.warning("")
+        logger.warning("⚠ WARNING: No overlapping segments were found in the dataset")
+        logger.warning("   - This may indicate that the dataset has no natural overlaps")
+        logger.warning("   - Or there may be an issue with overlap detection")
+        logger.warning("")
+    logger.info("=" * 80)
+    
+    return all_samples_info, total_original_segments, total_overlapping_segments
+
+
+def _find_max_sequence_length(all_samples_info, chunk_size=500):
+    """First pass: extract features to find maximum sequence length and feature dimension.
+    
+    Args:
+        all_samples_info: List of sample info dicts
+        chunk_size: Number of samples to process at once
+        
+    Returns:
+        tuple: (max_len, feature_dim)
+    """
     logger.info("First pass: Extracting features in chunks to determine dimensions (checking ALL samples)...")
     max_len = 0
     feature_dim = None
+    total_samples = len(all_samples_info)
     
-    # Process all samples in chunks to find true max_len (critical for memory allocation)
     for chunk_start in range(0, total_samples, chunk_size):
         chunk_end = min(chunk_start + chunk_size, total_samples)
         chunk_info = all_samples_info[chunk_start:chunk_end]
@@ -782,15 +959,20 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder
             gc.collect()
     
     gc.collect()
+    return max_len, feature_dim
+
+
+def _allocate_arrays(total_samples, max_len, feature_dim):
+    """Pre-allocate numpy arrays and calculate memory requirements.
     
-    # Apply max_sequence_length limit if specified
-    original_max_len = max_len
-    if max_sequence_length is not None and max_len > max_sequence_length:
-        logger.warning(f"Truncating max sequence length from {max_len} to {max_sequence_length} to save memory")
-        max_len = max_sequence_length
-    
-    logger.info(f"Final max sequence length: {max_len} (original: {original_max_len}), Feature dimension: {feature_dim}")
-    
+    Args:
+        total_samples: Total number of samples
+        max_len: Maximum sequence length
+        feature_dim: Feature dimension
+        
+    Returns:
+        tuple: (features, labels, meeting_ids, total_memory_gb)
+    """
     # Calculate estimated memory requirements
     features_memory_gb = (total_samples * max_len * feature_dim * 4) / (1024**3)  # float32 = 4 bytes
     labels_memory_gb = (total_samples * max_len * 8) / (1024**3)  # int64 = 8 bytes
@@ -809,7 +991,7 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder
         logger.warning(f"Consider reducing chunk_size or using a smaller dataset subset.")
         logger.warning(f"Proceeding anyway, but may fail if insufficient memory is available.")
     
-    # Pre-allocate numpy arrays to avoid memory fragmentation
+    # Pre-allocate numpy arrays
     logger.info(f"Pre-allocating arrays for {total_samples} samples...")
     try:
         features = np.zeros((total_samples, max_len, feature_dim), dtype=np.float32)
@@ -820,9 +1002,81 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder
         logger.error(f"Try: 1) Reducing chunk_size, 2) Using smaller dataset, 3) Requesting more memory")
         raise
     
-    # Second pass: extract features, pad and store (process in chunks)
+    return features, labels, meeting_ids, total_memory_gb
+
+
+def _encode_speaker_label(speaker_id, speaker_to_slot, is_overlap, power_set_encoder, meeting_id, N):
+    """Encode speaker label(s) using Power Set Encoding.
+    
+    Args:
+        speaker_id: Single speaker ID (str/int) or list of speaker IDs for overlaps
+        speaker_to_slot: Mapping from speaker_id to slot index
+        is_overlap: Whether this is an overlapping segment
+        power_set_encoder: PowerSetEncoder instance
+        meeting_id: Meeting ID for logging
+        N: Maximum number of speakers
+        
+    Returns:
+        int: Encoded label value
+    """
+    if is_overlap:
+        # This is an overlapping segment - speaker_id is a list
+        if isinstance(speaker_id, list):
+            slot_indices = []
+            for spk_id in speaker_id:
+                if spk_id in speaker_to_slot:
+                    slot_indices.append(speaker_to_slot[spk_id])
+                else:
+                    logger.warning(f"Speaker {spk_id} in overlap not in top-{N} for meeting {meeting_id}, skipping")
+            if len(slot_indices) > 0:
+                return power_set_encoder.encode(slot_indices)
+            else:
+                logger.warning(f"No valid speakers in overlap for meeting {meeting_id}, using slot 0")
+                return power_set_encoder.encode([0])
+        else:
+            logger.warning(f"Overlap segment has non-list speaker_id: {speaker_id}")
+            if speaker_id in speaker_to_slot:
+                return power_set_encoder.encode([speaker_to_slot[speaker_id]])
+            else:
+                return power_set_encoder.encode([0])
+    else:
+        # This is a non-overlapping segment - speaker_id is a single value
+        if isinstance(speaker_id, list):
+            logger.warning(f"Non-overlap segment has list speaker_id: {speaker_id}, using first")
+            speaker_id = speaker_id[0]
+        
+        if speaker_id in speaker_to_slot:
+            return power_set_encoder.encode([speaker_to_slot[speaker_id]])
+        else:
+            logger.warning(f"Speaker {speaker_id} not in top-{N} for meeting {meeting_id}, assigning to slot 0")
+            return power_set_encoder.encode([0])
+
+
+def _extract_features_and_labels(all_samples_info, features, labels, meeting_ids, max_len, 
+                                  power_set_encoder, N, chunk_size=500, max_sequence_length=None):
+    """Second pass: extract features, create labels, and fill pre-allocated arrays.
+    
+    Args:
+        all_samples_info: List of sample info dicts
+        features: Pre-allocated features array
+        labels: Pre-allocated labels array
+        meeting_ids: Pre-allocated meeting_ids array
+        max_len: Maximum sequence length
+        power_set_encoder: PowerSetEncoder instance
+        N: Maximum number of speakers
+        chunk_size: Number of samples to process at once
+        max_sequence_length: Optional maximum sequence length limit
+        
+    Returns:
+        tuple: (speaker_ids, overlap_count, non_overlap_count)
+    """
     logger.info(f"Second pass: Extracting and padding features (chunk_size={chunk_size})...")
+    logger.info("Processing both original and overlapping segments...")
+    
+    total_samples = len(all_samples_info)
     speaker_ids = []
+    overlap_count = 0
+    non_overlap_count = 0
     
     for chunk_start in range(0, total_samples, chunk_size):
         chunk_end = min(chunk_start + chunk_size, total_samples)
@@ -836,34 +1090,43 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder
             speaker_to_slot = item['speaker_to_slot']
             meeting_id = item['meeting_id']
             sample = item['sample']
+            is_overlap = item.get('is_overlap', False)
             
-            # Truncate if longer than max_len (shouldn't happen, but safety check)
+            # Truncate if longer than max_len
             if feature.shape[0] > max_len:
                 if max_sequence_length is None:
                     logger.error(f"CRITICAL: Found longer sequence ({feature.shape[0]} > {max_len})!")
                     logger.error(f"This should not happen - we checked all samples. Truncating to {max_len}.")
-                feature = feature[:max_len, :]  # Truncate instead of reallocating
+                feature = feature[:max_len, :]
             
-            # Map speaker to slot (0 to N-1) and encode using PowerSetEncoder
+            # Encode speaker label
             speaker_id = sample["speaker_id"]
-            if speaker_id in speaker_to_slot:
-                slot_idx = speaker_to_slot[speaker_id]
-                label = power_set_encoder.encode([slot_idx])  # Single speaker in slot
+            label = _encode_speaker_label(speaker_id, speaker_to_slot, is_overlap, 
+                                         power_set_encoder, meeting_id, N)
+            
+            if is_overlap:
+                overlap_count += 1
+                # Log first few examples of overlapping labels
+                if overlap_count <= 5:
+                    if isinstance(speaker_id, list):
+                        slot_indices = [speaker_to_slot.get(spk_id, -1) for spk_id in speaker_id if spk_id in speaker_to_slot]
+                        decoded = power_set_encoder.decode(label)
+                        logger.info(f"  [LABEL EXAMPLE] Overlap segment {overlap_count}: "
+                                   f"Speakers {speaker_id} -> Slots {slot_indices} -> "
+                                   f"Encoded label: {label} -> Decoded slots: {decoded}")
             else:
-                # Speaker not in top-N, assign to slot 0 (or handle differently)
-                logger.warning(f"Speaker {speaker_id} not in top-{N} for meeting {meeting_id}, assigning to slot 0")
-                label = power_set_encoder.encode([0])
+                non_overlap_count += 1
             
-            speaker_ids.append(speaker_id)
+            # Store speaker_id (convert list to tuple for hashing if needed)
+            if isinstance(speaker_id, list):
+                speaker_ids.append(tuple(speaker_id))
+            else:
+                speaker_ids.append(speaker_id)
             
-            # Store feature directly (already zero-padded by pre-allocation)
+            # Store feature and labels
             seq_len = feature.shape[0]
             features[global_idx, :seq_len, :] = feature
-            
-            # Create frame-wise labels
             labels[global_idx, :seq_len] = label
-            
-            # Create frame-wise meeting_ids
             meeting_ids[global_idx, :seq_len] = meeting_id
             
             # Free feature memory immediately
@@ -875,19 +1138,131 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder
         # Force garbage collection after each chunk
         gc.collect()
     
+    # Log final statistics
+    logger.info("=" * 80)
+    logger.info("FEATURE EXTRACTION: COMPLETE")
+    logger.info("=" * 80)
+    logger.info(f"Non-overlapping segments processed: {non_overlap_count}")
+    logger.info(f"Overlapping segments processed: {overlap_count}")
+    logger.info(f"Total segments processed: {non_overlap_count + overlap_count}")
+    if (non_overlap_count + overlap_count) > 0:
+        logger.info(f"Overlap percentage in final dataset: {100*overlap_count/(non_overlap_count + overlap_count):.2f}%")
+    
+    # Final confirmation with label statistics
+    if overlap_count > 0:
+        logger.info("")
+        logger.info("✓✓✓ FINAL CONFIRMATION: OVERLAPPING SPEECH IN FINAL DATASET ✓✓✓")
+        logger.info(f"   - {overlap_count} overlapping segments with multi-speaker labels are in the dataset")
+        logger.info(f"   - These segments use Power Set Encoding for multiple active speakers")
+        logger.info(f"   - The model will be trained on both single-speaker and multi-speaker segments")
+        
+        # Show statistics for overlapping segment labels
+        overlap_labels = []
+        for i in range(len(all_samples_info)):
+            item = all_samples_info[i]
+            if item.get('is_overlap', False):
+                sample = item['sample']
+                speaker_id = sample["speaker_id"]
+                speaker_to_slot = item['speaker_to_slot']
+                if isinstance(speaker_id, list):
+                    slot_indices = [speaker_to_slot.get(spk_id) for spk_id in speaker_id if spk_id in speaker_to_slot]
+                    if slot_indices:
+                        label = power_set_encoder.encode(slot_indices)
+                        overlap_labels.append((label, slot_indices, speaker_id))
+        
+        if overlap_labels:
+            unique_labels = {}
+            for label, slots, speakers in overlap_labels:
+                if label not in unique_labels:
+                    unique_labels[label] = {'count': 0, 'slots': slots, 'speakers': speakers}
+                unique_labels[label]['count'] += 1
+            
+            logger.info(f"\n   Overlap label statistics:")
+            logger.info(f"   - Unique overlap labels: {len(unique_labels)}")
+            logger.info(f"   - Label distribution (first 10):")
+            for label, info in sorted(unique_labels.items())[:10]:  # Show first 10
+                decoded = power_set_encoder.decode(label)
+                logger.info(f"     * Label {label}: Slots {info['slots']} (Speakers {info['speakers']}) "
+                           f"-> Decoded: {decoded}, Count: {info['count']}")
+            if len(unique_labels) > 10:
+                logger.info(f"     ... and {len(unique_labels) - 10} more unique labels")
+        
+        logger.info("")
+    logger.info("=" * 80)
+    
+    return speaker_ids, overlap_count, non_overlap_count
+
+
+def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder, N=4, chunk_size=500, max_sequence_length=None):
+    """Create dataset from grouped data with proper padding and fixed N slots per recording.
+    
+    Memory-optimized version that processes data in chunks to reduce peak memory usage.
+    NOW INCLUDES OVERLAPPING SPEECH PROCESSING: detects and processes natural overlapping segments.
+    
+    Args:
+        grouped_data: Dictionary of meeting_id to samples
+        speaker_encoder: Speaker encoder model (not used directly, kept for API compatibility)
+        power_set_encoder: PowerSetEncoder instance for encoding speaker combinations
+        N: Maximum number of speaker slots per recording (fixed for PSE)
+        chunk_size: Number of samples to process at once (default: 500)
+        max_sequence_length: Optional maximum sequence length to truncate longer sequences (default: None = no limit)
+        
+    Returns:
+        Tuple of (features, labels, meeting_ids, speaker_ids): Dataset with padded features, meeting IDs, and speaker IDs
+    """
+    # Log function start
+    print_function_start("create_dataset_from_grouped", 
+                        grouped_data_len=len(grouped_data), 
+                        N=N)
+    
+    # Step 1: Process all meetings to detect and create overlapping segments
+    all_samples_info, total_original_segments, total_overlapping_segments = _process_all_meetings_with_overlaps(
+        grouped_data, N
+    )
+    
+    total_samples = len(all_samples_info)
+    logger.info(f"Total samples to process (including overlaps): {total_samples}")
+    
+    # Step 2: First pass - find maximum sequence length and feature dimension
+    max_len, feature_dim = _find_max_sequence_length(all_samples_info, chunk_size)
+    
+    # Apply max_sequence_length limit if specified
+    original_max_len = max_len
+    if max_sequence_length is not None and max_len > max_sequence_length:
+        logger.warning(f"Truncating max sequence length from {max_len} to {max_sequence_length} to save memory")
+        max_len = max_sequence_length
+    
+    logger.info(f"Final max sequence length: {max_len} (original: {original_max_len}), Feature dimension: {feature_dim}")
+    
+    # Step 3: Pre-allocate numpy arrays
+    features, labels, meeting_ids, total_memory_gb = _allocate_arrays(total_samples, max_len, feature_dim)
+    
+    # Step 4: Second pass - extract features, create labels, and fill arrays
+    speaker_ids, overlap_count, non_overlap_count = _extract_features_and_labels(
+        all_samples_info, features, labels, meeting_ids, max_len,
+        power_set_encoder, N, chunk_size, max_sequence_length
+    )
+    
+    # Verify that speaker_ids length matches features length
+    if len(speaker_ids) != len(features):
+        logger.error(f"Mismatch: speaker_ids length ({len(speaker_ids)}) != features length ({len(features)})")
+        raise ValueError(f"speaker_ids length ({len(speaker_ids)}) must match features length ({len(features)})")
+    
+    # Final logging
     logger.info("Padding complete.")
     logger.info(f"Features array created: shape {features.shape}, size {features.nbytes / (1024**3):.2f} GB")
     logger.info(f"Labels array created: shape {labels.shape}")
     logger.info(f"Meeting IDs array created: shape {meeting_ids.shape}")
+    logger.info(f"Speaker IDs list length: {len(speaker_ids)}")
     
-    # Use statistics function for dataset logging (pass empty list for raw_features since we don't store them)
+    # Use statistics function for dataset logging
     print_dataset_statistics(features, labels, meeting_ids, [])
     
     # Log function completion
     print_function_end("create_dataset_from_grouped", 
                       f"Created dataset with {features.shape[0]} samples, {features.shape[1]} max frames, {features.shape[2]} mel-bands")
     
-    return features, labels, meeting_ids
+    return features, labels, meeting_ids, speaker_ids
 
 def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, debug=True, frame_shift=0.01, uri=None):
     """Calculate Diarization Error Rate with detailed logging and correct multi-speaker segments.
@@ -994,34 +1369,31 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
     logger.info(f"Creating datasets with chunk_size={chunk_size} for memory optimization...")
     if max_sequence_length is not None:
         logger.info(f"Using max_sequence_length={max_sequence_length} to limit memory usage")
-    train_features, train_labels, train_meeting_ids = create_dataset_from_grouped(grouped_train, speaker_encoder, power_set_encoder, N, chunk_size=chunk_size, max_sequence_length=max_sequence_length)
-    val_features, val_labels, val_meeting_ids = create_dataset_from_grouped(grouped_validation, speaker_encoder, power_set_encoder, N, chunk_size=chunk_size, max_sequence_length=max_sequence_length)
-    test_features, test_labels, test_meeting_ids = create_dataset_from_grouped(grouped_test, speaker_encoder, power_set_encoder, N, chunk_size=chunk_size, max_sequence_length=max_sequence_length)
     
-    # Create speaker ID to index mapping for speaker_ids list
+    # Create datasets - now returns speaker_ids as well (includes overlapping segments)
+    train_features, train_labels, train_meeting_ids, train_speaker_ids = create_dataset_from_grouped(
+        grouped_train, speaker_encoder, power_set_encoder, N, chunk_size=chunk_size, max_sequence_length=max_sequence_length
+    )
+    val_features, val_labels, val_meeting_ids, val_speaker_ids = create_dataset_from_grouped(
+        grouped_validation, speaker_encoder, power_set_encoder, N, chunk_size=chunk_size, max_sequence_length=max_sequence_length
+    )
+    test_features, test_labels, test_meeting_ids, test_speaker_ids = create_dataset_from_grouped(
+        grouped_test, speaker_encoder, power_set_encoder, N, chunk_size=chunk_size, max_sequence_length=max_sequence_length
+    )
+    
+    # Create speaker ID to index mapping for speaker_ids list (from original samples only)
     speaker_to_idx = {}
     for meeting_id, samples in grouped_train.items():
         for sample in samples:
             speaker_id = sample["speaker_id"]
-            if speaker_id not in speaker_to_idx:
-                speaker_to_idx[speaker_id] = len(speaker_to_idx)
-    
-    # Create speaker_ids lists (one per sample)
-    train_speaker_ids = []
-    val_speaker_ids = []
-    test_speaker_ids = []
-    
-    for meeting_id, samples in grouped_train.items():
-        for sample in samples:
-            train_speaker_ids.append(sample["speaker_id"])
-    
-    for meeting_id, samples in grouped_validation.items():
-        for sample in samples:
-            val_speaker_ids.append(sample["speaker_id"])
-    
-    for meeting_id, samples in grouped_test.items():
-        for sample in samples:
-            test_speaker_ids.append(sample["speaker_id"])
+            if isinstance(speaker_id, list):
+                # For overlapping segments, add all speakers
+                for spk_id in speaker_id:
+                    if spk_id not in speaker_to_idx:
+                        speaker_to_idx[spk_id] = len(speaker_to_idx)
+            else:
+                if speaker_id not in speaker_to_idx:
+                    speaker_to_idx[speaker_id] = len(speaker_to_idx)
     
     # Create datasets
     train_dataset = OverlappingSpeechDataset(
@@ -1165,6 +1537,13 @@ class OverlappingSpeechDataset(Dataset):
         self.speaker_to_embedding = speaker_to_embedding
         self.max_speakers = max_speakers
         
+        # Verify that all arrays have the same length
+        if len(features) != len(labels) or len(features) != len(meeting_ids) or len(features) != len(speaker_ids):
+            raise ValueError(
+                f"Mismatch in dataset lengths: features={len(features)}, labels={len(labels)}, "
+                f"meeting_ids={len(meeting_ids)}, speaker_ids={len(speaker_ids)}"
+            )
+        
         # Create stable mapping: slot -> speaker_id
         # This ensures consistent ordering across all samples
         ordered_spk_ids = sorted(self.speaker_to_embedding.keys())
@@ -1184,6 +1563,7 @@ class OverlappingSpeechDataset(Dataset):
         # Log the mapping for debugging
         print(f"[OverlappingSpeechDataset] Slot->Speaker mapping: {dict(enumerate(self.speaker_id_list))}")
         print(f"[OverlappingSpeechDataset] Embeddings shape: {self.all_embeddings.shape}")
+        print(f"[OverlappingSpeechDataset] Dataset size: {len(features)} samples")
         
     def __len__(self) -> int:
         return len(self.features)
@@ -1192,6 +1572,13 @@ class OverlappingSpeechDataset(Dataset):
         feature = torch.tensor(self.features[idx], dtype=torch.float32)
         label = torch.tensor(self.labels[idx], dtype=torch.long)
         meeting_id = self.meeting_ids[idx]
+        
+        # Check bounds for speaker_ids
+        if idx >= len(self.speaker_ids):
+            logger.error(f"Index {idx} out of range for speaker_ids (length: {len(self.speaker_ids)})")
+            logger.error(f"Features length: {len(self.features)}, Labels length: {len(self.labels)}, Meeting IDs length: {len(self.meeting_ids)}")
+            raise IndexError(f"speaker_ids index {idx} out of range (length: {len(self.speaker_ids)})")
+        
         sid = self.speaker_ids[idx]
         
         # Return the pre-computed embeddings matrix
