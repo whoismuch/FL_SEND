@@ -7,7 +7,6 @@
 #SBATCH --mem=64G  # Maximum available memory (will auto-limit sequence length to fit)
 #SBATCH --gres=gpu:1
 #SBATCH --partition=pascal  # Using pascal partition (infinite timelimit, 6 idle nodes available)
-#SBATCH --exclude=pascal-node01.l3s.intra,pascal-node03.l3s.intra  # Exclude unavailable nodes
 #SBATCH --output=training_full_%j.out
 #SBATCH --error=training_full_%j.err
 
@@ -85,7 +84,7 @@ nvidia-smi || echo "nvidia-smi not available"
 echo "=== Starting Training on FULL DATASET with 100 EPOCHS ==="
 
 # Change to working directory
-cd ~/FL_SEND/6nov/FL_SEND
+cd ~/FL_SEND/14nov/FL_SEND
 
 # Add src to PYTHONPATH for imports
 export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"

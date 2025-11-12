@@ -938,7 +938,7 @@ def _process_all_meetings_with_overlaps(grouped_data, N=4):
         logger.warning("")
     logger.info("=" * 80)
     
-    return all_samples_info, total_original_segments, total_overlapping_segments
+    return all_samples_info, total_original_segments, total_overlapping_segments, total_same_speaker_overlaps
 
 
 def _find_max_sequence_length(all_samples_info, chunk_size=500):
@@ -1419,7 +1419,7 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
             else:
                 if speaker_id not in speaker_to_idx:
                     speaker_to_idx[speaker_id] = len(speaker_to_idx)
-    
+        
     # Create datasets
     train_dataset = OverlappingSpeechDataset(
         features=train_features,

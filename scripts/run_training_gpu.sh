@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --gres=gpu:1
-#SBATCH --partition=ampere  # Using ampere partition with A100 GPUs
+#SBATCH --partition=pascal  # Using pascal partition (ampere is currently unavailable)
 #SBATCH --output=~/FL_SEND/24oct/training_gpu_%j.out
 #SBATCH --error=~/FL_SEND/24oct/training_gpu_%j.err
 
