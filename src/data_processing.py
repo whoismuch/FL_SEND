@@ -764,6 +764,10 @@ def _create_overlapping_segment(current, next_seg, sr=16000):
     if np.max(np.abs(combined_audio)) > 0:
         combined_audio = combined_audio / np.max(np.abs(combined_audio))
     
+    # Skip if both segments have the same speaker (not a true overlap)
+    if current["speaker_id"] == next_seg["speaker_id"]:
+        return None
+    
     # Create overlapping sample
     return {
         "audio": {"array": combined_audio},
@@ -813,10 +817,17 @@ def _process_meeting_with_overlaps(meeting_id, samples, N=4):
     # Find and create overlapping segments
     logger.info(f"  [OVERLAP PROCESSING] Meeting {meeting_id}: Detecting overlapping segments...")
     overlap_examples = []  # For logging examples
+    same_speaker_overlaps = 0  # Count cases where same speaker overlaps with themselves
     for i in range(len(sorted_samples)):
         current = sorted_samples[i]
         for j in range(i + 1, len(sorted_samples)):
             next_seg = sorted_samples[j]
+            
+            # Check if segments overlap in time
+            if next_seg["begin_time"] < current["end_time"] and next_seg["end_time"] > current["begin_time"]:
+                # Check if same speaker (will be skipped in _create_overlapping_segment)
+                if current["speaker_id"] == next_seg["speaker_id"]:
+                    same_speaker_overlaps += 1
             
             overlap_sample = _create_overlapping_segment(current, next_seg)
             if overlap_sample is not None:
@@ -854,13 +865,15 @@ def _process_meeting_with_overlaps(meeting_id, samples, N=4):
     logger.info(f"  [OVERLAP PROCESSING] Meeting {meeting_id} statistics:")
     logger.info(f"    - Original segments: {meeting_original}")
     logger.info(f"    - Overlapping segments created: {meeting_overlaps}")
+    if same_speaker_overlaps > 0:
+        logger.info(f"    - Same-speaker overlaps skipped: {same_speaker_overlaps} (same speaker speaking in overlapping time segments - not true overlap)")
     if meeting_original > 0:
         logger.info(f"    - Overlap ratio: {meeting_overlaps/meeting_original:.2%}")
     
     if meeting_overlaps > 0:
         logger.info(f"    ✓ CONFIRMED: Found and processed {meeting_overlaps} overlapping segments for meeting {meeting_id}")
     
-    return all_samples_info, meeting_original, meeting_overlaps
+    return all_samples_info, meeting_original, meeting_overlaps, same_speaker_overlaps
 
 
 def _process_all_meetings_with_overlaps(grouped_data, N=4):
@@ -871,7 +884,7 @@ def _process_all_meetings_with_overlaps(grouped_data, N=4):
         N: Maximum number of speaker slots
         
     Returns:
-        tuple: (all_samples_info, total_original_segments, total_overlapping_segments)
+        tuple: (all_samples_info, total_original_segments, total_overlapping_segments, total_same_speaker_overlaps)
     """
     logger.info("=" * 80)
     logger.info("OVERLAPPING SPEECH PROCESSING: ENABLED")
@@ -881,16 +894,18 @@ def _process_all_meetings_with_overlaps(grouped_data, N=4):
     total_meetings = len(grouped_data)
     total_original_segments = 0
     total_overlapping_segments = 0
+    total_same_speaker_overlaps = 0
     all_samples_info = []
     
     for meeting_id, samples in grouped_data.items():
         try:
-            meeting_samples_info, meeting_original, meeting_overlaps = _process_meeting_with_overlaps(
+            meeting_samples_info, meeting_original, meeting_overlaps, same_speaker_overlaps = _process_meeting_with_overlaps(
                 meeting_id, samples, N
             )
             all_samples_info.extend(meeting_samples_info)
             total_original_segments += meeting_original
             total_overlapping_segments += meeting_overlaps
+            total_same_speaker_overlaps += same_speaker_overlaps
         except Exception as e:
             logger.error(f"Error processing meeting {meeting_id} for overlaps: {str(e)}")
             continue
@@ -902,6 +917,8 @@ def _process_all_meetings_with_overlaps(grouped_data, N=4):
     logger.info(f"Total meetings processed: {total_meetings}")
     logger.info(f"Total original segments: {total_original_segments}")
     logger.info(f"Total overlapping segments created: {total_overlapping_segments}")
+    if total_same_speaker_overlaps > 0:
+        logger.info(f"Total same-speaker overlaps skipped: {total_same_speaker_overlaps} (same speaker in overlapping time segments - not true overlap)")
     logger.info(f"Total segments (original + overlaps): {len(all_samples_info)}")
     if total_original_segments > 0:
         logger.info(f"Overall overlap ratio: {total_overlapping_segments/total_original_segments:.2%}")
@@ -1028,7 +1045,15 @@ def _encode_speaker_label(speaker_id, speaker_to_slot, is_overlap, power_set_enc
                     slot_indices.append(speaker_to_slot[spk_id])
                 else:
                     logger.warning(f"Speaker {spk_id} in overlap not in top-{N} for meeting {meeting_id}, skipping")
+            
+            # Remove duplicates (shouldn't happen after fix in _create_overlapping_segment, but safety check)
+            slot_indices = list(set(slot_indices))
+            
             if len(slot_indices) > 0:
+                # If only one unique speaker after deduplication, treat as non-overlap
+                if len(slot_indices) == 1:
+                    logger.warning(f"Overlap segment for meeting {meeting_id} has only one unique speaker after deduplication, treating as single speaker")
+                    return power_set_encoder.encode(slot_indices)
                 return power_set_encoder.encode(slot_indices)
             else:
                 logger.warning(f"No valid speakers in overlap for meeting {meeting_id}, using slot 0")
@@ -1216,7 +1241,7 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder
                         N=N)
     
     # Step 1: Process all meetings to detect and create overlapping segments
-    all_samples_info, total_original_segments, total_overlapping_segments = _process_all_meetings_with_overlaps(
+    all_samples_info, total_original_segments, total_overlapping_segments, total_same_speaker_overlaps = _process_all_meetings_with_overlaps(
         grouped_data, N
     )
     
