@@ -610,29 +610,8 @@ def split_data_for_clients(grouped_data, grouped_validation, num_clients, speake
                     speaker_to_embedding=val_speaker_to_embedding,
                     max_speakers=len(val_speaker_to_idx)
                 )
-                # Create data loaders with collate function
-                def collate_fn(batch):
-                    max_len = max(x[0].shape[0] for x in batch)
-                    features = []
-                    speaker_embeddings = []
-                    labels = []
-                    meeting_ids = []
-                    for feature, all_embeddings, label, meeting_id in batch:
-                        if feature.shape[0] < max_len:
-                            pad_len = max_len - feature.shape[0]
-                            feature = np.pad(feature, ((0, pad_len), (0, 0)), mode='constant')
-                            # Pad meeting_id array with None for padded frames
-                            meeting_id = np.pad(meeting_id, (0, pad_len), mode='constant', constant_values=None)
-                        features.append(feature)
-                        speaker_embeddings.append(all_embeddings)  # [num_speakers, 192]
-                        labels.append(label)
-                        meeting_ids.append(meeting_id)
-                    features = torch.tensor(np.array(features), dtype=torch.float32)
-                    speaker_embeddings = torch.stack(speaker_embeddings).float()  # [batch, num_speakers, 192]
-                    labels = torch.tensor(np.array(labels), dtype=torch.long)
-                    return features, speaker_embeddings, labels, meeting_ids
-                
                 # Optimize DataLoader with num_workers and pin_memory for faster data loading
+                # Use module-level collate_fn for multiprocessing compatibility
                 num_workers = min(8, os.cpu_count() or 1)
                 pin_memory = torch.cuda.is_available()
                 
@@ -640,7 +619,7 @@ def split_data_for_clients(grouped_data, grouped_validation, num_clients, speake
                     train_dataset, 
                     batch_size=batch_size, 
                     shuffle=True, 
-                    collate_fn=collate_fn,
+                    collate_fn=collate_fn_overlapping_speech,
                     num_workers=num_workers,
                     pin_memory=pin_memory,
                     persistent_workers=num_workers > 0
@@ -649,7 +628,7 @@ def split_data_for_clients(grouped_data, grouped_validation, num_clients, speake
                     val_dataset, 
                     batch_size=batch_size, 
                     shuffle=False, 
-                    collate_fn=collate_fn,
+                    collate_fn=collate_fn_overlapping_speech,
                     num_workers=num_workers,
                     pin_memory=pin_memory,
                     persistent_workers=num_workers > 0
@@ -1395,6 +1374,28 @@ def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, 
     print(f"[DER DEBUG] DER calculation: valid frames used = {len(predictions)}, DER = {der}")
     return der
 
+def collate_fn_overlapping_speech(batch):
+    """Collate function for overlapping speech dataset. Must be at module level for multiprocessing."""
+    max_len = max(x[0].shape[0] for x in batch)
+    features = []
+    speaker_embeddings = []
+    labels = []
+    meeting_ids = []
+    for feature, all_embeddings, label, meeting_id in batch:
+        if feature.shape[0] < max_len:
+            pad_len = max_len - feature.shape[0]
+            feature = np.pad(feature, ((0, pad_len), (0, 0)), mode='constant')
+            # Pad meeting_id array with None for padded frames
+            meeting_id = np.pad(meeting_id, (0, pad_len), mode='constant', constant_values=None)
+        features.append(feature)
+        speaker_embeddings.append(all_embeddings)  # [num_speakers, 192]
+        labels.append(label)
+        meeting_ids.append(meeting_id)
+    features = torch.tensor(np.array(features), dtype=torch.float32)
+    speaker_embeddings = torch.stack(speaker_embeddings).float()  # [batch, num_speakers, 192]
+    labels = torch.tensor(np.array(labels), dtype=torch.long)
+    return features, speaker_embeddings, labels, meeting_ids
+
 def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speaker_encoder, power_set_encoder, batch_size=4, speaker_to_embedding=None, N=4, chunk_size=500, max_sequence_length=None):
     # Import and log function start
     print_function_start("prepare_data_loaders", 
@@ -1467,29 +1468,8 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
         max_speakers=N
     )
     
-    # Create data loaders with collate function
-    def collate_fn(batch):
-        max_len = max(x[0].shape[0] for x in batch)
-        features = []
-        speaker_embeddings = []
-        labels = []
-        meeting_ids = []
-        for feature, all_embeddings, label, meeting_id in batch:
-            if feature.shape[0] < max_len:
-                pad_len = max_len - feature.shape[0]
-                feature = np.pad(feature, ((0, pad_len), (0, 0)), mode='constant')
-                # Pad meeting_id array with None for padded frames
-                meeting_id = np.pad(meeting_id, (0, pad_len), mode='constant', constant_values=None)
-            features.append(feature)
-            speaker_embeddings.append(all_embeddings)  # [num_speakers, 192]
-            labels.append(label)
-            meeting_ids.append(meeting_id)
-        features = torch.tensor(np.array(features), dtype=torch.float32)
-        speaker_embeddings = torch.stack(speaker_embeddings).float()  # [batch, num_speakers, 192]
-        labels = torch.tensor(np.array(labels), dtype=torch.long)
-        return features, speaker_embeddings, labels, meeting_ids
-    
     # Optimize DataLoader with num_workers and pin_memory for faster data loading
+    # Use module-level collate_fn for multiprocessing compatibility
     num_workers = min(8, os.cpu_count() or 1)  # Use up to 8 workers, but not more than available CPUs
     pin_memory = torch.cuda.is_available()  # Pin memory only if CUDA is available
     
@@ -1497,7 +1477,7 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
         train_dataset, 
         batch_size=batch_size, 
         shuffle=True, 
-        collate_fn=collate_fn,
+        collate_fn=collate_fn_overlapping_speech,
         num_workers=num_workers,
         pin_memory=pin_memory,
         persistent_workers=num_workers > 0  # Keep workers alive between epochs
@@ -1506,7 +1486,7 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
         val_dataset, 
         batch_size=batch_size, 
         shuffle=False, 
-        collate_fn=collate_fn,
+        collate_fn=collate_fn_overlapping_speech,
         num_workers=num_workers,
         pin_memory=pin_memory,
         persistent_workers=num_workers > 0
@@ -1515,7 +1495,7 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
         test_dataset, 
         batch_size=batch_size, 
         shuffle=False, 
-        collate_fn=collate_fn,
+        collate_fn=collate_fn_overlapping_speech,
         num_workers=num_workers,
         pin_memory=pin_memory,
         persistent_workers=num_workers > 0
