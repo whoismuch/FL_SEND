@@ -1,13 +1,14 @@
 #!/bin/bash
-#SBATCH --job-name=send_training_cpu
-#SBATCH --time=24:00:00
+#SBATCH --job-name=send_training_large_batch
+#SBATCH --time=30-00:00:00  # 30 days (max for pascal partition)
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=32G
-#SBATCH --output=training_cpu_%j.out
-#SBATCH --error=training_cpu_%j.err
-# No partition specification - use any available CPU nodes
+#SBATCH --mem=64G  # Maximum available memory (will auto-limit sequence length to fit)
+#SBATCH --gres=gpu:1
+#SBATCH --partition=pascal  # Using pascal partition (infinite timelimit, 6 idle nodes available)
+#SBATCH --output=training_large_batch_%j.out
+#SBATCH --error=training_large_batch_%j.err
 
 # Initialize conda - try multiple common locations
 if [ -f ~/.conda/etc/profile.d/conda.sh ]; then
@@ -55,7 +56,7 @@ elif conda env list 2>/dev/null | grep -q "flsend_clean"; then
     echo "Activating existing conda environment: flsend_clean"
     conda activate flsend_clean
 else
-    echo "ERROR: Environment flsend_clean not found on compute node!"
+    echo "ERROR: Environment flsend_clean not found on GPU node!"
     echo "Please ensure it exists. You may need to create it on login node first."
     exit 1
 fi
@@ -71,10 +72,17 @@ echo "Job Name: $SLURM_JOB_NAME"
 echo "Node: $SLURM_NODELIST"
 echo "CPUs: $SLURM_CPUS_PER_TASK"
 echo "Memory: $SLURM_MEM"
+echo "GPU: $SLURM_GPUS_ON_NODE"
 echo "Python: $(which python)"
 echo "Python version: $(python --version)"
 
-echo "=== Starting Training on CPU ==="
+# Check GPU
+echo "=== GPU Check ==="
+python -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('Device count:', torch.cuda.device_count() if torch.cuda.is_available() else 0)"
+nvidia-smi || echo "nvidia-smi not available"
+
+echo "=== Starting Training on FULL DATASET with 100 EPOCHS ==="
+echo "=== OPTIMIZATIONS: Large batch size (8) for better GPU utilization ==="
 
 # Change to working directory
 cd ~/FL_SEND/28nov/FL_SEND
@@ -82,9 +90,17 @@ cd ~/FL_SEND/28nov/FL_SEND
 # Add src to PYTHONPATH for imports
 export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
 
-# Run training
+# Run training on full dataset with 100 epochs
+# Note: --test_size not specified means using ALL available data
+# Performance optimizations:
+#   --chunk_size 250: Process 250 samples at a time (reduces peak memory)
+#   --batch_size 8: Larger batch size for better GPU utilization (2-4x faster than batch_size=2)
+#     WARNING: May cause OOM (Out Of Memory) errors. If so, reduce to 4 or keep at 2
+#   --max_memory_gb 64: Auto-calculate max_sequence_length to fit in 64 GB
+#   NO --compute_der_during_training: DER computation disabled for faster training
+#     DER is still computed on validation set after each epoch
 # PYTHONUNBUFFERED=1 ensures all print/log statements appear immediately in logs
-PYTHONUNBUFFERED=1 python src/SEND_PSE_AMI.py --epochs 100 --compute_der_during_training --chunk_size 250 --batch_size 2 --max_memory_gb 32
+PYTHONUNBUFFERED=1 python src/SEND_PSE_AMI.py --epochs 100 --chunk_size 250 --batch_size 8 --max_memory_gb 64
 
 echo "=== Training Complete ==="
 

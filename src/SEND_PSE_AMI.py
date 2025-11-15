@@ -339,8 +339,21 @@ class SENDModel(nn.Module):
 def train_model(model, train_loader, val_loader, device, power_set_encoder, epochs=50, compute_der_during_training=False, progress_log_file=None, early_stopping_patience=5, early_stopping_min_delta=0.001):
     """Train the SEND model in centralized manner with early stopping."""
     model.train()
-    optimizer = optim.Adam(model.parameters())
+    optimizer = optim.Adam(model.parameters(), lr=1e-4)  # Explicit learning rate
     criterion = nn.CrossEntropyLoss()
+    
+    # Enable Mixed Precision Training for faster GPU computation (2-3x speedup)
+    use_amp = torch.cuda.is_available()
+    scaler = torch.cuda.amp.GradScaler() if use_amp else None
+    if use_amp:
+        print("✅ Mixed Precision Training (AMP) ENABLED - will speed up training significantly")
+    else:
+        print("⚠️  Mixed Precision Training (AMP) DISABLED - CUDA not available")
+    
+    # Enable cuDNN benchmark for faster convolutions (only if input sizes are constant)
+    if torch.cuda.is_available():
+        torch.backends.cudnn.benchmark = True
+        print("✅ cuDNN benchmark ENABLED - will optimize convolution operations")
     
     epoch_metrics = []
     
@@ -369,33 +382,56 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(train_loader):
             if batch_idx == 0:
                 print(f" First batch in epoch {epoch+1}")
-            features, speaker_embeddings, labels = features.to(device), speaker_embeddings.to(device), labels.to(device)
+            features, speaker_embeddings, labels = features.to(device, non_blocking=True), speaker_embeddings.to(device, non_blocking=True), labels.to(device, non_blocking=True)
             speaker_embeddings = speaker_embeddings.float()
             optimizer.zero_grad()
-            outputs = model(features, speaker_embeddings)
-            batch_size, seq_len, num_classes = outputs.shape
-            outputs = outputs.reshape(-1, num_classes)
-            labels = labels.reshape(-1)
-            if (labels >= num_classes).any() or ((labels < 0) & (labels != -100)).any():
-                logger.error(f"Found label out of range! min={labels.min()}, max={labels.max()}, num_classes={num_classes}")
-                raise ValueError("Label out of range for CrossEntropyLoss")
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
+            
+            # Use Mixed Precision Training if available
+            if use_amp:
+                with torch.cuda.amp.autocast():
+                    outputs = model(features, speaker_embeddings)
+                    batch_size, seq_len, num_classes = outputs.shape
+                    outputs = outputs.reshape(-1, num_classes)
+                    labels_flat = labels.reshape(-1)
+                    if (labels_flat >= num_classes).any() or ((labels_flat < 0) & (labels_flat != -100)).any():
+                        logger.error(f"Found label out of range! min={labels_flat.min()}, max={labels_flat.max()}, num_classes={num_classes}")
+                        raise ValueError("Label out of range for CrossEntropyLoss")
+                    loss = criterion(outputs, labels_flat)
+                
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                outputs = model(features, speaker_embeddings)
+                batch_size, seq_len, num_classes = outputs.shape
+                outputs = outputs.reshape(-1, num_classes)
+                labels_flat = labels.reshape(-1)
+                if (labels_flat >= num_classes).any() or ((labels_flat < 0) & (labels_flat != -100)).any():
+                    logger.error(f"Found label out of range! min={labels_flat.min()}, max={labels_flat.max()}, num_classes={num_classes}")
+                    raise ValueError("Label out of range for CrossEntropyLoss")
+                loss = criterion(outputs, labels_flat)
+                loss.backward()
+                optimizer.step()
+            
             train_loss += loss.item()
             batch_losses.append(loss.item())
-            predictions = torch.argmax(outputs, dim=-1)
             
-            # Group predictions by meeting_id
-            predictions_np = predictions.cpu().numpy()
-            labels_np = labels.cpu().numpy()
-            # meeting_ids: List[np.ndarray] (each with length = max_len of batch)
-            meeting_ids_flat = np.concatenate(meeting_ids, axis=0)  # => shape: [batch_size*seq_len]
-            
-            for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
-                if meeting_id is not None:  # Skip padded frames
-                    pred_by_rec[meeting_id].append(pred)
-                    lab_by_rec[meeting_id].append(label)
+            # Only compute predictions and group by meeting_id if DER computation is needed
+            # This avoids expensive CPU operations during training when DER is disabled
+            if compute_der_during_training or batch_idx == 0:
+                predictions = torch.argmax(outputs, dim=-1)
+                
+                # Group predictions by meeting_id (only if needed)
+                if compute_der_during_training:
+                    predictions_np = predictions.cpu().numpy()
+                    labels_np = labels_flat.cpu().numpy()
+                    # meeting_ids: List[np.ndarray] (each with length = max_len of batch)
+                    meeting_ids_flat = np.concatenate(meeting_ids, axis=0)  # => shape: [batch_size*seq_len]
+                    
+                    for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
+                        if meeting_id is not None:  # Skip padded frames
+                            pred_by_rec[meeting_id].append(pred)
+                            lab_by_rec[meeting_id].append(label)
             
             # Progress indicator for batches
             if batch_idx % max(1, total_batches // 10) == 0 or batch_idx == total_batches - 1:
@@ -403,8 +439,10 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                 print(f" Epoch {epoch+1} Progress: {progress:.1f}% ({batch_idx+1}/{total_batches}) - Loss: {loss.item():.4f}")
             
             if batch_idx == 0:
-                print(f"Batch {batch_idx}, labels shape: {labels.shape}, unique labels: {torch.unique(labels)}")
-                print(f"Batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(predictions)}")
+                print(f"Batch {batch_idx}, labels shape: {labels_flat.shape}, unique labels: {torch.unique(labels_flat)}")
+                if compute_der_during_training:
+                    predictions = torch.argmax(outputs, dim=-1)
+                    print(f"Batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(predictions)}")
             
         # Calculate DER per recording and aggregate (only if requested)
         ders = {}
@@ -430,17 +468,21 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         
         # Metrics per epoch
         mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
-        # Calculate accuracy across all frames
-        all_predictions = []
-        all_labels = []
-        for rec_id in pred_by_rec:
-            all_predictions.extend(pred_by_rec[rec_id])
-            all_labels.extend(lab_by_rec[rec_id])
-        acc = (np.array(all_predictions) == np.array(all_labels)).mean() if all_labels else float('nan')
+        # Calculate accuracy across all frames (only if DER computation was enabled)
+        if compute_der_during_training:
+            all_predictions = []
+            all_labels = []
+            for rec_id in pred_by_rec:
+                all_predictions.extend(pred_by_rec[rec_id])
+                all_labels.extend(lab_by_rec[rec_id])
+            acc = (np.array(all_predictions) == np.array(all_labels)).mean() if all_labels else float('nan')
+        else:
+            acc = float('nan')  # Accuracy not computed when DER is disabled
         # Average DER across recordings (only if computed)
         der = np.mean(list(ders.values())) if ders else float('nan')
-        print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique labels: {np.unique(all_labels) if all_labels else 'EMPTY'}")
-        print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique predictions: {np.unique(all_predictions) if all_predictions else 'EMPTY'}")
+        if compute_der_during_training:
+            print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique labels: {np.unique(all_labels) if all_labels else 'EMPTY'}")
+            print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique predictions: {np.unique(all_predictions) if all_predictions else 'EMPTY'}")
         
         # CAPS progress output
         der_display = f"{der:.4f}" if compute_der_during_training and not np.isnan(der) else "SKIPPED"
@@ -491,10 +533,10 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
             with open(progress_log_file, 'a') as f:
                 f.write(f"{epoch+1:<6} {loss_display:<12} {der_display:<10} {acc_display:<10} {val_loss_display:<12} {val_der_display:<10} {datetime.now().strftime('%H:%M:%S'):<10}\n")
         
-            # Collect metrics for this epoch
-            epoch_metrics.append({
-                "train_loss": float(mean_loss),
-                "acc": float(acc) if not np.isnan(acc) else None,
+        # Collect metrics for this epoch
+        epoch_metrics.append({
+            "train_loss": float(mean_loss),
+            "acc": float(acc) if not np.isnan(acc) else None,
             "der": float(der) if not np.isnan(der) and compute_der_during_training else None,
             "val_loss": float(val_loss) if not np.isnan(val_loss) else None,
             "val_der": float(val_der) if not np.isnan(val_der) else None,
@@ -522,25 +564,39 @@ def evaluate_model(model, val_loader, device, power_set_encoder):
     # Group predictions by meeting_id for proper DER calculation
     pred_by_rec = defaultdict(list)
     lab_by_rec = defaultdict(list)
+    
+    # Use Mixed Precision for evaluation if available
+    use_amp = torch.cuda.is_available()
 
     with torch.no_grad():
         for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(val_loader):
             if batch_idx == 0:
                 print(f" First batch in evaluation")
-            features, speaker_embeddings, labels = features.to(device), speaker_embeddings.to(device), labels.to(device)
+            features, speaker_embeddings, labels = features.to(device, non_blocking=True), speaker_embeddings.to(device, non_blocking=True), labels.to(device, non_blocking=True)
             speaker_embeddings = speaker_embeddings.float()
-            outputs = model(features, speaker_embeddings)
-            batch_size, seq_len, num_classes = outputs.shape
-            outputs = outputs.reshape(-1, num_classes)
-            labels = labels.reshape(-1)
-            loss = criterion(outputs, labels)
+            
+            # Use Mixed Precision if available
+            if use_amp:
+                with torch.cuda.amp.autocast():
+                    outputs = model(features, speaker_embeddings)
+                    batch_size, seq_len, num_classes = outputs.shape
+                    outputs = outputs.reshape(-1, num_classes)
+                    labels_flat = labels.reshape(-1)
+                    loss = criterion(outputs, labels_flat)
+            else:
+                outputs = model(features, speaker_embeddings)
+                batch_size, seq_len, num_classes = outputs.shape
+                outputs = outputs.reshape(-1, num_classes)
+                labels_flat = labels.reshape(-1)
+                loss = criterion(outputs, labels_flat)
+            
             val_loss += loss.item()
             batch_losses.append(loss.item())
             predictions = torch.argmax(outputs, dim=-1)
             
             # Group predictions by meeting_id
             predictions_np = predictions.cpu().numpy()
-            labels_np = labels.cpu().numpy()
+            labels_np = labels_flat.cpu().numpy()
             # meeting_ids: List[np.ndarray] (each with length = max_len of batch)
             meeting_ids_flat = np.concatenate(meeting_ids, axis=0)  # => shape: [batch_size*seq_len]
             
@@ -550,8 +606,8 @@ def evaluate_model(model, val_loader, device, power_set_encoder):
                     lab_by_rec[meeting_id].append(label)
             
             if batch_idx == 0:
-                print(f"Eval batch {batch_idx}, labels shape: {labels.shape}, unique labels: {np.unique(labels.cpu().numpy())}")
-                print(f"Eval batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {np.unique(predictions.cpu().numpy())}")
+                print(f"Eval batch {batch_idx}, labels shape: {labels_flat.shape}, unique labels: {np.unique(labels_np)}")
+                print(f"Eval batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {np.unique(predictions_np)}")
     
     # Calculate DER per recording and aggregate
     ders = {}

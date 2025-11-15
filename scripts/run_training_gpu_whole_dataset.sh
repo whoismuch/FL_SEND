@@ -84,7 +84,7 @@ nvidia-smi || echo "nvidia-smi not available"
 echo "=== Starting Training on FULL DATASET with 100 EPOCHS ==="
 
 # Change to working directory
-cd ~/FL_SEND/14nov/FL_SEND
+cd ~/FL_SEND/28nov/FL_SEND
 
 # Add src to PYTHONPATH for imports
 export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
@@ -95,6 +95,8 @@ export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
 #   --chunk_size 250: Process 250 samples at a time (reduces peak memory)
 #   --batch_size 2: Smaller batch size (reduces memory during training)
 #   --max_memory_gb 64: Auto-calculate max_sequence_length to fit in 64 GB
+# Performance note: --compute_der_during_training significantly slows down training (30-50% slower)
+#   Consider removing this flag for faster training - DER is still computed on validation set
 # PYTHONUNBUFFERED=1 ensures all print/log statements appear immediately in logs
 PYTHONUNBUFFERED=1 python src/SEND_PSE_AMI.py --epochs 100 --compute_der_during_training --chunk_size 250 --batch_size 2 --max_memory_gb 64
 

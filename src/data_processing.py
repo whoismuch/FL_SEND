@@ -9,6 +9,7 @@ import librosa
 from datasets import load_dataset
 import logging
 import gc
+import os
 from speechbrain.inference.speaker import EncoderClassifier
 from pyannote.core import Segment, Annotation
 from pyannote.metrics.diarization import DiarizationErrorRate
@@ -631,8 +632,28 @@ def split_data_for_clients(grouped_data, grouped_validation, num_clients, speake
                     labels = torch.tensor(np.array(labels), dtype=torch.long)
                     return features, speaker_embeddings, labels, meeting_ids
                 
-                train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
-                val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+                # Optimize DataLoader with num_workers and pin_memory for faster data loading
+                num_workers = min(8, os.cpu_count() or 1)
+                pin_memory = torch.cuda.is_available()
+                
+                train_loader = DataLoader(
+                    train_dataset, 
+                    batch_size=batch_size, 
+                    shuffle=True, 
+                    collate_fn=collate_fn,
+                    num_workers=num_workers,
+                    pin_memory=pin_memory,
+                    persistent_workers=num_workers > 0
+                )
+                val_loader = DataLoader(
+                    val_dataset, 
+                    batch_size=batch_size, 
+                    shuffle=False, 
+                    collate_fn=collate_fn,
+                    num_workers=num_workers,
+                    pin_memory=pin_memory,
+                    persistent_workers=num_workers > 0
+                )
                 client_data.append((train_loader, val_loader))
                 logger.info(f"Created data loaders for client {client_id}")
             except KeyboardInterrupt:
@@ -1468,9 +1489,37 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
         labels = torch.tensor(np.array(labels), dtype=torch.long)
         return features, speaker_embeddings, labels, meeting_ids
     
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+    # Optimize DataLoader with num_workers and pin_memory for faster data loading
+    num_workers = min(8, os.cpu_count() or 1)  # Use up to 8 workers, but not more than available CPUs
+    pin_memory = torch.cuda.is_available()  # Pin memory only if CUDA is available
+    
+    train_loader = DataLoader(
+        train_dataset, 
+        batch_size=batch_size, 
+        shuffle=True, 
+        collate_fn=collate_fn,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        persistent_workers=num_workers > 0  # Keep workers alive between epochs
+    )
+    val_loader = DataLoader(
+        val_dataset, 
+        batch_size=batch_size, 
+        shuffle=False, 
+        collate_fn=collate_fn,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        persistent_workers=num_workers > 0
+    )
+    test_loader = DataLoader(
+        test_dataset, 
+        batch_size=batch_size, 
+        shuffle=False, 
+        collate_fn=collate_fn,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        persistent_workers=num_workers > 0
+    )
     
     # Import and use statistics function for logging
     print_data_loaders_info(train_dataset, val_dataset, test_dataset, train_loader, val_loader, test_loader, batch_size)
