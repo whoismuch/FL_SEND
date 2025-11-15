@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=send_training_full
-#SBATCH --time=2-00:00:00  # 2 days (max for ampere partition) - may need multiple runs for 100 epochs
+#SBATCH --time=30-00:00:00  # 2 days (max for ampere partition) - may need multiple runs for 100 epochs
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
