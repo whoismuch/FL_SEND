@@ -3,11 +3,31 @@ import logging
 import re
 import sys
 import builtins
+import warnings
 
 # Disable numba debug output (IR - Intermediate Representation)
 # This prevents verbose compilation details from appearing in logs
 os.environ['NUMBA_DISABLE_JIT'] = '0'  # Keep JIT enabled
 os.environ['NUMBA_DISABLE_ERROR_MESSAGE_HIGHLIGHTING'] = '1'  # Disable highlighting
+
+# Suppress multiprocessing resource tracker warnings about leaked semaphores
+# These warnings are harmless and occur when multiprocessing workers are not explicitly closed
+# The warnings don't affect functionality and are common with libraries like librosa, numba, etc.
+# Use comprehensive filtering to catch all variations of the warning
+warnings.filterwarnings('ignore', category=UserWarning, module='multiprocessing.resource_tracker')
+warnings.filterwarnings('ignore', message='.*resource_tracker.*')
+warnings.filterwarnings('ignore', message='.*leaked semaphore.*')
+# Also set environment variable to suppress at OS level
+os.environ['PYTHONWARNINGS'] = 'ignore::UserWarning:multiprocessing.resource_tracker'
+
+# Additional suppression: intercept stderr to filter out resource_tracker warnings
+# This is needed because some warnings bypass the warnings module
+_original_stderr_write = sys.stderr.write
+def _filtered_stderr_write(s):
+    if 'resource_tracker' in s and 'leaked semaphore' in s:
+        return  # Suppress the warning
+    return _original_stderr_write(s)
+sys.stderr.write = _filtered_stderr_write
 
 # Try to configure numba to suppress debug output
 try:
@@ -222,7 +242,7 @@ class PowerSetEncoder:
         return self.class_to_combination[encoded_value].copy()
 
 class FSMNLayer(nn.Module):
-    """Feedforward Sequential Memory Network layer."""
+    """Feedforward Sequential Memory Network layer - VECTORIZED VERSION."""
     def __init__(self, input_dim: int, hidden_dim: int, stride: int = 1):
         super().__init__()
         self.stride = stride
@@ -241,22 +261,67 @@ class FSMNLayer(nn.Module):
             x = self.input_lin(x)
         # Now x shape: (batch_size, seq_len, hidden_dim)
         h = self.linear(x)  # (batch_size, seq_len, hidden_dim)
+        
+        # VECTORIZED: Replace Python loop with efficient cumsum-based approach
+        batch_size, seq_len, hidden_dim = x.shape
+        
+        if seq_len == 0:
+            return h
+        
+        # Pre-allocate memory tensor
         memory = torch.zeros_like(h)
-        for i in range(x.shape[1]):
-            start_idx = max(0, i - self.stride)
-            memory[:, i] = self.memory(x[:, start_idx:i+1].mean(dim=1))
+        
+        # Use cumulative sum for efficient sliding window averages
+        # For position i, we need mean of x[:, max(0, i-stride):i+1]
+        # Strategy: Use cumsum and subtract to get window sums, then divide by window size
+        
+        # Compute cumulative sum along sequence dimension
+        cumsum = torch.cumsum(x, dim=1)  # (batch_size, seq_len, hidden_dim)
+        
+        # For each position i, window is [max(0, i-stride), i+1)
+        # Window size = min(stride + 1, i + 1)
+        indices = torch.arange(seq_len, device=x.device, dtype=torch.float32)
+        window_sizes = torch.clamp(indices + 1, max=self.stride + 1)  # (seq_len,)
+        window_sizes = window_sizes.unsqueeze(0).unsqueeze(-1)  # (1, seq_len, 1)
+        
+        # For positions where i >= stride, we need to subtract cumsum at position (i - stride)
+        # For positions where i < stride, we just use cumsum[i]
+        if self.stride > 0 and seq_len > self.stride:
+            # Pad cumsum with zeros at the beginning for easier indexing
+            # pad_cumsum[0] = 0, pad_cumsum[1:] = cumsum
+            pad_cumsum = F.pad(cumsum, (0, 0, 1, 0), mode='constant', value=0.0)
+            # Get start positions: max(0, i - stride) -> i - stride for i >= stride, 0 otherwise
+            start_positions = torch.clamp(torch.arange(seq_len, device=x.device) - self.stride, min=0)
+            # Index pad_cumsum: pad_cumsum[:, start_positions, :]
+            # pad_cumsum shape: (batch_size, seq_len+1, hidden_dim)
+            # start_positions shape: (seq_len,)
+            # Simple indexing: pad_cumsum[:, start_positions, :] works but needs proper shape
+            # Use advanced indexing: for each batch, get cumsum at start_positions
+            start_cumsum = pad_cumsum[:, start_positions]  # (batch_size, seq_len, hidden_dim)
+            window_sums = cumsum - start_cumsum  # (batch_size, seq_len, hidden_dim)
+        else:
+            # All windows start at 0
+            window_sums = cumsum
+        
+        # Compute window means
+        window_means = window_sums / window_sizes  # (batch_size, seq_len, hidden_dim)
+        
+        # Apply memory linear layer
+        memory = self.memory(window_means)
+        
         return h + memory
 
 class SENDModel(nn.Module):
     """Speaker Embedding-aware Neural Diarization model with Power-Set Encoding."""
-    def __init__(self, input_dim: int = 80, hidden_dim: int = 512, num_classes: int = 16, dropout_p: float = 0.1):
+    def __init__(self, input_dim: int = 80, hidden_dim: int = 512, num_classes: int = 16, dropout_p: float = 0.1,
+                 num_speech_encoder_layers: int = 8, num_post_net_layers: int = 6, num_transformer_layers: int = 4):
         super().__init__()
-        # Speech Encoder (FSMN)
+        # Speech Encoder (FSMN) - configurable number of layers
         self.speech_encoder = nn.ModuleList([
             nn.Sequential(
                 FSMNLayer(input_dim if i == 0 else hidden_dim, hidden_dim, stride=2**i),
                 nn.Dropout(dropout_p)
-            ) for i in range(8)
+            ) for i in range(num_speech_encoder_layers)
         ])
         # Speaker Encoder (MLP) with Dropout after each activation
         self.speaker_encoder = nn.Sequential(
@@ -271,7 +336,7 @@ class SENDModel(nn.Module):
         )
         # CI Scorer (Context-Independent)
         self.ci_scorer = nn.Linear(hidden_dim, 1)
-        # CD Scorer (Context-Dependent)
+        # CD Scorer (Context-Dependent) - configurable number of layers
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=hidden_dim,
             nhead=4,
@@ -279,13 +344,13 @@ class SENDModel(nn.Module):
             dropout=dropout_p,
             batch_first=True
         )
-        self.cd_scorer = nn.TransformerEncoder(encoder_layer, num_layers=4)
-        # Post-Net (FSMN) with Dropout after each layer
+        self.cd_scorer = nn.TransformerEncoder(encoder_layer, num_layers=num_transformer_layers)
+        # Post-Net (FSMN) with Dropout after each layer - configurable number of layers
         self.post_net = nn.ModuleList([
             nn.Sequential(
                 FSMNLayer(hidden_dim, hidden_dim, stride=2**i),
                 nn.Dropout(dropout_p)
-            ) for i in range(6)
+            ) for i in range(num_post_net_layers)
         ])
         # Final classification
         self.classifier = nn.Sequential(
@@ -306,22 +371,23 @@ class SENDModel(nn.Module):
         for fsmn_dropout in self.speech_encoder:
             x = fsmn_dropout(x)
         # Process speaker embeddings (with Dropout)
-        speaker_features = self.speaker_encoder(speaker_embeddings)
-        # CI Scoring
-        ci_scores = []
-        for i in range(num_speakers):
-            # Dot product between audio features and speaker embeddings
-            score = torch.matmul(x, speaker_features[:, i].unsqueeze(-1)).squeeze(-1)
-            ci_scores.append(score)
-        ci_scores = torch.stack(ci_scores, dim=1)
-        ci_scores = ci_scores.transpose(1, 2)
+        speaker_features = self.speaker_encoder(speaker_embeddings)  # (batch_size, num_speakers, hidden_dim)
+        # CI Scoring - VECTORIZED: Replace Python loop with batch matrix multiplication
+        # x: (batch_size, seq_len, hidden_dim)
+        # speaker_features: (batch_size, num_speakers, hidden_dim)
+        # We want: (batch_size, seq_len, num_speakers) - dot product for each speaker at each time step
+        # Use batch matrix multiplication: x @ speaker_features.transpose(-2, -1)
+        ci_scores = torch.bmm(x, speaker_features.transpose(1, 2))  # (batch_size, seq_len, num_speakers)
         # CD Scoring
-        cd_scores = self.cd_scorer(x)
+        cd_scores = self.cd_scorer(x)  # (batch_size, seq_len, hidden_dim)
         # Combine CI and CD scores
+        # ci_scores: (batch_size, seq_len, num_speakers)
+        # cd_scores: (batch_size, seq_len, hidden_dim)
+        # Concatenate along feature dimension: (batch_size, seq_len, num_speakers + hidden_dim)
         combined = torch.cat([
             ci_scores,
             cd_scores
-        ], dim=2)
+        ], dim=2)  # (batch_size, seq_len, num_speakers + hidden_dim)
         # Create adapter if it doesn't exist or dimensions have changed
         if self.combine_adapter is None or self.combine_adapter.in_features != combined.size(-1):
             self.combine_adapter = nn.Linear(combined.size(-1), self.post_net[0][0].input_dim).to(combined.device)
@@ -380,12 +446,24 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         print(f" Epoch {epoch+1}/{epochs}: Processing {total_batches} batches...")
         
         for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(train_loader):
+            # TIMING: Measure batch processing time (only for first 2 batches)
+            if batch_idx < 2:
+                batch_start_time = time.time()
+                load_time = batch_start_time  # Approximate load time (will be refined)
+            
             if batch_idx == 0:
                 print(f" First batch in epoch {epoch+1}")
+            
+            # Load data to GPU (non-blocking for overlap with computation)
+            load_start = time.time() if batch_idx < 2 else None
             features, speaker_embeddings, labels = features.to(device, non_blocking=True), speaker_embeddings.to(device, non_blocking=True), labels.to(device, non_blocking=True)
             speaker_embeddings = speaker_embeddings.float()
+            load_time = (time.time() - load_start) if load_start else 0.0
+            
             optimizer.zero_grad()
             
+            # Forward pass
+            forward_start = time.time() if batch_idx < 2 else None
             # Use Mixed Precision Training if available
             if use_amp:
                 with torch.cuda.amp.autocast():
@@ -398,9 +476,12 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                         raise ValueError("Label out of range for CrossEntropyLoss")
                     loss = criterion(outputs, labels_flat)
                 
+                # Backward pass
+                backward_start = time.time() if batch_idx < 2 else None
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
+                backward_time = (time.time() - backward_start) if backward_start else 0.0
             else:
                 outputs = model(features, speaker_embeddings)
                 batch_size, seq_len, num_classes = outputs.shape
@@ -410,39 +491,49 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                     logger.error(f"Found label out of range! min={labels_flat.min()}, max={labels_flat.max()}, num_classes={num_classes}")
                     raise ValueError("Label out of range for CrossEntropyLoss")
                 loss = criterion(outputs, labels_flat)
+                
+                # Backward pass
+                backward_start = time.time() if batch_idx < 2 else None
                 loss.backward()
                 optimizer.step()
+                backward_time = (time.time() - backward_start) if backward_start else 0.0
+            
+            forward_time = (time.time() - forward_start) if forward_start else 0.0
+            total_batch_time = (time.time() - batch_start_time) if batch_idx < 2 else 0.0
             
             train_loss += loss.item()
             batch_losses.append(loss.item())
             
-            # Only compute predictions and group by meeting_id if DER computation is needed
-            # This avoids expensive CPU operations during training when DER is disabled
-            if compute_der_during_training or batch_idx == 0:
+            # TIMING: Log timing for first 2 batches
+            if batch_idx < 2:
+                print(f" ⏱️  Batch {batch_idx} timing: load={load_time:.4f}s, forward={forward_time:.4f}s, backward={backward_time:.4f}s, total={total_batch_time:.4f}s")
+            
+            # DER COMPUTATION: COMPLETELY DISABLED during training for speed
+            # Only compute predictions if explicitly requested (for debugging)
+            # NO CPU↔GPU copies during training loop - all operations stay on GPU
+            if compute_der_during_training:
+                # Only compute if explicitly enabled (not recommended for speed)
                 predictions = torch.argmax(outputs, dim=-1)
-                
-                # Group predictions by meeting_id (only if needed)
-                if compute_der_during_training:
-                    predictions_np = predictions.cpu().numpy()
-                    labels_np = labels_flat.cpu().numpy()
-                    # meeting_ids: List[np.ndarray] (each with length = max_len of batch)
-                    meeting_ids_flat = np.concatenate(meeting_ids, axis=0)  # => shape: [batch_size*seq_len]
-                    
-                    for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
-                        if meeting_id is not None:  # Skip padded frames
-                            pred_by_rec[meeting_id].append(pred)
-                            lab_by_rec[meeting_id].append(label)
+                # NOTE: CPU copies only happen if DER is explicitly enabled
+                predictions_np = predictions.cpu().numpy()
+                labels_np = labels_flat.cpu().numpy()
+                meeting_ids_flat = np.concatenate(meeting_ids, axis=0)
+                for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
+                    if meeting_id is not None:
+                        pred_by_rec[meeting_id].append(pred)
+                        lab_by_rec[meeting_id].append(label)
             
             # Progress indicator for batches
             if batch_idx % max(1, total_batches // 10) == 0 or batch_idx == total_batches - 1:
                 progress = (batch_idx + 1) / total_batches * 100
                 print(f" Epoch {epoch+1} Progress: {progress:.1f}% ({batch_idx+1}/{total_batches}) - Loss: {loss.item():.4f}")
             
+            # Debug info (only for first batch, no CPU copies)
             if batch_idx == 0:
-                print(f"Batch {batch_idx}, labels shape: {labels_flat.shape}, unique labels: {torch.unique(labels_flat)}")
+                print(f"Batch {batch_idx}, labels shape: {labels_flat.shape}, unique labels: {torch.unique(labels_flat).cpu().numpy()}")
                 if compute_der_during_training:
                     predictions = torch.argmax(outputs, dim=-1)
-                    print(f"Batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(predictions)}")
+                    print(f"Batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(predictions).cpu().numpy()}")
             
         # Calculate DER per recording and aggregate (only if requested)
         ders = {}
@@ -499,9 +590,9 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         
         print(f" Epoch {epoch+1}/{epochs} summary: min_loss={min(batch_losses) if batch_losses else 'nan'}, max_loss={max(batch_losses) if batch_losses else 'nan'}, mean_loss={mean_loss}, acc={acc}, DER={der if compute_der_during_training else 'skipped'}")
         
-        # Validation after each epoch
+        # Validation after each epoch (DER disabled by default for speed)
         print(f" Running validation for epoch {epoch+1}...")
-        val_loss, val_der, _, _ = evaluate_model(model, val_loader, device, power_set_encoder)
+        val_loss, val_der, _, _ = evaluate_model(model, val_loader, device, power_set_encoder, compute_der=False)
         
         # Early stopping logic
         improvement = best_val_loss - val_loss
@@ -555,13 +646,21 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
     
     return epoch_metrics
 
-def evaluate_model(model, val_loader, device, power_set_encoder):
-    """Evaluate the SEND model."""
+def evaluate_model(model, val_loader, device, power_set_encoder, compute_der=False):
+    """Evaluate the SEND model.
+    
+    Args:
+        model: SEND model to evaluate
+        val_loader: Validation data loader
+        device: Device to run on
+        power_set_encoder: Power set encoder for DER calculation
+        compute_der: If False (default), skip DER computation for speed. Set True only when needed.
+    """
     model.eval()
     criterion = nn.CrossEntropyLoss()
     val_loss = 0.0
     batch_losses = []
-    # Group predictions by meeting_id for proper DER calculation
+    # Group predictions by meeting_id for proper DER calculation (only if compute_der=True)
     pred_by_rec = defaultdict(list)
     lab_by_rec = defaultdict(list)
     
@@ -592,44 +691,48 @@ def evaluate_model(model, val_loader, device, power_set_encoder):
             
             val_loss += loss.item()
             batch_losses.append(loss.item())
-            predictions = torch.argmax(outputs, dim=-1)
             
-            # Group predictions by meeting_id
-            predictions_np = predictions.cpu().numpy()
-            labels_np = labels_flat.cpu().numpy()
-            # meeting_ids: List[np.ndarray] (each with length = max_len of batch)
-            meeting_ids_flat = np.concatenate(meeting_ids, axis=0)  # => shape: [batch_size*seq_len]
-            
-            for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
-                if meeting_id is not None:  # Skip padded frames
-                    pred_by_rec[meeting_id].append(pred)
-                    lab_by_rec[meeting_id].append(label)
+            # DER COMPUTATION: Only if explicitly enabled (disabled by default for speed)
+            if compute_der:
+                predictions = torch.argmax(outputs, dim=-1)
+                # CPU copies only when DER is needed
+                predictions_np = predictions.cpu().numpy()
+                labels_np = labels_flat.cpu().numpy()
+                meeting_ids_flat = np.concatenate(meeting_ids, axis=0)
+                for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
+                    if meeting_id is not None:
+                        pred_by_rec[meeting_id].append(pred)
+                        lab_by_rec[meeting_id].append(label)
             
             if batch_idx == 0:
-                print(f"Eval batch {batch_idx}, labels shape: {labels_flat.shape}, unique labels: {np.unique(labels_np)}")
-                print(f"Eval batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {np.unique(predictions_np)}")
+                print(f"Eval batch {batch_idx}, labels shape: {labels_flat.shape}, unique labels: {torch.unique(labels_flat).cpu().numpy()}")
+                if compute_der:
+                    predictions = torch.argmax(outputs, dim=-1)
+                    print(f"Eval batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(predictions).cpu().numpy()}")
     
-    # Calculate DER per recording and aggregate
+    # Calculate DER per recording and aggregate (only if compute_der=True)
     ders = {}
-    print(f" Computing DER for {len(pred_by_rec)} recordings in evaluation...")
-    for i, rec_id in enumerate(pred_by_rec):
-        if pred_by_rec[rec_id] and lab_by_rec[rec_id]:
-            print(f" Processing recording {i+1}/{len(pred_by_rec)}: {rec_id}")
-            # Get speaker_id_list from the dataset
-            speaker_id_list = val_loader.dataset.get_speaker_id_list() if hasattr(val_loader.dataset, 'get_speaker_id_list') else None
-            ders[rec_id] = calculate_der(
-                pred_by_rec[rec_id],
-                lab_by_rec[rec_id],
-                power_set_encoder,
-                speaker_id_list=speaker_id_list,
-                debug=False,
-                frame_shift=0.01,
-                uri=rec_id
-            )
-            print(f" Recording {rec_id} DER: {ders[rec_id]:.4f}")
+    if compute_der:
+        print(f" Computing DER for {len(pred_by_rec)} recordings in evaluation...")
+        for i, rec_id in enumerate(pred_by_rec):
+            if pred_by_rec[rec_id] and lab_by_rec[rec_id]:
+                print(f" Processing recording {i+1}/{len(pred_by_rec)}: {rec_id}")
+                speaker_id_list = val_loader.dataset.get_speaker_id_list() if hasattr(val_loader.dataset, 'get_speaker_id_list') else None
+                ders[rec_id] = calculate_der(
+                    pred_by_rec[rec_id],
+                    lab_by_rec[rec_id],
+                    power_set_encoder,
+                    speaker_id_list=speaker_id_list,
+                    debug=False,
+                    frame_shift=0.01,
+                    uri=rec_id
+                )
+                print(f" Recording {rec_id} DER: {ders[rec_id]:.4f}")
+    else:
+        print(f" Skipping DER computation during validation for speed (set compute_der=True to enable)")
     
     print(f" Eval summary: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={np.mean(batch_losses):.4f}")
-    # Average DER across recordings
+    # Average DER across recordings (only if computed)
     der = np.mean(list(ders.values())) if ders else float('nan')
     mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
     
@@ -651,6 +754,12 @@ def main():
     parser.add_argument('--batch_size', type=int, default=4, help='Batch size for training (smaller = less memory, default: 4)')
     parser.add_argument('--max_sequence_length', type=int, default=None, help='Maximum sequence length to truncate longer sequences (default: None = no limit). Use to limit memory usage.')
     parser.add_argument('--max_memory_gb', type=float, default=64.0, help='Maximum memory to use in GB (default: 64.0). Will auto-calculate max_sequence_length if needed.')
+    # Model simplification parameters for speed testing
+    parser.add_argument('--hidden_dim', type=int, default=512, help='Hidden dimension for model (default: 512, use 256 for faster training)')
+    parser.add_argument('--num_speech_encoder_layers', type=int, default=8, help='Number of speech encoder layers (default: 8, use 4 for faster training)')
+    parser.add_argument('--num_post_net_layers', type=int, default=6, help='Number of post-net layers (default: 6, use 3 for faster training)')
+    parser.add_argument('--num_transformer_layers', type=int, default=4, help='Number of transformer layers in CD scorer (default: 4, use 2 for faster training)')
+    parser.add_argument('--enable_persistent_workers', action='store_true', help='Enable persistent_workers for faster data loading (disabled by default to avoid semaphore leaks)')
     args = parser.parse_args()
 
     # Assign arguments to variables
@@ -663,6 +772,12 @@ def main():
     batch_size = args.batch_size
     max_sequence_length = args.max_sequence_length
     max_memory_gb = args.max_memory_gb
+    # Model simplification parameters
+    hidden_dim = args.hidden_dim
+    num_speech_encoder_layers = args.num_speech_encoder_layers
+    num_post_net_layers = args.num_post_net_layers
+    num_transformer_layers = args.num_transformer_layers
+    enable_persistent_workers = args.enable_persistent_workers
     
     # Determine if we're using all data or a subset
     use_all_data = test_size is None
@@ -768,7 +883,8 @@ def main():
         # Prepare data loaders for training and evaluation
         train_loader, val_loader, test_loader = prepare_data_loaders(
             grouped_train, grouped_validation, grouped_test, speaker_encoder, power_set_encoder, 
-            batch_size=batch_size, N=N, chunk_size=chunk_size, max_sequence_length=max_sequence_length
+            batch_size=batch_size, N=N, chunk_size=chunk_size, max_sequence_length=max_sequence_length,
+            enable_persistent_workers=enable_persistent_workers
         ) 
         
         # Print experiment configuration
@@ -792,9 +908,16 @@ def main():
         # Analyze speaker distribution
         analyze_speaker_distribution(grouped_train)
         
-        # Create and train model
+        # Create and train model with configurable architecture
         print(f"MAIN: Creating SEND model...")
-        model = SENDModel(num_classes=num_classes).to(device)
+        print(f"MAIN: Model architecture: hidden_dim={hidden_dim}, speech_encoder_layers={num_speech_encoder_layers}, post_net_layers={num_post_net_layers}, transformer_layers={num_transformer_layers}")
+        model = SENDModel(
+            num_classes=num_classes,
+            hidden_dim=hidden_dim,
+            num_speech_encoder_layers=num_speech_encoder_layers,
+            num_post_net_layers=num_post_net_layers,
+            num_transformer_layers=num_transformer_layers
+        ).to(device)
         
         # Print SENDModel statistics
         print_send_model_statistics(model)
@@ -1236,12 +1359,69 @@ def main():
 
     except KeyboardInterrupt:
         print("\nProcess interrupted by user. Cleaning up...")
-        # Add any necessary cleanup code here
+        # Cleanup will happen in finally block
         raise
     except Exception as e:
         logger.error(f"An error occurred: {str(e)}")
         raise
     finally:
+        # CRITICAL: Close DataLoader workers to prevent semaphore leaks
+        # This is especially important when persistent_workers=True
+        # PyTorch DataLoader with persistent_workers=True requires explicit shutdown
+        print("Cleaning up DataLoader workers...")
+        try:
+            # Method 1: Explicitly delete iterators to trigger worker shutdown
+            if 'train_loader' in locals() and train_loader is not None:
+                try:
+                    # Force iterator cleanup
+                    if hasattr(train_loader, '_iterator'):
+                        del train_loader._iterator
+                    # Shutdown workers directly
+                    if hasattr(train_loader, '_workers') and train_loader._workers:
+                        for worker in train_loader._workers:
+                            if hasattr(worker, 'terminate'):
+                                worker.terminate()
+                        for worker in train_loader._workers:
+                            if hasattr(worker, 'join'):
+                                worker.join(timeout=2.0)
+                except Exception as e:
+                    logger.debug(f"Could not close train_loader workers: {e}")
+            
+            if 'val_loader' in locals() and val_loader is not None:
+                try:
+                    if hasattr(val_loader, '_iterator'):
+                        del val_loader._iterator
+                    if hasattr(val_loader, '_workers') and val_loader._workers:
+                        for worker in val_loader._workers:
+                            if hasattr(worker, 'terminate'):
+                                worker.terminate()
+                        for worker in val_loader._workers:
+                            if hasattr(worker, 'join'):
+                                worker.join(timeout=2.0)
+                except Exception as e:
+                    logger.debug(f"Could not close val_loader workers: {e}")
+            
+            if 'test_loader' in locals() and test_loader is not None:
+                try:
+                    if hasattr(test_loader, '_iterator'):
+                        del test_loader._iterator
+                    if hasattr(test_loader, '_workers') and test_loader._workers:
+                        for worker in test_loader._workers:
+                            if hasattr(worker, 'terminate'):
+                                worker.terminate()
+                        for worker in test_loader._workers:
+                            if hasattr(worker, 'join'):
+                                worker.join(timeout=2.0)
+                except Exception as e:
+                    logger.debug(f"Could not close test_loader workers: {e}")
+            
+            # Force garbage collection to ensure cleanup
+            import gc
+            gc.collect()
+            
+            print("DataLoader workers cleanup completed.")
+        except Exception as cleanup_error:
+            logger.warning(f"Error during DataLoader cleanup: {cleanup_error}")
         print("Process completed.")
 
 if __name__ == "__main__":

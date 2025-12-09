@@ -1,0 +1,3 @@
+EPOCH  LOSS         DER        ACCURACY   VAL_LOSS     VAL_DER    TIMESTAMP 
+================================================================================
+1      1.8277       SKIPPED    N/A        3.7672       N/A        22:01:15  

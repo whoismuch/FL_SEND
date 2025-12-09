@@ -1,0 +1,2 @@
+EPOCH  LOSS         DER        ACCURACY   VAL_LOSS     VAL_DER    TIMESTAMP 
+================================================================================

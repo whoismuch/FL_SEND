@@ -1,0 +1,1071 @@
+2025-12-08 12:31:35 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-12-08 12:31:36 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for _speechbrain_save
+2025-12-08 12:31:36 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for _speechbrain_load
+2025-12-08 12:31:36 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for save
+2025-12-08 12:31:36 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for load
+2025-12-08 12:31:36 - speechbrain.utils.quirks - INFO - Applied quirks (see `speechbrain.utils.quirks`): [allow_tf32, disable_jit_profiling]
+2025-12-08 12:31:36 - speechbrain.utils.quirks - INFO - Excluded quirks specified by the `SB_DISABLE_QUIRKS` environment (comma-separated list): []
+2025-12-08 12:31:36 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for _save
+2025-12-08 12:31:36 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for _recover
+2025-12-08 12:31:37 - root - INFO - Using device: cpu
+2025-12-08 12:31:37 - __main__ - INFO - ================================================================================
+2025-12-08 12:31:37 - __main__ - INFO - MAIN STARTED
+2025-12-08 12:31:37 - __main__ - INFO - MAIN: Starting main()
+2025-12-08 12:31:37 - root - INFO - MAIN: Using device: cpu
+2025-12-08 12:31:37 - root - INFO - MAIN: CUDA available: False - Using CPU
+2025-12-08 12:31:37 - root - INFO - MAIN: Initializing speaker encoder...
+2025-12-08 12:31:37 - speechbrain.utils.fetching - INFO - Fetch hyperparams.yaml: Using symlink found at '/Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/hyperparams.yaml'
+2025-12-08 12:31:37 - speechbrain.utils.fetching - INFO - Fetch custom.py: Fetching from HuggingFace Hub 'speechbrain/spkrec-ecapa-voxceleb' if not cached
+2025-12-08 12:31:38 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for _save
+2025-12-08 12:31:38 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for _load
+2025-12-08 12:31:38 - speechbrain.utils.checkpoints - DEBUG - Registered parameter transfer hook for _load
+2025-12-08 12:31:38 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for save
+2025-12-08 12:31:38 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for load_if_possible
+2025-12-08 12:31:38 - speechbrain.utils.parameter_transfer - DEBUG - Collecting files (or symlinks) for pretraining in pretrained_models/spkrec-ecapa.
+2025-12-08 12:31:38 - speechbrain.utils.fetching - INFO - Fetch embedding_model.ckpt: Using symlink found at '/Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/embedding_model.ckpt'
+2025-12-08 12:31:38 - speechbrain.utils.parameter_transfer - DEBUG - Set local path in self.paths["embedding_model"] = /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/embedding_model.ckpt
+2025-12-08 12:31:38 - speechbrain.utils.fetching - INFO - Fetch mean_var_norm_emb.ckpt: Using symlink found at '/Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/mean_var_norm_emb.ckpt'
+2025-12-08 12:31:38 - speechbrain.utils.parameter_transfer - DEBUG - Set local path in self.paths["mean_var_norm_emb"] = /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/mean_var_norm_emb.ckpt
+2025-12-08 12:31:38 - speechbrain.utils.fetching - INFO - Fetch classifier.ckpt: Using symlink found at '/Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/classifier.ckpt'
+2025-12-08 12:31:38 - speechbrain.utils.parameter_transfer - DEBUG - Set local path in self.paths["classifier"] = /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/classifier.ckpt
+2025-12-08 12:31:38 - speechbrain.utils.fetching - INFO - Fetch label_encoder.txt: Using symlink found at '/Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/label_encoder.ckpt'
+2025-12-08 12:31:38 - speechbrain.utils.parameter_transfer - DEBUG - Set local path in self.paths["label_encoder"] = /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/label_encoder.ckpt
+2025-12-08 12:31:38 - speechbrain.utils.parameter_transfer - INFO - Loading pretrained files for: embedding_model, mean_var_norm_emb, classifier, label_encoder
+2025-12-08 12:31:38 - speechbrain.utils.parameter_transfer - DEBUG - Redirecting (loading from local path): embedding_model -> /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/embedding_model.ckpt
+2025-12-08 12:31:38 - speechbrain.utils.parameter_transfer - DEBUG - Redirecting (loading from local path): mean_var_norm_emb -> /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/mean_var_norm_emb.ckpt
+2025-12-08 12:31:38 - speechbrain.utils.parameter_transfer - DEBUG - Redirecting (loading from local path): classifier -> /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/classifier.ckpt
+2025-12-08 12:31:38 - speechbrain.utils.parameter_transfer - DEBUG - Redirecting (loading from local path): label_encoder -> /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/label_encoder.ckpt
+2025-12-08 12:31:38 - speechbrain.dataio.encoder - DEBUG - Loaded categorical encoding from /Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/pretrained_models/spkrec-ecapa/label_encoder.ckpt
+2025-12-08 12:31:38 - root - INFO - MAIN: Speaker encoder initialized successfully
+2025-12-08 12:31:38 - root - INFO -  STATS: ========================================== DATASET LOADING ==========================================
+2025-12-08 12:31:38 - root - INFO -  STATS: Loading dataset: AMI
+2025-12-08 12:31:38 - root - INFO -  STATS: Dataset loaded successfully
+2025-12-08 12:31:44 - datasets.builder - WARNING - Found cached dataset ami (/Users/khumachbayramova/.cache/huggingface/datasets/edinburghcstr___ami/ihm/0.0.0/0d128d0aa8145d0f16f3d5b4da86c5d5759dbe9e8f947fda04b25edb56442bd5)
+  0%|          | 0/3 [00:00<?, ?it/s] 33%|███▎      | 1/3 [00:00<00:00,  6.99it/s]100%|██████████| 3/3 [00:00<00:00, 17.43it/s]
+2025-12-08 12:31:44 - root - INFO - MAIN: Dataset loaded successfully
+2025-12-08 12:31:44 - root - INFO - MAIN: Using SUBSET - Train: 5000, Val: 2143, Test: 2143
+2025-12-08 12:31:44 - root - INFO -  STATS: Dataset: AMI
+2025-12-08 12:31:44 - root - INFO -  STATS: Total samples: 108502
+2025-12-08 12:31:44 - root - INFO -  STATS: Using subset of 5000 samples for testing
+2025-12-08 12:31:44 - root - INFO - MAIN: Grouping data by meeting ID...
+2025-12-08 12:31:44 - root - INFO -     $30compare_op.6 = $22unary_negative.4 <= x0 ['$22unary_negative.4', '$30compare_op.6', 'x0']
+2025-12-08 12:31:44 - root - INFO -     bool36 = global(bool: <class 'bool'>)    ['bool36']
+2025-12-08 12:31:44 - root - INFO -     $phi38.0 = x0                            ['$phi38.0', 'x0']
+2025-12-08 12:31:44 - root - INFO -     $40compare_op.2 = $phi38.0 <= threshold  ['$40compare_op.2', '$phi38.0', 'threshold']
+2025-12-08 12:31:44 - root - INFO -     bool46 = global(bool: <class 'bool'>)    ['bool46']
+2025-12-08 12:31:44 - root - INFO -     $84compare_op.6 = $76unary_negative.4 <= x1 ['$76unary_negative.4', '$84compare_op.6', 'x1']
+2025-12-08 12:31:44 - root - INFO -     bool90 = global(bool: <class 'bool'>)    ['bool90']
+2025-12-08 12:31:44 - root - INFO -     $phi92.0 = x1                            ['$phi92.0', 'x1']
+2025-12-08 12:31:44 - root - INFO -     $94compare_op.2 = $phi92.0 <= threshold  ['$94compare_op.2', '$phi92.0', 'threshold']
+2025-12-08 12:31:44 - root - INFO -     bool100 = global(bool: <class 'bool'>)   ['bool100']
+2025-12-08 12:31:44 - root - INFO -     bool114 = global(bool: <class 'bool'>)   ['bool114']
+2025-12-08 12:31:44 - root - INFO -     $116load_global.0 = global(np: <module 'numpy' from '/Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/numpy/__init__.py'>) ['$116load_global.0']
+2025-12-08 12:31:44 - root - INFO -     $128load_attr.2 = getattr(value=$116load_global.0, attr=signbit) ['$116load_global.0', '$128load_attr.2']
+2025-12-08 12:31:44 - root - INFO -     $154load_global.5 = global(np: <module 'numpy' from '/Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/numpy/__init__.py'>) ['$154load_global.5']
+2025-12-08 12:31:44 - root - INFO -     $166load_attr.7 = getattr(value=$154load_global.5, attr=signbit) ['$154load_global.5', '$166load_attr.7']
+2025-12-08 12:31:44 - root - INFO -     $192compare_op.10 = $144call.4 != $182call.9 ['$144call.4', '$182call.9', '$192compare_op.10']
+2025-12-08 12:31:44 - root - INFO -     $198return_value.11 = cast(value=$192compare_op.10) ['$192compare_op.10', '$198return_value.11']
+2025-12-08 12:31:44 - root - INFO -     $200load_global.0 = global(np: <module 'numpy' from '/Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/numpy/__init__.py'>) ['$200load_global.0']
+2025-12-08 12:31:44 - root - INFO -     $212load_attr.2 = getattr(value=$200load_global.0, attr=sign) ['$200load_global.0', '$212load_attr.2']
+2025-12-08 12:31:44 - root - INFO -     $238load_global.5 = global(np: <module 'numpy' from '/Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/numpy/__init__.py'>) ['$238load_global.5']
+2025-12-08 12:31:44 - root - INFO -     $250load_attr.7 = getattr(value=$238load_global.5, attr=sign) ['$238load_global.5', '$250load_attr.7']
+2025-12-08 12:31:44 - root - INFO -     $276compare_op.10 = $228call.4 != $266call.9 ['$228call.4', '$266call.9', '$276compare_op.10']
+2025-12-08 12:31:44 - root - INFO -     $282return_value.11 = cast(value=$276compare_op.10) ['$276compare_op.10', '$282return_value.11']
+2025-12-08 12:31:44 - root - INFO -     $32compare_op.6 = $8binary_subscr.2 > $22binary_subscr.5 ['$22binary_subscr.5', '$32compare_op.6', '$8binary_subscr.2']
+2025-12-08 12:31:44 - root - INFO -     $66compare_op.13 = $42binary_subscr.9 >= $56binary_subscr.12 ['$42binary_subscr.9', '$56binary_subscr.12', '$66compare_op.13']
+2025-12-08 12:31:44 - root - INFO -     $binop_and_72.14 = $32compare_op.6 & $66compare_op.13 ['$32compare_op.6', '$66compare_op.13', '$binop_and_72.14']
+2025-12-08 12:31:44 - root - INFO -     $76return_value.15 = cast(value=$binop_and_72.14) ['$76return_value.15', '$binop_and_72.14']
+2025-12-08 12:31:44 - root - INFO -     $32compare_op.6 = $8binary_subscr.2 < $22binary_subscr.5 ['$22binary_subscr.5', '$32compare_op.6', '$8binary_subscr.2']
+2025-12-08 12:31:44 - root - INFO -     $66compare_op.13 = $42binary_subscr.9 <= $56binary_subscr.12 ['$42binary_subscr.9', '$56binary_subscr.12', '$66compare_op.13']
+2025-12-08 12:31:44 - root - INFO -     $binop_and_72.14 = $32compare_op.6 & $66compare_op.13 ['$32compare_op.6', '$66compare_op.13', '$binop_and_72.14']
+2025-12-08 12:31:44 - root - INFO -     $76return_value.15 = cast(value=$binop_and_72.14) ['$76return_value.15', '$binop_and_72.14']
+2025-12-08 12:31:51 - root - INFO -  STATS: ========================================== DATA GROUPING ==========================================
+2025-12-08 12:31:51 - root - INFO -  STATS: Grouped 4 meetings from training set
+2025-12-08 12:31:51 - root - INFO -  STATS: Grouped 4 meetings from validation set
+2025-12-08 12:31:51 - root - INFO -  STATS: Grouped 2 meetings from test set
+2025-12-08 12:31:51 - root - INFO - 
+ STATS: ========================================== MEETING STATISTICS ==========================================
+2025-12-08 12:31:51 - root - INFO - 
+ STATS: Training set meetings:
+2025-12-08 12:31:51 - root - INFO -   Meeting EN2001a: 1675 audio segments, 694 overlapping segments, max 3 concurrent speakers
+2025-12-08 12:31:51 - root - INFO -     First 5 overlapping segments:
+2025-12-08 12:31:51 - root - INFO -       1. Speakers MEE068 & MEO069: 5.60s - 5.94s (duration: 0.34s)
+2025-12-08 12:31:51 - root - INFO -       2. Speakers MEO069 & MEE067: 17.07s - 18.05s (duration: 0.98s)
+2025-12-08 12:31:51 - root - INFO -       3. Speakers MEE067 & MEE068: 18.95s - 19.26s (duration: 0.31s)
+2025-12-08 12:31:51 - root - INFO -       4. Speakers MEE067 & MEO069: 19.01s - 19.61s (duration: 0.60s)
+2025-12-08 12:31:51 - root - INFO -       5. Speakers MEE068 & MEO069: 19.01s - 19.26s (duration: 0.25s)
+2025-12-08 12:31:51 - root - INFO -   Meeting EN2001b: 986 audio segments, 386 overlapping segments, max 3 concurrent speakers
+2025-12-08 12:31:51 - root - INFO -     First 5 overlapping segments:
+2025-12-08 12:31:51 - root - INFO -       1. Speakers FEO066 & MEO069: 32.19s - 32.86s (duration: 0.67s)
+2025-12-08 12:31:51 - root - INFO -       2. Speakers MEO069 & FEO065: 81.54s - 82.44s (duration: 0.90s)
+2025-12-08 12:31:51 - root - INFO -       3. Speakers FEO065 & MEO069: 84.49s - 86.03s (duration: 1.54s)
+2025-12-08 12:31:51 - root - INFO -       4. Speakers MEO069 & FEO065: 86.03s - 86.33s (duration: 0.30s)
+2025-12-08 12:31:51 - root - INFO -       5. Speakers MEO069 & MEE068: 86.40s - 88.33s (duration: 1.93s)
+2025-12-08 12:31:51 - root - INFO -   Meeting EN2001d: 1111 audio segments, 504 overlapping segments, max 4 concurrent speakers
+2025-12-08 12:31:51 - root - INFO -     First 5 overlapping segments:
+2025-12-08 12:31:51 - root - INFO -       1. Speakers MEO069 & MEE068: 48.99s - 49.17s (duration: 0.18s)
+2025-12-08 12:31:51 - root - INFO -       2. Speakers MEE067 & MEO069: 62.78s - 63.21s (duration: 0.43s)
+2025-12-08 12:31:51 - root - INFO -       3. Speakers MEO069 & MEE067: 89.78s - 89.98s (duration: 0.20s)
+2025-12-08 12:31:51 - root - INFO -       4. Speakers MEE067 & MEO069: 92.40s - 92.89s (duration: 0.49s)
+2025-12-08 12:31:51 - root - INFO -       5. Speakers MEO069 & MEE067: 99.19s - 100.21s (duration: 1.02s)
+2025-12-08 12:31:51 - root - INFO -   Meeting EN2001e: 1228 audio segments, 562 overlapping segments, max 3 concurrent speakers
+2025-12-08 12:31:51 - root - INFO -     First 5 overlapping segments:
+2025-12-08 12:31:51 - root - INFO -       1. Speakers MEO069 & FEO066: 33.79s - 33.89s (duration: 0.10s)
+2025-12-08 12:31:51 - root - INFO -       2. Speakers FEO066 & MEO069: 33.89s - 34.76s (duration: 0.87s)
+2025-12-08 12:31:51 - root - INFO -       3. Speakers MEE067 & FEO066: 162.44s - 162.83s (duration: 0.39s)
+2025-12-08 12:31:51 - root - INFO -       4. Speakers MEO069 & MEE067: 169.54s - 169.87s (duration: 0.33s)
+2025-12-08 12:31:51 - root - INFO -       5. Speakers MEO069 & MEE067: 174.88s - 175.61s (duration: 0.73s)
+2025-12-08 12:31:51 - root - INFO - 
+ STATS: Validation set meetings:
+2025-12-08 12:31:51 - root - INFO -   Meeting ES2011a: 364 audio segments, 192 overlapping segments, max 4 concurrent speakers
+2025-12-08 12:31:51 - root - INFO -     First 5 overlapping segments:
+2025-12-08 12:31:51 - root - INFO -       1. Speakers FEE044 & FEE041: 77.04s - 77.78s (duration: 0.74s)
+2025-12-08 12:31:51 - root - INFO -       2. Speakers FEE041 & FEE044: 78.93s - 78.98s (duration: 0.05s)
+2025-12-08 12:31:51 - root - INFO -       3. Speakers FEE044 & FEE041: 78.98s - 80.51s (duration: 1.53s)
+2025-12-08 12:31:51 - root - INFO -       4. Speakers FEE041 & FEE044: 80.51s - 80.79s (duration: 0.28s)
+2025-12-08 12:31:51 - root - INFO -       5. Speakers FEE041 & FEE043: 88.66s - 89.24s (duration: 0.58s)
+2025-12-08 12:31:51 - root - INFO -   Meeting ES2011c: 594 audio segments, 393 overlapping segments, max 4 concurrent speakers
+2025-12-08 12:31:51 - root - INFO -     First 5 overlapping segments:
+2025-12-08 12:31:51 - root - INFO -       1. Speakers FEE043 & FEE044: 86.03s - 86.60s (duration: 0.57s)
+2025-12-08 12:31:51 - root - INFO -       2. Speakers FEE041 & FEE042: 135.29s - 135.60s (duration: 0.31s)
+2025-12-08 12:31:51 - root - INFO -       3. Speakers FEE044 & FEE043: 136.86s - 137.33s (duration: 0.47s)
+2025-12-08 12:31:51 - root - INFO -       4. Speakers FEE044 & FEE041: 137.28s - 137.33s (duration: 0.05s)
+2025-12-08 12:31:51 - root - INFO -       5. Speakers FEE044 & FEE042: 137.30s - 137.33s (duration: 0.03s)
+2025-12-08 12:31:51 - root - INFO -   Meeting IB4001: 731 audio segments, 435 overlapping segments, max 4 concurrent speakers
+2025-12-08 12:31:51 - root - INFO -     First 5 overlapping segments:
+2025-12-08 12:31:51 - root - INFO -       1. Speakers FIE038 & FIO093: 140.05s - 140.24s (duration: 0.19s)
+2025-12-08 12:31:51 - root - INFO -       2. Speakers FIO093 & MIO092: 204.23s - 204.53s (duration: 0.30s)
+2025-12-08 12:31:51 - root - INFO -       3. Speakers FIE038 & MIO092: 227.61s - 228.32s (duration: 0.71s)
+2025-12-08 12:31:51 - root - INFO -       4. Speakers FIE038 & MIO092: 232.78s - 233.13s (duration: 0.35s)
+2025-12-08 12:31:51 - root - INFO -       5. Speakers FIE038 & MIO092: 235.25s - 235.55s (duration: 0.30s)
+2025-12-08 12:31:51 - root - INFO -   Meeting IB4003: 454 audio segments, 186 overlapping segments, max 3 concurrent speakers
+2025-12-08 12:31:51 - root - INFO -     First 5 overlapping segments:
+2025-12-08 12:31:51 - root - INFO -       1. Speakers MIO036 & MIO039: 172.96s - 173.59s (duration: 0.63s)
+2025-12-08 12:31:51 - root - INFO -       2. Speakers MIO039 & MIO036: 187.49s - 188.45s (duration: 0.96s)
+2025-12-08 12:31:51 - root - INFO -       3. Speakers MIO036 & MIO039: 194.84s - 195.09s (duration: 0.25s)
+2025-12-08 12:31:51 - root - INFO -       4. Speakers MIO036 & MIO039: 241.19s - 241.91s (duration: 0.72s)
+2025-12-08 12:31:51 - root - INFO -       5. Speakers MIO036 & FIE037: 243.58s - 244.43s (duration: 0.85s)
+2025-12-08 12:31:51 - root - INFO - 
+ STATS: Test set meetings:
+2025-12-08 12:31:51 - root - INFO -   Meeting EN2002a: 1367 audio segments, 1236 overlapping segments, max 4 concurrent speakers
+2025-12-08 12:31:51 - root - INFO -     First 5 overlapping segments:
+2025-12-08 12:31:51 - root - INFO -       1. Speakers MEE071 & MEE073: 0.96s - 1.74s (duration: 0.78s)
+2025-12-08 12:31:51 - root - INFO -       2. Speakers MEE073 & FEO072: 3.58s - 5.38s (duration: 1.80s)
+2025-12-08 12:31:51 - root - INFO -       3. Speakers MEE073 & MEE071: 3.61s - 4.68s (duration: 1.07s)
+2025-12-08 12:31:51 - root - INFO -       4. Speakers MEE073 & MEE071: 4.68s - 5.40s (duration: 0.72s)
+2025-12-08 12:31:51 - root - INFO -       5. Speakers MEE073 & MEE071: 5.40s - 6.65s (duration: 1.25s)
+2025-12-08 12:31:51 - root - INFO -   Meeting EN2002b: 776 audio segments, 531 overlapping segments, max 4 concurrent speakers
+2025-12-08 12:31:51 - root - INFO -     First 5 overlapping segments:
+2025-12-08 12:31:51 - root - INFO -       1. Speakers MEE073 & FEO070: 41.99s - 42.40s (duration: 0.41s)
+2025-12-08 12:31:51 - root - INFO -       2. Speakers MEE073 & FEO070: 58.73s - 58.93s (duration: 0.20s)
+2025-12-08 12:31:51 - root - INFO -       3. Speakers MEE073 & FEO070: 62.02s - 62.31s (duration: 0.29s)
+2025-12-08 12:31:51 - root - INFO -       4. Speakers FEO070 & MEE071: 84.75s - 85.74s (duration: 0.99s)
+2025-12-08 12:31:51 - root - INFO -       5. Speakers MEE071 & MEE073: 137.72s - 138.22s (duration: 0.50s)
+2025-12-08 12:31:51 - root - INFO - 
+ STATS: ========================================== SUMMARY STATISTICS ==========================================
+2025-12-08 12:31:51 - root - INFO - Total meetings: 10
+2025-12-08 12:31:51 - root - INFO - Total audio segments: 9286
+2025-12-08 12:31:51 - root - INFO - Total overlapping segments: 5119
+2025-12-08 12:31:51 - root - INFO - 
+ CONCURRENT SPEAKERS ANALYSIS:
+2025-12-08 12:31:51 - root - INFO -   - Maximum number of concurrent speakers: 4
+2025-12-08 12:31:51 - root - INFO -   - Average maximum number: 3.6
+2025-12-08 12:31:51 - root - INFO -   - Median maximum number: 4
+2025-12-08 12:31:51 - root - INFO -   - Distribution of maximum concurrent speakers:
+2025-12-08 12:31:51 - root - INFO -     3 speakers: 4 meetings (40.0%)
+2025-12-08 12:31:51 - root - INFO -     4 speakers: 6 meetings (60.0%)
+2025-12-08 12:31:51 - root - INFO - 
+Training set: 4 meetings, 5000 segments, 2146 overlaps (avg: 1250.0 segments, 536.5 overlaps)
+2025-12-08 12:31:51 - root - INFO - Validation set: 4 meetings, 2143 segments, 1206 overlaps (avg: 535.8 segments, 301.5 overlaps)
+2025-12-08 12:31:51 - root - INFO - Test set: 2 meetings, 2143 segments, 1767 overlaps (avg: 1071.5 segments, 883.5 overlaps)
+2025-12-08 12:31:51 - root - INFO - MAIN: Initializing Power Set Encoder with max_speakers=5, max_overlap=4
+2025-12-08 12:31:51 - root - INFO - MAIN: PSE Configuration: N=5 (max speakers per recording), K=4 (max overlap)
+2025-12-08 12:31:51 - root - INFO - MAIN: Number of classes using C(K,N) = Σ(k=0 to 4) C(5,k) = 31
+2025-12-08 12:31:51 - root - INFO - 
+ STATS: ========================================== POWER SET ENCODER EXAMPLES ==========================================
+2025-12-08 12:31:51 - root - INFO -  STATS: STARTING FUNCTION: print_power_set_encoder_examples
+2025-12-08 12:31:51 - root - INFO -  STATS: PowerSetEncoder Configuration:
+2025-12-08 12:31:51 - root - INFO -  STATS:   - Max speakers: 5
+2025-12-08 12:31:51 - root - INFO -  STATS:   - Max overlap: 4
+2025-12-08 12:31:51 - root - INFO -  STATS:   - Number of classes: 31
+2025-12-08 12:31:51 - root - INFO -  STATS:   - Formula: C(K,N) = Σ(k=0 to 4) C(5,k)
+2025-12-08 12:31:51 - root - INFO - 
+ STATS: Encoding/Decoding Examples:
+2025-12-08 12:31:51 - root - INFO -  STATS: Speaker IDs     Encoded  Decoded         Match
+2025-12-08 12:31:51 - root - INFO -  STATS: --------------- -------- --------------- -----
+2025-12-08 12:31:51 - root - INFO -  STATS: []              0        []              ✓    
+2025-12-08 12:31:51 - root - INFO -  STATS: [0]             1        [0]             ✓    
+2025-12-08 12:31:51 - root - INFO -  STATS: [1]             2        [1]             ✓    
+2025-12-08 12:31:51 - root - INFO -  STATS: [0, 1]          6        [0, 1]          ✓    
+2025-12-08 12:31:51 - root - INFO -  STATS: [0, 2]          7        [0, 2]          ✓    
+2025-12-08 12:31:51 - root - INFO -  STATS: [1, 2]          10       [1, 2]          ✓    
+2025-12-08 12:31:51 - root - INFO -  STATS: [0, 1, 2]       16       [0, 1, 2]       ✓    
+2025-12-08 12:31:51 - root - INFO -  STATS: [0, 1, 2, 3]    26       [0, 1, 2, 3]    ✓    
+2025-12-08 12:31:51 - root - INFO - 
+ STATS: All Possible Speaker Combinations:
+2025-12-08 12:31:51 - root - INFO -  STATS: Combination     Encoded  Description              
+2025-12-08 12:31:51 - root - INFO -  STATS: --------------- -------- -------------------------
+2025-12-08 12:31:51 - root - INFO -  STATS: []              0        No speakers              
+2025-12-08 12:31:51 - root - INFO -  STATS: [0]             1        Speaker 0 only           
+2025-12-08 12:31:51 - root - INFO -  STATS: [1]             2        Speaker 1 only           
+2025-12-08 12:31:51 - root - INFO -  STATS: [2]             3        Speaker 2 only           
+2025-12-08 12:31:51 - root - INFO -  STATS: [3]             4        Speaker 3 only           
+2025-12-08 12:31:51 - root - INFO -  STATS: [4]             5        Speaker 4 only           
+2025-12-08 12:31:51 - root - INFO -  STATS: [0, 1]          6        2 speakers: [0, 1]       
+2025-12-08 12:31:51 - root - INFO -  STATS: [0, 2]          7        2 speakers: [0, 2]       
+2025-12-08 12:31:51 - root - INFO -  STATS: [0, 3]          8        2 speakers: [0, 3]       
+2025-12-08 12:31:51 - root - INFO -  STATS: [0, 4]          9        2 speakers: [0, 4]       
+2025-12-08 12:31:51 - root - INFO -  STATS: [1, 2]          10       2 speakers: [1, 2]       
+2025-12-08 12:31:51 - root - INFO -  STATS: [1, 3]          11       2 speakers: [1, 3]       
+2025-12-08 12:31:51 - root - INFO -  STATS: [1, 4]          12       2 speakers: [1, 4]       
+2025-12-08 12:31:51 - root - INFO -  STATS: [2, 3]          13       2 speakers: [2, 3]       
+2025-12-08 12:31:51 - root - INFO -  STATS: [2, 4]          14       2 speakers: [2, 4]       
+2025-12-08 12:31:51 - root - INFO -  STATS: [3, 4]          15       2 speakers: [3, 4]       
+2025-12-08 12:31:51 - root - INFO -  STATS: [0, 1, 2]       16       3 speakers: [0, 1, 2]    
+2025-12-08 12:31:51 - root - INFO -  STATS: [0, 1, 3]       17       3 speakers: [0, 1, 3]    
+2025-12-08 12:31:51 - root - INFO -  STATS: [0, 1, 4]       18       3 speakers: [0, 1, 4]    
+2025-12-08 12:31:51 - root - INFO -  STATS: [0, 2, 3]       19       3 speakers: [0, 2, 3]    
+2025-12-08 12:31:51 - root - INFO -  STATS: [0, 2, 4]       20       3 speakers: [0, 2, 4]    
+2025-12-08 12:31:51 - root - INFO -  STATS: [0, 3, 4]       21       3 speakers: [0, 3, 4]    
+2025-12-08 12:31:51 - root - INFO -  STATS: [1, 2, 3]       22       3 speakers: [1, 2, 3]    
+2025-12-08 12:31:51 - root - INFO -  STATS: [1, 2, 4]       23       3 speakers: [1, 2, 4]    
+2025-12-08 12:31:51 - root - INFO -  STATS: [1, 3, 4]       24       3 speakers: [1, 3, 4]    
+2025-12-08 12:31:51 - root - INFO -  STATS: [2, 3, 4]       25       3 speakers: [2, 3, 4]    
+2025-12-08 12:31:51 - root - INFO -  STATS: [0, 1, 2, 3]    26       Max overlap (4 speakers) 
+2025-12-08 12:31:51 - root - INFO -  STATS: [0, 1, 2, 4]    27       Max overlap (4 speakers) 
+2025-12-08 12:31:51 - root - INFO -  STATS: [0, 1, 3, 4]    28       Max overlap (4 speakers) 
+2025-12-08 12:31:51 - root - INFO -  STATS: [0, 2, 3, 4]    29       Max overlap (4 speakers) 
+2025-12-08 12:31:51 - root - INFO -  STATS: [1, 2, 3, 4]    30       Max overlap (4 speakers) 
+2025-12-08 12:31:51 - root - INFO - 
+ STATS: Edge Cases:
+2025-12-08 12:31:51 - root - INFO -  STATS:   - Empty list [] encodes to 0 (no speakers active)
+2025-12-08 12:31:51 - root - INFO -  STATS:   - Single speaker [0] encodes to 1
+2025-12-08 12:31:51 - root - INFO -  STATS:   - Max overlap combination encodes to 30
+2025-12-08 12:31:51 - root - INFO - 
+ STATS: Overlap Limitations:
+2025-12-08 12:31:51 - root - INFO -  STATS:   - Maximum 4 speakers can be active simultaneously
+2025-12-08 12:31:51 - root - INFO -  STATS:   - Total combinations: 31
+2025-12-08 12:31:51 - root - INFO - 
+ STATS: Formula Breakdown C(K,N) = Σ(k=0 to 4) C(5,k):
+2025-12-08 12:31:51 - root - INFO -  STATS:   - C(5,0) = 1 combinations with 0 speakers
+2025-12-08 12:31:51 - root - INFO -  STATS:   - C(5,1) = 5 combinations with 1 speakers
+2025-12-08 12:31:51 - root - INFO -  STATS:   - C(5,2) = 10 combinations with 2 speakers
+2025-12-08 12:31:51 - root - INFO -  STATS:   - C(5,3) = 10 combinations with 3 speakers
+2025-12-08 12:31:51 - root - INFO -  STATS:   - C(5,4) = 5 combinations with 4 speakers
+2025-12-08 12:31:51 - root - INFO -  STATS:   - Total: 31 classes
+2025-12-08 12:31:51 - root - INFO - 
+ STATS: Encoding/Decoding Formulas:
+2025-12-08 12:31:51 - root - INFO -  STATS: 
+2025-12-08 12:31:51 - root - INFO -  STATS: ENCODING: S → class_id
+2025-12-08 12:31:51 - root - INFO -  STATS:   1. Sort speaker IDs: S' = sorted(S)
+2025-12-08 12:31:51 - root - INFO -  STATS:   2. Find lexicographic index of S'
+2025-12-08 12:31:51 - root - INFO -  STATS: 
+2025-12-08 12:31:51 - root - INFO -  STATS: DECODING: class_id → S
+2025-12-08 12:31:51 - root - INFO -  STATS:   1. Find k: Σ(j=0 to k-1) C(5,j) ≤ class_id < Σ(j=0 to k) C(5,j)
+2025-12-08 12:31:51 - root - INFO -  STATS:   2. Reconstruct combination from remaining index
+2025-12-08 12:31:51 - root - INFO -  STATS: 
+2025-12-08 12:31:51 - root - INFO -  STATS: EXAMPLES WITH CALCULATIONS:
+2025-12-08 12:31:51 - root - INFO -  STATS: 
+2025-12-08 12:31:51 - root - INFO -  STATS: Example: [] (Empty set)
+2025-12-08 12:31:51 - root - INFO -  STATS:   Encoded: 0
+2025-12-08 12:31:51 - root - INFO -  STATS:   Decoded: []
+2025-12-08 12:31:51 - root - INFO -  STATS:   Calculation:
+2025-12-08 12:31:51 - root - INFO -  STATS:     Empty set → index 0
+2025-12-08 12:31:51 - root - INFO -  STATS: 
+2025-12-08 12:31:51 - root - INFO -  STATS: Example: [0] (Single speaker)
+2025-12-08 12:31:51 - root - INFO -  STATS:   Encoded: 1
+2025-12-08 12:31:51 - root - INFO -  STATS:   Decoded: [0]
+2025-12-08 12:31:51 - root - INFO -  STATS:   Calculation:
+2025-12-08 12:31:51 - root - INFO -  STATS:     Speaker 0: offset 1 + speaker_id 0 = 1
+2025-12-08 12:31:51 - root - INFO -  STATS: 
+2025-12-08 12:31:51 - root - INFO -  STATS: Example: [0, 1] (Two speakers)
+2025-12-08 12:31:51 - root - INFO -  STATS:   Encoded: 6
+2025-12-08 12:31:51 - root - INFO -  STATS:   Decoded: [0, 1]
+2025-12-08 12:31:51 - root - INFO -  STATS:   Calculation:
+2025-12-08 12:31:51 - root - INFO -  STATS:     Speakers [0,1]: offset 6 + combo_index 0 = 6
+2025-12-08 12:31:51 - root - INFO -  STATS: 
+2025-12-08 12:31:51 - root - INFO -  STATS: Example: [0, 1, 2] (Three speakers)
+2025-12-08 12:31:51 - root - INFO -  STATS:   Encoded: 16
+2025-12-08 12:31:51 - root - INFO -  STATS:   Decoded: [0, 1, 2]
+2025-12-08 12:31:51 - root - INFO -  STATS:   Calculation:
+2025-12-08 12:31:51 - root - INFO -  STATS:     Speakers [0,1,2]: offset 16 + combo_index 0 = 16
+2025-12-08 12:31:51 - root - INFO -  STATS: COMPLETED FUNCTION: print_power_set_encoder_examples
+2025-12-08 12:31:51 - root - INFO - MAIN: Auto-calculated max_sequence_length=32723 based on:
+2025-12-08 12:31:51 - root - INFO - MAIN:   - Estimated train samples: 5000
+2025-12-08 12:31:51 - root - INFO - MAIN:   - Max memory: 64.0 GB
+2025-12-08 12:31:51 - root - INFO - MAIN:   - Usable memory (80%): 51.2 GB
+2025-12-08 12:31:51 - root - INFO - MAIN:   - Estimated memory usage: 51.20 GB
+2025-12-08 12:31:51 - root - INFO - STATS: STARTING FUNCTION: prepare_data_loaders(grouped_train_len=4, grouped_validation_len=4, grouped_test_len=2, batch_size=4, N=5)
+2025-12-08 12:31:51 - data_processing - INFO - Creating datasets with chunk_size=500 for memory optimization...
+2025-12-08 12:31:51 - data_processing - INFO - Using max_sequence_length=32723 to limit memory usage
+2025-12-08 12:31:51 - root - INFO - STATS: STARTING FUNCTION: create_dataset_from_grouped(grouped_data_len=4, N=5)
+2025-12-08 12:31:51 - data_processing - INFO - ================================================================================
+2025-12-08 12:31:51 - data_processing - INFO - OVERLAPPING SPEECH PROCESSING: ENABLED
+2025-12-08 12:31:51 - data_processing - INFO - ================================================================================
+2025-12-08 12:31:51 - data_processing - INFO - Processing overlapping speech segments for each meeting...
+2025-12-08 12:31:51 - data_processing - INFO - Meeting EN2001a: 5 speakers mapped to slots [0, 1, 2, 3, 4]
+2025-12-08 12:31:51 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting EN2001a: Adding 1675 original segments...
+2025-12-08 12:31:51 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting EN2001a: Detecting overlapping segments...
+2025-12-08 12:31:51 - data_processing - INFO -   [OVERLAP PROCESSING] Examples of overlapping segments for meeting EN2001a:
+2025-12-08 12:31:51 - data_processing - INFO -     Example 1: Speakers ['MEE068', 'MEO069'] -> Slots [1, 3], Time: 5.60s-5.94s (0.34s)
+2025-12-08 12:31:51 - data_processing - INFO -     Example 2: Speakers ['MEO069', 'MEE067'] -> Slots [3, 2], Time: 17.07s-18.05s (0.98s)
+2025-12-08 12:31:51 - data_processing - INFO -     Example 3: Speakers ['MEE067', 'MEE068'] -> Slots [2, 1], Time: 18.95s-19.26s (0.31s)
+2025-12-08 12:31:51 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting EN2001a statistics:
+2025-12-08 12:31:51 - data_processing - INFO -     - Original segments: 1675
+2025-12-08 12:31:51 - data_processing - INFO -     - Overlapping segments created: 694
+2025-12-08 12:31:51 - data_processing - INFO -     - Overlap ratio: 41.43%
+2025-12-08 12:31:51 - data_processing - INFO -     ✓ CONFIRMED: Found and processed 694 overlapping segments for meeting EN2001a
+2025-12-08 12:31:51 - data_processing - INFO - Meeting EN2001b: 4 speakers mapped to slots [0, 1, 2, 3]
+2025-12-08 12:31:51 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting EN2001b: Adding 986 original segments...
+2025-12-08 12:31:51 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting EN2001b: Detecting overlapping segments...
+2025-12-08 12:31:52 - data_processing - INFO -   [OVERLAP PROCESSING] Examples of overlapping segments for meeting EN2001b:
+2025-12-08 12:31:52 - data_processing - INFO -     Example 1: Speakers ['FEO066', 'MEO069'] -> Slots [0, 2], Time: 32.19s-32.86s (0.67s)
+2025-12-08 12:31:52 - data_processing - INFO -     Example 2: Speakers ['MEO069', 'FEO065'] -> Slots [2, 3], Time: 81.54s-82.44s (0.90s)
+2025-12-08 12:31:52 - data_processing - INFO -     Example 3: Speakers ['FEO065', 'MEO069'] -> Slots [3, 2], Time: 84.49s-86.03s (1.54s)
+2025-12-08 12:31:52 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting EN2001b statistics:
+2025-12-08 12:31:52 - data_processing - INFO -     - Original segments: 986
+2025-12-08 12:31:52 - data_processing - INFO -     - Overlapping segments created: 386
+2025-12-08 12:31:52 - data_processing - INFO -     - Overlap ratio: 39.15%
+2025-12-08 12:31:52 - data_processing - INFO -     ✓ CONFIRMED: Found and processed 386 overlapping segments for meeting EN2001b
+2025-12-08 12:31:52 - data_processing - INFO - Meeting EN2001d: 5 speakers mapped to slots [0, 1, 2, 3, 4]
+2025-12-08 12:31:52 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting EN2001d: Adding 1111 original segments...
+2025-12-08 12:31:52 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting EN2001d: Detecting overlapping segments...
+2025-12-08 12:31:52 - data_processing - INFO -   [OVERLAP PROCESSING] Examples of overlapping segments for meeting EN2001d:
+2025-12-08 12:31:52 - data_processing - INFO -     Example 1: Speakers ['MEO069', 'MEE068'] -> Slots [3, 1], Time: 48.99s-49.17s (0.18s)
+2025-12-08 12:31:52 - data_processing - INFO -     Example 2: Speakers ['MEE067', 'MEO069'] -> Slots [2, 3], Time: 62.78s-63.21s (0.43s)
+2025-12-08 12:31:52 - data_processing - INFO -     Example 3: Speakers ['MEO069', 'MEE067'] -> Slots [3, 2], Time: 89.78s-89.98s (0.20s)
+2025-12-08 12:31:52 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting EN2001d statistics:
+2025-12-08 12:31:52 - data_processing - INFO -     - Original segments: 1111
+2025-12-08 12:31:52 - data_processing - INFO -     - Overlapping segments created: 504
+2025-12-08 12:31:52 - data_processing - INFO -     - Overlap ratio: 45.36%
+2025-12-08 12:31:52 - data_processing - INFO -     ✓ CONFIRMED: Found and processed 504 overlapping segments for meeting EN2001d
+2025-12-08 12:31:52 - data_processing - INFO - Meeting EN2001e: 5 speakers mapped to slots [0, 1, 2, 3, 4]
+2025-12-08 12:31:52 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting EN2001e: Adding 1228 original segments...
+2025-12-08 12:31:52 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting EN2001e: Detecting overlapping segments...
+2025-12-08 12:31:52 - data_processing - INFO -   [OVERLAP PROCESSING] Examples of overlapping segments for meeting EN2001e:
+2025-12-08 12:31:52 - data_processing - INFO -     Example 1: Speakers ['MEO069', 'FEO066'] -> Slots [3, 0], Time: 33.79s-33.89s (0.10s)
+2025-12-08 12:31:52 - data_processing - INFO -     Example 2: Speakers ['FEO066', 'MEO069'] -> Slots [0, 3], Time: 33.89s-34.76s (0.87s)
+2025-12-08 12:31:52 - data_processing - INFO -     Example 3: Speakers ['MEE067', 'FEO066'] -> Slots [2, 0], Time: 162.44s-162.83s (0.39s)
+2025-12-08 12:31:52 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting EN2001e statistics:
+2025-12-08 12:31:52 - data_processing - INFO -     - Original segments: 1228
+2025-12-08 12:31:52 - data_processing - INFO -     - Overlapping segments created: 562
+2025-12-08 12:31:52 - data_processing - INFO -     - Overlap ratio: 45.77%
+2025-12-08 12:31:52 - data_processing - INFO -     ✓ CONFIRMED: Found and processed 562 overlapping segments for meeting EN2001e
+2025-12-08 12:31:52 - data_processing - INFO - ================================================================================
+2025-12-08 12:31:52 - data_processing - INFO - OVERLAPPING SPEECH PROCESSING: COMPLETE
+2025-12-08 12:31:52 - data_processing - INFO - ================================================================================
+2025-12-08 12:31:52 - data_processing - INFO - Total meetings processed: 4
+2025-12-08 12:31:52 - data_processing - INFO - Total original segments: 5000
+2025-12-08 12:31:52 - data_processing - INFO - Total overlapping segments created: 2146
+2025-12-08 12:31:52 - data_processing - INFO - Total segments (original + overlaps): 7146
+2025-12-08 12:31:52 - data_processing - INFO - Overall overlap ratio: 42.92%
+2025-12-08 12:31:52 - data_processing - INFO - 
+2025-12-08 12:31:52 - data_processing - INFO - ✓✓✓ CONFIRMATION: OVERLAPPING SPEECH SUCCESSFULLY PROCESSED ✓✓✓
+2025-12-08 12:31:52 - data_processing - INFO -    - 2146 overlapping segments were detected and added to the dataset
+2025-12-08 12:31:52 - data_processing - INFO -    - These segments will be used for training with multi-speaker labels
+2025-12-08 12:31:52 - data_processing - INFO - 
+2025-12-08 12:31:52 - data_processing - INFO - ================================================================================
+2025-12-08 12:31:52 - data_processing - INFO - Total samples to process (including overlaps): 7146
+2025-12-08 12:31:52 - data_processing - INFO - First pass: Extracting features in chunks to determine dimensions (checking ALL samples)...
+2025-12-08 12:31:52 - root - INFO -     $binop_add32.6 = $8binary_subscr.2 + $22binary_subscr.5 ['$22binary_subscr.5', '$8binary_subscr.2', '$binop_add32.6']
+2025-12-08 12:31:52 - root - INFO -     $binop_mul52.11 = $const36.7.3 * $42binary_subscr.10 ['$42binary_subscr.10', '$binop_mul52.11', '$const36.7.3']
+2025-12-08 12:31:52 - root - INFO -     a = $binop_add32.6 - $binop_mul52.11     ['$binop_add32.6', '$binop_mul52.11', 'a']
+2025-12-08 12:31:52 - root - INFO -     $binop_sub90.19 = $66binary_subscr.15 - $80binary_subscr.18 ['$66binary_subscr.15', '$80binary_subscr.18', '$binop_sub90.19']
+2025-12-08 12:31:52 - root - INFO -     b = $binop_sub90.19 / $const94.20.3      ['$binop_sub90.19', '$const94.20.3', 'b']
+2025-12-08 12:31:52 - root - INFO -     $102load_global.22 = global(np: <module 'numpy' from '/Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/numpy/__init__.py'>) ['$102load_global.22']
+2025-12-08 12:31:52 - root - INFO -     $114load_attr.24 = getattr(value=$102load_global.22, attr=abs) ['$102load_global.22', '$114load_attr.24']
+2025-12-08 12:31:52 - root - INFO -     $140load_global.27 = global(np: <module 'numpy' from '/Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/numpy/__init__.py'>) ['$140load_global.27']
+2025-12-08 12:31:52 - root - INFO -     $152load_attr.29 = getattr(value=$140load_global.27, attr=abs) ['$140load_global.27', '$152load_attr.29']
+2025-12-08 12:31:52 - root - INFO -     $178compare_op.32 = $130call.26 >= $168call.31 ['$130call.26', '$168call.31', '$178compare_op.32']
+2025-12-08 12:31:52 - root - INFO -     bool184 = global(bool: <class 'bool'>)   ['bool184']
+2025-12-08 12:31:52 - root - INFO -     $188return_value.1 = cast(value=$const186.0.4) ['$188return_value.1', '$const186.0.4']
+2025-12-08 12:31:52 - root - INFO -     $binop_truediv196.3 = $192unary_negative.1 / a ['$192unary_negative.1', '$binop_truediv196.3', 'a']
+2025-12-08 12:31:52 - root - INFO -     $200return_value.4 = cast(value=$binop_truediv196.3) ['$200return_value.4', '$binop_truediv196.3']
+2025-12-08 12:31:56 - data_processing - INFO - Dimension discovery progress: 500/7146 samples checked, current max_len: 1496
+2025-12-08 12:32:21 - data_processing - INFO - Dimension discovery progress: 5500/7146 samples checked, current max_len: 2412
+2025-12-08 12:32:30 - data_processing - INFO - Final max sequence length: 2412 (original: 2412), Feature dimension: 80
+2025-12-08 12:32:30 - data_processing - INFO - Estimated memory requirements:
+2025-12-08 12:32:30 - data_processing - INFO -   Features array: 5.14 GB
+2025-12-08 12:32:30 - data_processing - INFO -   Labels array: 0.13 GB
+2025-12-08 12:32:30 - data_processing - INFO -   Meeting IDs array: 0.13 GB
+2025-12-08 12:32:30 - data_processing - INFO -   Total: 5.39 GB
+2025-12-08 12:32:30 - data_processing - INFO - Pre-allocating arrays for 7146 samples...
+2025-12-08 12:32:30 - data_processing - INFO - Second pass: Extracting and padding features (chunk_size=500)...
+2025-12-08 12:32:30 - data_processing - INFO - Processing both original and overlapping segments...
+2025-12-08 12:32:30 - data_processing - INFO - Padding progress: 100/7146 (1.4%)
+2025-12-08 12:32:31 - data_processing - INFO - Padding progress: 200/7146 (2.8%)
+2025-12-08 12:32:31 - data_processing - INFO - Padding progress: 300/7146 (4.2%)
+2025-12-08 12:32:32 - data_processing - INFO - Padding progress: 400/7146 (5.6%)
+2025-12-08 12:32:33 - data_processing - INFO - Padding progress: 500/7146 (7.0%)
+2025-12-08 12:32:33 - data_processing - INFO - Padding progress: 600/7146 (8.4%)
+2025-12-08 12:32:34 - data_processing - INFO - Padding progress: 700/7146 (9.8%)
+2025-12-08 12:32:34 - data_processing - INFO - Padding progress: 800/7146 (11.2%)
+2025-12-08 12:32:35 - data_processing - INFO - Padding progress: 900/7146 (12.6%)
+2025-12-08 12:32:35 - data_processing - INFO - Padding progress: 1000/7146 (14.0%)
+2025-12-08 12:32:36 - data_processing - INFO - Padding progress: 1100/7146 (15.4%)
+2025-12-08 12:32:37 - data_processing - INFO - Padding progress: 1200/7146 (16.8%)
+2025-12-08 12:32:37 - data_processing - INFO - Padding progress: 1300/7146 (18.2%)
+2025-12-08 12:32:38 - data_processing - INFO - Padding progress: 1400/7146 (19.6%)
+2025-12-08 12:32:38 - data_processing - INFO - Padding progress: 1500/7146 (21.0%)
+2025-12-08 12:32:39 - data_processing - INFO - Padding progress: 1600/7146 (22.4%)
+2025-12-08 12:32:39 - data_processing - INFO -   [LABEL EXAMPLE] Overlap segment 1: Speakers ['MEE068', 'MEO069'] -> Slots [1, 3] -> Encoded label: 11 -> Decoded slots: [1, 3]
+2025-12-08 12:32:39 - data_processing - INFO -   [LABEL EXAMPLE] Overlap segment 2: Speakers ['MEO069', 'MEE067'] -> Slots [3, 2] -> Encoded label: 13 -> Decoded slots: [2, 3]
+2025-12-08 12:32:39 - data_processing - INFO -   [LABEL EXAMPLE] Overlap segment 3: Speakers ['MEE067', 'MEE068'] -> Slots [2, 1] -> Encoded label: 10 -> Decoded slots: [1, 2]
+2025-12-08 12:32:39 - data_processing - INFO -   [LABEL EXAMPLE] Overlap segment 4: Speakers ['MEE067', 'MEO069'] -> Slots [2, 3] -> Encoded label: 13 -> Decoded slots: [2, 3]
+2025-12-08 12:32:39 - data_processing - INFO -   [LABEL EXAMPLE] Overlap segment 5: Speakers ['MEE068', 'MEO069'] -> Slots [1, 3] -> Encoded label: 11 -> Decoded slots: [1, 3]
+2025-12-08 12:32:39 - data_processing - INFO - Padding progress: 1700/7146 (23.8%)
+2025-12-08 12:32:39 - data_processing - INFO - Padding progress: 1800/7146 (25.2%)
+2025-12-08 12:32:40 - data_processing - INFO - Padding progress: 1900/7146 (26.6%)
+2025-12-08 12:32:40 - data_processing - INFO - Padding progress: 2000/7146 (28.0%)
+2025-12-08 12:32:40 - data_processing - INFO - Padding progress: 2100/7146 (29.4%)
+2025-12-08 12:32:40 - data_processing - INFO - Padding progress: 2200/7146 (30.8%)
+2025-12-08 12:32:41 - data_processing - INFO - Padding progress: 2300/7146 (32.2%)
+2025-12-08 12:32:41 - data_processing - INFO - Padding progress: 2400/7146 (33.6%)
+2025-12-08 12:32:42 - data_processing - INFO - Padding progress: 2500/7146 (35.0%)
+2025-12-08 12:32:42 - data_processing - INFO - Padding progress: 2600/7146 (36.4%)
+2025-12-08 12:32:43 - data_processing - INFO - Padding progress: 2700/7146 (37.8%)
+2025-12-08 12:32:44 - data_processing - INFO - Padding progress: 2800/7146 (39.2%)
+2025-12-08 12:32:44 - data_processing - INFO - Padding progress: 2900/7146 (40.6%)
+2025-12-08 12:32:45 - data_processing - INFO - Padding progress: 3000/7146 (42.0%)
+2025-12-08 12:32:46 - data_processing - INFO - Padding progress: 3100/7146 (43.4%)
+2025-12-08 12:32:46 - data_processing - INFO - Padding progress: 3200/7146 (44.8%)
+2025-12-08 12:32:47 - data_processing - INFO - Padding progress: 3300/7146 (46.2%)
+2025-12-08 12:32:48 - data_processing - INFO - Padding progress: 3400/7146 (47.6%)
+2025-12-08 12:32:48 - data_processing - INFO - Padding progress: 3500/7146 (49.0%)
+2025-12-08 12:32:48 - data_processing - INFO - Padding progress: 3600/7146 (50.4%)
+2025-12-08 12:32:48 - data_processing - INFO - Padding progress: 3700/7146 (51.8%)
+2025-12-08 12:32:49 - data_processing - INFO - Padding progress: 3800/7146 (53.2%)
+2025-12-08 12:32:49 - data_processing - INFO - Padding progress: 3900/7146 (54.6%)
+2025-12-08 12:32:50 - data_processing - INFO - Padding progress: 4000/7146 (56.0%)
+2025-12-08 12:32:50 - data_processing - INFO - Padding progress: 4100/7146 (57.4%)
+2025-12-08 12:32:51 - data_processing - INFO - Padding progress: 4200/7146 (58.8%)
+2025-12-08 12:32:51 - data_processing - INFO - Padding progress: 4300/7146 (60.2%)
+2025-12-08 12:32:52 - data_processing - INFO - Padding progress: 4400/7146 (61.6%)
+2025-12-08 12:32:52 - data_processing - INFO - Padding progress: 4500/7146 (63.0%)
+2025-12-08 12:32:54 - data_processing - INFO - Padding progress: 4600/7146 (64.4%)
+2025-12-08 12:32:54 - data_processing - INFO - Padding progress: 4700/7146 (65.8%)
+2025-12-08 12:32:55 - data_processing - INFO - Padding progress: 4800/7146 (67.2%)
+2025-12-08 12:32:55 - data_processing - INFO - Padding progress: 4900/7146 (68.6%)
+2025-12-08 12:32:56 - data_processing - INFO - Padding progress: 5000/7146 (70.0%)
+2025-12-08 12:32:56 - data_processing - INFO - Padding progress: 5100/7146 (71.4%)
+2025-12-08 12:32:56 - data_processing - INFO - Padding progress: 5200/7146 (72.8%)
+2025-12-08 12:32:56 - data_processing - INFO - Padding progress: 5300/7146 (74.2%)
+2025-12-08 12:32:57 - data_processing - INFO - Padding progress: 5400/7146 (75.6%)
+2025-12-08 12:32:58 - data_processing - INFO - Padding progress: 5500/7146 (77.0%)
+2025-12-08 12:32:58 - data_processing - INFO - Padding progress: 5600/7146 (78.4%)
+2025-12-08 12:32:59 - data_processing - INFO - Padding progress: 5700/7146 (79.8%)
+2025-12-08 12:32:59 - data_processing - INFO - Padding progress: 5800/7146 (81.2%)
+2025-12-08 12:33:00 - data_processing - INFO - Padding progress: 5900/7146 (82.6%)
+2025-12-08 12:33:01 - data_processing - INFO - Padding progress: 6000/7146 (84.0%)
+2025-12-08 12:33:01 - data_processing - INFO - Padding progress: 6100/7146 (85.4%)
+2025-12-08 12:33:02 - data_processing - INFO - Padding progress: 6200/7146 (86.8%)
+2025-12-08 12:33:03 - data_processing - INFO - Padding progress: 6300/7146 (88.2%)
+2025-12-08 12:33:03 - data_processing - INFO - Padding progress: 6400/7146 (89.6%)
+2025-12-08 12:33:04 - data_processing - INFO - Padding progress: 6500/7146 (91.0%)
+2025-12-08 12:33:04 - data_processing - INFO - Padding progress: 6600/7146 (92.4%)
+2025-12-08 12:33:04 - data_processing - INFO - Padding progress: 6700/7146 (93.8%)
+2025-12-08 12:33:05 - data_processing - INFO - Padding progress: 6800/7146 (95.2%)
+2025-12-08 12:33:05 - data_processing - INFO - Padding progress: 6900/7146 (96.6%)
+2025-12-08 12:33:05 - data_processing - INFO - Padding progress: 7000/7146 (98.0%)
+2025-12-08 12:33:05 - data_processing - INFO - Padding progress: 7100/7146 (99.4%)
+2025-12-08 12:33:05 - data_processing - INFO - Padding progress: 7146/7146 (100.0%)
+2025-12-08 12:33:06 - data_processing - INFO - ================================================================================
+2025-12-08 12:33:06 - data_processing - INFO - FEATURE EXTRACTION: COMPLETE
+2025-12-08 12:33:06 - data_processing - INFO - ================================================================================
+2025-12-08 12:33:06 - data_processing - INFO - Non-overlapping segments processed: 5000
+2025-12-08 12:33:06 - data_processing - INFO - Overlapping segments processed: 2146
+2025-12-08 12:33:06 - data_processing - INFO - Total segments processed: 7146
+2025-12-08 12:33:06 - data_processing - INFO - Overlap percentage in final dataset: 30.03%
+2025-12-08 12:33:06 - data_processing - INFO - 
+2025-12-08 12:33:06 - data_processing - INFO - ✓✓✓ FINAL CONFIRMATION: OVERLAPPING SPEECH IN FINAL DATASET ✓✓✓
+2025-12-08 12:33:06 - data_processing - INFO -    - 2146 overlapping segments with multi-speaker labels are in the dataset
+2025-12-08 12:33:06 - data_processing - INFO -    - These segments use Power Set Encoding for multiple active speakers
+2025-12-08 12:33:06 - data_processing - INFO -    - The model will be trained on both single-speaker and multi-speaker segments
+2025-12-08 12:33:06 - data_processing - INFO -    - Unique overlap labels: 10
+2025-12-08 12:33:06 - data_processing - INFO -    - Label distribution (first 10):
+2025-12-08 12:33:06 - data_processing - INFO -      * Label 6: Slots [1, 0] (Speakers ['MEE068', 'FEO066']) -> Decoded: [0, 1], Count: 70
+2025-12-08 12:33:06 - data_processing - INFO -      * Label 7: Slots [0, 2] (Speakers ['FEO066', 'MEE067']) -> Decoded: [0, 2], Count: 252
+2025-12-08 12:33:06 - data_processing - INFO -      * Label 8: Slots [3, 0] (Speakers ['MEO069', 'FEO066']) -> Decoded: [0, 3], Count: 343
+2025-12-08 12:33:06 - data_processing - INFO -      * Label 9: Slots [0, 4] (Speakers ['FEO066', 'FEO065']) -> Decoded: [0, 4], Count: 59
+2025-12-08 12:33:06 - data_processing - INFO -      * Label 10: Slots [2, 1] (Speakers ['MEE067', 'MEE068']) -> Decoded: [1, 2], Count: 162
+2025-12-08 12:33:06 - data_processing - INFO -      * Label 11: Slots [1, 3] (Speakers ['MEE068', 'MEO069']) -> Decoded: [1, 3], Count: 205
+2025-12-08 12:33:06 - data_processing - INFO -      * Label 12: Slots [4, 1] (Speakers ['FEO065', 'MEE068']) -> Decoded: [1, 4], Count: 49
+2025-12-08 12:33:06 - data_processing - INFO -      * Label 13: Slots [3, 2] (Speakers ['MEO069', 'MEE067']) -> Decoded: [2, 3], Count: 825
+2025-12-08 12:33:06 - data_processing - INFO -      * Label 14: Slots [2, 4] (Speakers ['MEE067', 'FEO065']) -> Decoded: [2, 4], Count: 56
+2025-12-08 12:33:06 - data_processing - INFO -      * Label 15: Slots [4, 3] (Speakers ['FEO065', 'MEO069']) -> Decoded: [3, 4], Count: 125
+2025-12-08 12:33:06 - data_processing - INFO - 
+2025-12-08 12:33:06 - data_processing - INFO - ================================================================================
+2025-12-08 12:33:06 - data_processing - INFO - Padding complete.
+2025-12-08 12:33:06 - data_processing - INFO - Features array created: shape (7146, 2412, 80), size 5.14 GB
+2025-12-08 12:33:06 - data_processing - INFO - Labels array created: shape (7146, 2412)
+2025-12-08 12:33:06 - data_processing - INFO - Meeting IDs array created: shape (7146, 2412)
+2025-12-08 12:33:06 - data_processing - INFO - Speaker IDs list length: 7146
+2025-12-08 12:33:06 - root - INFO - STATS: ========================================== DATASET STATISTICS ==========================================
+2025-12-08 12:33:06 - root - INFO - STATS: STARTING FUNCTION: print_dataset_statistics
+2025-12-08 12:33:06 - root - INFO - STATS: Dataset size (number of samples): 7146
+2025-12-08 12:33:06 - root - INFO - STATS: Feature shape (samples, frames, mel-bands): (7146, 2412, 80)
+2025-12-08 12:33:06 - root - INFO - STATS: Label shape: (7146, 2412)
+2025-12-08 12:33:06 - root - INFO - STATS: Meeting IDs shape: (7146, 2412)
+2025-12-08 12:33:06 - root - INFO - STATS: Frame size (frames per sample): min=13, max=2412, mean=232.2
+2025-12-08 12:33:06 - root - INFO - STATS: Audio segment length distribution: min=13, max=2412, mean=232.2, median=130.0
+2025-12-08 12:33:06 - root - INFO - STATS: Feature dtype: float32, Label dtype: int64
+2025-12-08 12:33:06 - root - INFO - STATS: Example feature[0] shape: (2412, 80), min=-85.84, max=0.00
+2025-12-08 12:33:06 - root - INFO - STATS: Example label[0] shape: (2412,), values: [-100    4]
+2025-12-08 12:33:06 - root - INFO - STATS: COMPLETED FUNCTION: print_dataset_statistics
+2025-12-08 12:33:06 - root - INFO - STATS: COMPLETED FUNCTION: create_dataset_from_grouped - Created dataset with 7146 samples, 2412 max frames, 80 mel-bands
+2025-12-08 12:33:06 - root - INFO - STATS: STARTING FUNCTION: create_dataset_from_grouped(grouped_data_len=4, N=5)
+2025-12-08 12:33:06 - data_processing - INFO - ================================================================================
+2025-12-08 12:33:06 - data_processing - INFO - OVERLAPPING SPEECH PROCESSING: ENABLED
+2025-12-08 12:33:06 - data_processing - INFO - ================================================================================
+2025-12-08 12:33:06 - data_processing - INFO - Processing overlapping speech segments for each meeting...
+2025-12-08 12:33:06 - data_processing - INFO - Meeting ES2011a: 4 speakers mapped to slots [0, 1, 2, 3]
+2025-12-08 12:33:06 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting ES2011a: Adding 364 original segments...
+2025-12-08 12:33:06 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting ES2011a: Detecting overlapping segments...
+2025-12-08 12:33:06 - data_processing - INFO -   [OVERLAP PROCESSING] Examples of overlapping segments for meeting ES2011a:
+2025-12-08 12:33:06 - data_processing - INFO -     Example 1: Speakers ['FEE044', 'FEE041'] -> Slots [0, 1], Time: 77.04s-77.78s (0.74s)
+2025-12-08 12:33:06 - data_processing - INFO -     Example 2: Speakers ['FEE041', 'FEE044'] -> Slots [1, 0], Time: 78.93s-78.98s (0.05s)
+2025-12-08 12:33:06 - data_processing - INFO -     Example 3: Speakers ['FEE044', 'FEE041'] -> Slots [0, 1], Time: 78.98s-80.51s (1.53s)
+2025-12-08 12:33:06 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting ES2011a statistics:
+2025-12-08 12:33:06 - data_processing - INFO -     - Original segments: 364
+2025-12-08 12:33:06 - data_processing - INFO -     - Overlapping segments created: 192
+2025-12-08 12:33:06 - data_processing - INFO -     - Overlap ratio: 52.75%
+2025-12-08 12:33:06 - data_processing - INFO -     ✓ CONFIRMED: Found and processed 192 overlapping segments for meeting ES2011a
+2025-12-08 12:33:06 - data_processing - INFO - Meeting ES2011c: 4 speakers mapped to slots [0, 1, 2, 3]
+2025-12-08 12:33:06 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting ES2011c: Adding 594 original segments...
+2025-12-08 12:33:06 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting ES2011c: Detecting overlapping segments...
+2025-12-08 12:33:06 - data_processing - INFO -   [OVERLAP PROCESSING] Examples of overlapping segments for meeting ES2011c:
+2025-12-08 12:33:06 - data_processing - INFO -     Example 1: Speakers ['FEE043', 'FEE044'] -> Slots [2, 0], Time: 86.03s-86.60s (0.57s)
+2025-12-08 12:33:06 - data_processing - INFO -     Example 2: Speakers ['FEE041', 'FEE042'] -> Slots [1, 3], Time: 135.29s-135.60s (0.31s)
+2025-12-08 12:33:06 - data_processing - INFO -     Example 3: Speakers ['FEE044', 'FEE043'] -> Slots [0, 2], Time: 136.86s-137.33s (0.47s)
+2025-12-08 12:33:06 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting ES2011c statistics:
+2025-12-08 12:33:06 - data_processing - INFO -     - Original segments: 594
+2025-12-08 12:33:06 - data_processing - INFO -     - Overlapping segments created: 393
+2025-12-08 12:33:06 - data_processing - INFO -     - Overlap ratio: 66.16%
+2025-12-08 12:33:06 - data_processing - INFO -     ✓ CONFIRMED: Found and processed 393 overlapping segments for meeting ES2011c
+2025-12-08 12:33:06 - data_processing - INFO - Meeting IB4001: 4 speakers mapped to slots [0, 1, 2, 3]
+2025-12-08 12:33:06 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting IB4001: Adding 731 original segments...
+2025-12-08 12:33:06 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting IB4001: Detecting overlapping segments...
+2025-12-08 12:33:06 - data_processing - INFO -   [OVERLAP PROCESSING] Examples of overlapping segments for meeting IB4001:
+2025-12-08 12:33:06 - data_processing - INFO -     Example 1: Speakers ['FIE038', 'FIO093'] -> Slots [2, 1], Time: 140.05s-140.24s (0.19s)
+2025-12-08 12:33:06 - data_processing - INFO -     Example 2: Speakers ['FIO093', 'MIO092'] -> Slots [1, 3], Time: 204.23s-204.53s (0.30s)
+2025-12-08 12:33:06 - data_processing - INFO -     Example 3: Speakers ['FIE038', 'MIO092'] -> Slots [2, 3], Time: 227.61s-228.32s (0.71s)
+2025-12-08 12:33:06 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting IB4001 statistics:
+2025-12-08 12:33:06 - data_processing - INFO -     - Original segments: 731
+2025-12-08 12:33:06 - data_processing - INFO -     - Overlapping segments created: 435
+2025-12-08 12:33:06 - data_processing - INFO -     - Overlap ratio: 59.51%
+2025-12-08 12:33:06 - data_processing - INFO -     ✓ CONFIRMED: Found and processed 435 overlapping segments for meeting IB4001
+2025-12-08 12:33:06 - data_processing - INFO - Meeting IB4003: 4 speakers mapped to slots [0, 1, 2, 3]
+2025-12-08 12:33:06 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting IB4003: Adding 454 original segments...
+2025-12-08 12:33:06 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting IB4003: Detecting overlapping segments...
+2025-12-08 12:33:06 - data_processing - INFO -   [OVERLAP PROCESSING] Examples of overlapping segments for meeting IB4003:
+2025-12-08 12:33:06 - data_processing - INFO -     Example 1: Speakers ['MIO036', 'MIO039'] -> Slots [2, 3], Time: 172.96s-173.59s (0.63s)
+2025-12-08 12:33:06 - data_processing - INFO -     Example 2: Speakers ['MIO039', 'MIO036'] -> Slots [3, 2], Time: 187.49s-188.45s (0.96s)
+2025-12-08 12:33:06 - data_processing - INFO -     Example 3: Speakers ['MIO036', 'MIO039'] -> Slots [2, 3], Time: 194.84s-195.09s (0.25s)
+2025-12-08 12:33:06 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting IB4003 statistics:
+2025-12-08 12:33:06 - data_processing - INFO -     - Original segments: 454
+2025-12-08 12:33:06 - data_processing - INFO -     - Overlapping segments created: 186
+2025-12-08 12:33:06 - data_processing - INFO -     - Overlap ratio: 40.97%
+2025-12-08 12:33:06 - data_processing - INFO -     ✓ CONFIRMED: Found and processed 186 overlapping segments for meeting IB4003
+2025-12-08 12:33:06 - data_processing - INFO - ================================================================================
+2025-12-08 12:33:06 - data_processing - INFO - OVERLAPPING SPEECH PROCESSING: COMPLETE
+2025-12-08 12:33:06 - data_processing - INFO - ================================================================================
+2025-12-08 12:33:06 - data_processing - INFO - Total meetings processed: 4
+2025-12-08 12:33:06 - data_processing - INFO - Total original segments: 2143
+2025-12-08 12:33:06 - data_processing - INFO - Total overlapping segments created: 1206
+2025-12-08 12:33:06 - data_processing - INFO - Total segments (original + overlaps): 3349
+2025-12-08 12:33:06 - data_processing - INFO - Overall overlap ratio: 56.28%
+2025-12-08 12:33:06 - data_processing - INFO - 
+2025-12-08 12:33:06 - data_processing - INFO - ✓✓✓ CONFIRMATION: OVERLAPPING SPEECH SUCCESSFULLY PROCESSED ✓✓✓
+2025-12-08 12:33:06 - data_processing - INFO -    - 1206 overlapping segments were detected and added to the dataset
+2025-12-08 12:33:06 - data_processing - INFO -    - These segments will be used for training with multi-speaker labels
+2025-12-08 12:33:06 - data_processing - INFO - 
+2025-12-08 12:33:06 - data_processing - INFO - ================================================================================
+2025-12-08 12:33:06 - data_processing - INFO - Total samples to process (including overlaps): 3349
+2025-12-08 12:33:06 - data_processing - INFO - First pass: Extracting features in chunks to determine dimensions (checking ALL samples)...
+2025-12-08 12:33:08 - data_processing - INFO - Dimension discovery progress: 500/3349 samples checked, current max_len: 2423
+2025-12-08 12:33:25 - data_processing - INFO - Final max sequence length: 2423 (original: 2423), Feature dimension: 80
+2025-12-08 12:33:25 - data_processing - INFO - Estimated memory requirements:
+2025-12-08 12:33:25 - data_processing - INFO -   Features array: 2.42 GB
+2025-12-08 12:33:25 - data_processing - INFO -   Labels array: 0.06 GB
+2025-12-08 12:33:25 - data_processing - INFO -   Meeting IDs array: 0.06 GB
+2025-12-08 12:33:25 - data_processing - INFO -   Total: 2.54 GB
+2025-12-08 12:33:25 - data_processing - INFO - Pre-allocating arrays for 3349 samples...
+2025-12-08 12:33:26 - data_processing - INFO - Second pass: Extracting and padding features (chunk_size=500)...
+2025-12-08 12:33:26 - data_processing - INFO - Processing both original and overlapping segments...
+2025-12-08 12:33:27 - data_processing - INFO - Padding progress: 100/3349 (3.0%)
+2025-12-08 12:33:27 - data_processing - INFO - Padding progress: 200/3349 (6.0%)
+2025-12-08 12:33:28 - data_processing - INFO - Padding progress: 300/3349 (9.0%)
+2025-12-08 12:33:29 - data_processing - INFO -   [LABEL EXAMPLE] Overlap segment 1: Speakers ['FEE044', 'FEE041'] -> Slots [0, 1] -> Encoded label: 6 -> Decoded slots: [0, 1]
+2025-12-08 12:33:29 - data_processing - INFO -   [LABEL EXAMPLE] Overlap segment 2: Speakers ['FEE041', 'FEE044'] -> Slots [1, 0] -> Encoded label: 6 -> Decoded slots: [0, 1]
+2025-12-08 12:33:29 - data_processing - INFO -   [LABEL EXAMPLE] Overlap segment 3: Speakers ['FEE044', 'FEE041'] -> Slots [0, 1] -> Encoded label: 6 -> Decoded slots: [0, 1]
+2025-12-08 12:33:29 - data_processing - INFO -   [LABEL EXAMPLE] Overlap segment 4: Speakers ['FEE041', 'FEE044'] -> Slots [1, 0] -> Encoded label: 6 -> Decoded slots: [0, 1]
+2025-12-08 12:33:29 - data_processing - INFO -   [LABEL EXAMPLE] Overlap segment 5: Speakers ['FEE041', 'FEE043'] -> Slots [1, 2] -> Encoded label: 10 -> Decoded slots: [1, 2]
+2025-12-08 12:33:29 - data_processing - INFO - Padding progress: 400/3349 (11.9%)
+2025-12-08 12:33:29 - data_processing - INFO - Padding progress: 500/3349 (14.9%)
+2025-12-08 12:33:30 - data_processing - INFO - Padding progress: 600/3349 (17.9%)
+2025-12-08 12:33:31 - data_processing - INFO - Padding progress: 700/3349 (20.9%)
+2025-12-08 12:33:32 - data_processing - INFO - Padding progress: 800/3349 (23.9%)
+2025-12-08 12:33:33 - data_processing - INFO - Padding progress: 900/3349 (26.9%)
+2025-12-08 12:33:33 - data_processing - INFO - Padding progress: 1000/3349 (29.9%)
+2025-12-08 12:33:34 - data_processing - INFO - Padding progress: 1100/3349 (32.8%)
+2025-12-08 12:33:35 - data_processing - INFO - Padding progress: 1200/3349 (35.8%)
+2025-12-08 12:33:35 - data_processing - INFO - Padding progress: 1300/3349 (38.8%)
+2025-12-08 12:33:35 - data_processing - INFO - Padding progress: 1400/3349 (41.8%)
+2025-12-08 12:33:35 - data_processing - INFO - Padding progress: 1500/3349 (44.8%)
+2025-12-08 12:33:36 - data_processing - INFO - Padding progress: 1600/3349 (47.8%)
+2025-12-08 12:33:37 - data_processing - INFO - Padding progress: 1700/3349 (50.8%)
+2025-12-08 12:33:37 - data_processing - INFO - Padding progress: 1800/3349 (53.7%)
+2025-12-08 12:33:38 - data_processing - INFO - Padding progress: 1900/3349 (56.7%)
+2025-12-08 12:33:38 - data_processing - INFO - Padding progress: 2000/3349 (59.7%)
+2025-12-08 12:33:39 - data_processing - INFO - Padding progress: 2100/3349 (62.7%)
+2025-12-08 12:33:39 - data_processing - INFO - Padding progress: 2200/3349 (65.7%)
+2025-12-08 12:33:40 - data_processing - INFO - Padding progress: 2300/3349 (68.7%)
+2025-12-08 12:33:40 - data_processing - INFO - Padding progress: 2400/3349 (71.7%)
+2025-12-08 12:33:40 - data_processing - INFO - Padding progress: 2500/3349 (74.6%)
+2025-12-08 12:33:41 - data_processing - INFO - Padding progress: 2600/3349 (77.6%)
+2025-12-08 12:33:41 - data_processing - INFO - Padding progress: 2700/3349 (80.6%)
+2025-12-08 12:33:42 - data_processing - INFO - Padding progress: 2800/3349 (83.6%)
+2025-12-08 12:33:42 - data_processing - INFO - Padding progress: 2900/3349 (86.6%)
+2025-12-08 12:33:43 - data_processing - INFO - Padding progress: 3000/3349 (89.6%)
+2025-12-08 12:33:44 - data_processing - INFO - Padding progress: 3100/3349 (92.6%)
+2025-12-08 12:33:44 - data_processing - INFO - Padding progress: 3200/3349 (95.6%)
+2025-12-08 12:33:45 - data_processing - INFO - Padding progress: 3300/3349 (98.5%)
+2025-12-08 12:33:45 - data_processing - INFO - Padding progress: 3349/3349 (100.0%)
+2025-12-08 12:33:45 - data_processing - INFO - ================================================================================
+2025-12-08 12:33:45 - data_processing - INFO - FEATURE EXTRACTION: COMPLETE
+2025-12-08 12:33:45 - data_processing - INFO - ================================================================================
+2025-12-08 12:33:45 - data_processing - INFO - Non-overlapping segments processed: 2143
+2025-12-08 12:33:45 - data_processing - INFO - Overlapping segments processed: 1206
+2025-12-08 12:33:45 - data_processing - INFO - Total segments processed: 3349
+2025-12-08 12:33:45 - data_processing - INFO - Overlap percentage in final dataset: 36.01%
+2025-12-08 12:33:45 - data_processing - INFO - 
+2025-12-08 12:33:45 - data_processing - INFO - ✓✓✓ FINAL CONFIRMATION: OVERLAPPING SPEECH IN FINAL DATASET ✓✓✓
+2025-12-08 12:33:45 - data_processing - INFO -    - 1206 overlapping segments with multi-speaker labels are in the dataset
+2025-12-08 12:33:45 - data_processing - INFO -    - These segments use Power Set Encoding for multiple active speakers
+2025-12-08 12:33:45 - data_processing - INFO -    - The model will be trained on both single-speaker and multi-speaker segments
+2025-12-08 12:33:45 - data_processing - INFO -    - Unique overlap labels: 6
+2025-12-08 12:33:45 - data_processing - INFO -    - Label distribution (first 10):
+2025-12-08 12:33:45 - data_processing - INFO -      * Label 6: Slots [0, 1] (Speakers ['FEE044', 'FEE041']) -> Decoded: [0, 1], Count: 130
+2025-12-08 12:33:45 - data_processing - INFO -      * Label 7: Slots [0, 2] (Speakers ['FEE044', 'FEE043']) -> Decoded: [0, 2], Count: 216
+2025-12-08 12:33:45 - data_processing - INFO -      * Label 8: Slots [0, 3] (Speakers ['FEE044', 'FEE042']) -> Decoded: [0, 3], Count: 118
+2025-12-08 12:33:45 - data_processing - INFO -      * Label 10: Slots [1, 2] (Speakers ['FEE041', 'FEE043']) -> Decoded: [1, 2], Count: 250
+2025-12-08 12:33:45 - data_processing - INFO -      * Label 11: Slots [1, 3] (Speakers ['FEE041', 'FEE042']) -> Decoded: [1, 3], Count: 137
+2025-12-08 12:33:45 - data_processing - INFO -      * Label 13: Slots [3, 2] (Speakers ['FEE042', 'FEE043']) -> Decoded: [2, 3], Count: 355
+2025-12-08 12:33:45 - data_processing - INFO - 
+2025-12-08 12:33:45 - data_processing - INFO - ================================================================================
+2025-12-08 12:33:45 - data_processing - INFO - Padding complete.
+2025-12-08 12:33:45 - data_processing - INFO - Features array created: shape (3349, 2423, 80), size 2.42 GB
+2025-12-08 12:33:45 - data_processing - INFO - Labels array created: shape (3349, 2423)
+2025-12-08 12:33:45 - data_processing - INFO - Meeting IDs array created: shape (3349, 2423)
+2025-12-08 12:33:45 - data_processing - INFO - Speaker IDs list length: 3349
+2025-12-08 12:33:45 - root - INFO - STATS: ========================================== DATASET STATISTICS ==========================================
+2025-12-08 12:33:45 - root - INFO - STATS: STARTING FUNCTION: print_dataset_statistics
+2025-12-08 12:33:45 - root - INFO - STATS: Dataset size (number of samples): 3349
+2025-12-08 12:33:45 - root - INFO - STATS: Feature shape (samples, frames, mel-bands): (3349, 2423, 80)
+2025-12-08 12:33:45 - root - INFO - STATS: Label shape: (3349, 2423)
+2025-12-08 12:33:45 - root - INFO - STATS: Meeting IDs shape: (3349, 2423)
+2025-12-08 12:33:45 - root - INFO - STATS: Frame size (frames per sample): min=13, max=2423, mean=187.1
+2025-12-08 12:33:45 - root - INFO - STATS: Audio segment length distribution: min=13, max=2423, mean=187.1, median=102.0
+2025-12-08 12:33:45 - root - INFO - STATS: Feature dtype: float32, Label dtype: int64
+2025-12-08 12:33:45 - root - INFO - STATS: Example feature[0] shape: (2423, 80), min=-86.83, max=0.00
+2025-12-08 12:33:45 - root - INFO - STATS: Example label[0] shape: (2423,), values: [-100    2]
+2025-12-08 12:33:45 - root - INFO - STATS: COMPLETED FUNCTION: print_dataset_statistics
+2025-12-08 12:33:45 - root - INFO - STATS: COMPLETED FUNCTION: create_dataset_from_grouped - Created dataset with 3349 samples, 2423 max frames, 80 mel-bands
+2025-12-08 12:33:45 - root - INFO - STATS: STARTING FUNCTION: create_dataset_from_grouped(grouped_data_len=2, N=5)
+2025-12-08 12:33:45 - data_processing - INFO - ================================================================================
+2025-12-08 12:33:45 - data_processing - INFO - OVERLAPPING SPEECH PROCESSING: ENABLED
+2025-12-08 12:33:45 - data_processing - INFO - ================================================================================
+2025-12-08 12:33:45 - data_processing - INFO - Processing overlapping speech segments for each meeting...
+2025-12-08 12:33:45 - data_processing - INFO - Meeting EN2002a: 4 speakers mapped to slots [0, 1, 2, 3]
+2025-12-08 12:33:45 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting EN2002a: Adding 1367 original segments...
+2025-12-08 12:33:45 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting EN2002a: Detecting overlapping segments...
+2025-12-08 12:33:45 - data_processing - INFO -   [OVERLAP PROCESSING] Examples of overlapping segments for meeting EN2002a:
+2025-12-08 12:33:45 - data_processing - INFO -     Example 1: Speakers ['MEE071', 'MEE073'] -> Slots [1, 3], Time: 0.96s-1.74s (0.78s)
+2025-12-08 12:33:45 - data_processing - INFO -     Example 2: Speakers ['MEE073', 'FEO072'] -> Slots [3, 2], Time: 3.58s-5.38s (1.80s)
+2025-12-08 12:33:45 - data_processing - INFO -     Example 3: Speakers ['MEE073', 'MEE071'] -> Slots [3, 1], Time: 3.61s-4.68s (1.07s)
+2025-12-08 12:33:45 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting EN2002a statistics:
+2025-12-08 12:33:45 - data_processing - INFO -     - Original segments: 1367
+2025-12-08 12:33:45 - data_processing - INFO -     - Overlapping segments created: 1236
+2025-12-08 12:33:45 - data_processing - INFO -     - Overlap ratio: 90.42%
+2025-12-08 12:33:45 - data_processing - INFO -     ✓ CONFIRMED: Found and processed 1236 overlapping segments for meeting EN2002a
+2025-12-08 12:33:45 - data_processing - INFO - Meeting EN2002b: 4 speakers mapped to slots [0, 1, 2, 3]
+2025-12-08 12:33:45 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting EN2002b: Adding 776 original segments...
+2025-12-08 12:33:45 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting EN2002b: Detecting overlapping segments...
+2025-12-08 12:33:45 - data_processing - INFO -   [OVERLAP PROCESSING] Examples of overlapping segments for meeting EN2002b:
+2025-12-08 12:33:45 - data_processing - INFO -     Example 1: Speakers ['MEE073', 'FEO070'] -> Slots [3, 0], Time: 41.99s-42.40s (0.41s)
+2025-12-08 12:33:45 - data_processing - INFO -     Example 2: Speakers ['MEE073', 'FEO070'] -> Slots [3, 0], Time: 58.73s-58.93s (0.20s)
+2025-12-08 12:33:45 - data_processing - INFO -     Example 3: Speakers ['MEE073', 'FEO070'] -> Slots [3, 0], Time: 62.02s-62.31s (0.29s)
+2025-12-08 12:33:45 - data_processing - INFO -   [OVERLAP PROCESSING] Meeting EN2002b statistics:
+2025-12-08 12:33:45 - data_processing - INFO -     - Original segments: 776
+2025-12-08 12:33:45 - data_processing - INFO -     - Overlapping segments created: 531
+2025-12-08 12:33:45 - data_processing - INFO -     - Overlap ratio: 68.43%
+2025-12-08 12:33:45 - data_processing - INFO -     ✓ CONFIRMED: Found and processed 531 overlapping segments for meeting EN2002b
+2025-12-08 12:33:45 - data_processing - INFO - ================================================================================
+2025-12-08 12:33:45 - data_processing - INFO - OVERLAPPING SPEECH PROCESSING: COMPLETE
+2025-12-08 12:33:45 - data_processing - INFO - ================================================================================
+2025-12-08 12:33:45 - data_processing - INFO - Total meetings processed: 2
+2025-12-08 12:33:45 - data_processing - INFO - Total original segments: 2143
+2025-12-08 12:33:45 - data_processing - INFO - Total overlapping segments created: 1767
+2025-12-08 12:33:45 - data_processing - INFO - Total segments (original + overlaps): 3910
+2025-12-08 12:33:45 - data_processing - INFO - Overall overlap ratio: 82.45%
+2025-12-08 12:33:45 - data_processing - INFO - 
+2025-12-08 12:33:45 - data_processing - INFO - ✓✓✓ CONFIRMATION: OVERLAPPING SPEECH SUCCESSFULLY PROCESSED ✓✓✓
+2025-12-08 12:33:45 - data_processing - INFO -    - 1767 overlapping segments were detected and added to the dataset
+2025-12-08 12:33:45 - data_processing - INFO -    - These segments will be used for training with multi-speaker labels
+2025-12-08 12:33:45 - data_processing - INFO - 
+2025-12-08 12:33:45 - data_processing - INFO - ================================================================================
+2025-12-08 12:33:45 - data_processing - INFO - Total samples to process (including overlaps): 3910
+2025-12-08 12:33:45 - data_processing - INFO - First pass: Extracting features in chunks to determine dimensions (checking ALL samples)...
+2025-12-08 12:33:48 - data_processing - INFO - Dimension discovery progress: 500/3910 samples checked, current max_len: 1025
+2025-12-08 12:34:04 - data_processing - INFO - Final max sequence length: 1864 (original: 1864), Feature dimension: 80
+2025-12-08 12:34:04 - data_processing - INFO - Estimated memory requirements:
+2025-12-08 12:34:04 - data_processing - INFO -   Features array: 2.17 GB
+2025-12-08 12:34:04 - data_processing - INFO -   Labels array: 0.05 GB
+2025-12-08 12:34:04 - data_processing - INFO -   Meeting IDs array: 0.05 GB
+2025-12-08 12:34:04 - data_processing - INFO -   Total: 2.28 GB
+2025-12-08 12:34:04 - data_processing - INFO - Pre-allocating arrays for 3910 samples...
+2025-12-08 12:34:04 - data_processing - INFO - Second pass: Extracting and padding features (chunk_size=500)...
+2025-12-08 12:34:04 - data_processing - INFO - Processing both original and overlapping segments...
+2025-12-08 12:34:05 - data_processing - INFO - Padding progress: 100/3910 (2.6%)
+2025-12-08 12:34:05 - data_processing - INFO - Padding progress: 200/3910 (5.1%)
+2025-12-08 12:34:06 - data_processing - INFO - Padding progress: 300/3910 (7.7%)
+2025-12-08 12:34:06 - data_processing - INFO - Padding progress: 400/3910 (10.2%)
+2025-12-08 12:34:07 - data_processing - INFO - Padding progress: 500/3910 (12.8%)
+2025-12-08 12:34:07 - data_processing - INFO - Padding progress: 600/3910 (15.3%)
+2025-12-08 12:34:08 - data_processing - INFO - Padding progress: 700/3910 (17.9%)
+2025-12-08 12:34:08 - data_processing - INFO - Padding progress: 800/3910 (20.5%)
+2025-12-08 12:34:09 - data_processing - INFO - Padding progress: 900/3910 (23.0%)
+2025-12-08 12:34:09 - data_processing - INFO - Padding progress: 1000/3910 (25.6%)
+2025-12-08 12:34:10 - data_processing - INFO - Padding progress: 1100/3910 (28.1%)
+2025-12-08 12:34:10 - data_processing - INFO - Padding progress: 1200/3910 (30.7%)
+2025-12-08 12:34:11 - data_processing - INFO - Padding progress: 1300/3910 (33.2%)
+2025-12-08 12:34:11 - data_processing - INFO -   [LABEL EXAMPLE] Overlap segment 1: Speakers ['MEE071', 'MEE073'] -> Slots [1, 3] -> Encoded label: 11 -> Decoded slots: [1, 3]
+2025-12-08 12:34:11 - data_processing - INFO -   [LABEL EXAMPLE] Overlap segment 2: Speakers ['MEE073', 'FEO072'] -> Slots [3, 2] -> Encoded label: 13 -> Decoded slots: [2, 3]
+2025-12-08 12:34:11 - data_processing - INFO -   [LABEL EXAMPLE] Overlap segment 3: Speakers ['MEE073', 'MEE071'] -> Slots [3, 1] -> Encoded label: 11 -> Decoded slots: [1, 3]
+2025-12-08 12:34:11 - data_processing - INFO -   [LABEL EXAMPLE] Overlap segment 4: Speakers ['MEE073', 'MEE071'] -> Slots [3, 1] -> Encoded label: 11 -> Decoded slots: [1, 3]
+2025-12-08 12:34:11 - data_processing - INFO -   [LABEL EXAMPLE] Overlap segment 5: Speakers ['MEE073', 'MEE071'] -> Slots [3, 1] -> Encoded label: 11 -> Decoded slots: [1, 3]
+2025-12-08 12:34:11 - data_processing - INFO - Padding progress: 1400/3910 (35.8%)
+2025-12-08 12:34:11 - data_processing - INFO - Padding progress: 1500/3910 (38.4%)
+2025-12-08 12:34:12 - data_processing - INFO - Padding progress: 1600/3910 (40.9%)
+2025-12-08 12:34:12 - data_processing - INFO - Padding progress: 1700/3910 (43.5%)
+2025-12-08 12:34:12 - data_processing - INFO - Padding progress: 1800/3910 (46.0%)
+2025-12-08 12:34:12 - data_processing - INFO - Padding progress: 1900/3910 (48.6%)
+2025-12-08 12:34:13 - data_processing - INFO - Padding progress: 2000/3910 (51.2%)
+2025-12-08 12:34:13 - data_processing - INFO - Padding progress: 2100/3910 (53.7%)
+2025-12-08 12:34:13 - data_processing - INFO - Padding progress: 2200/3910 (56.3%)
+2025-12-08 12:34:13 - data_processing - INFO - Padding progress: 2300/3910 (58.8%)
+2025-12-08 12:34:14 - data_processing - INFO - Padding progress: 2400/3910 (61.4%)
+2025-12-08 12:34:14 - data_processing - INFO - Padding progress: 2500/3910 (63.9%)
+2025-12-08 12:34:14 - data_processing - INFO - Padding progress: 2600/3910 (66.5%)
+2025-12-08 12:34:15 - data_processing - INFO - Padding progress: 2700/3910 (69.1%)
+2025-12-08 12:34:15 - data_processing - INFO - Padding progress: 2800/3910 (71.6%)
+2025-12-08 12:34:16 - data_processing - INFO - Padding progress: 2900/3910 (74.2%)
+2025-12-08 12:34:16 - data_processing - INFO - Padding progress: 3000/3910 (76.7%)
+2025-12-08 12:34:17 - data_processing - INFO - Padding progress: 3100/3910 (79.3%)
+2025-12-08 12:34:17 - data_processing - INFO - Padding progress: 3200/3910 (81.8%)
+2025-12-08 12:34:18 - data_processing - INFO - Padding progress: 3300/3910 (84.4%)
+2025-12-08 12:34:18 - data_processing - INFO - Padding progress: 3400/3910 (87.0%)
+2025-12-08 12:34:18 - data_processing - INFO - Padding progress: 3500/3910 (89.5%)
+2025-12-08 12:34:19 - data_processing - INFO - Padding progress: 3600/3910 (92.1%)
+2025-12-08 12:34:19 - data_processing - INFO - Padding progress: 3700/3910 (94.6%)
+2025-12-08 12:34:19 - data_processing - INFO - Padding progress: 3800/3910 (97.2%)
+2025-12-08 12:34:19 - data_processing - INFO - Padding progress: 3900/3910 (99.7%)
+2025-12-08 12:34:19 - data_processing - INFO - Padding progress: 3910/3910 (100.0%)
+2025-12-08 12:34:20 - data_processing - INFO - ================================================================================
+2025-12-08 12:34:20 - data_processing - INFO - FEATURE EXTRACTION: COMPLETE
+2025-12-08 12:34:20 - data_processing - INFO - ================================================================================
+2025-12-08 12:34:20 - data_processing - INFO - Non-overlapping segments processed: 2143
+2025-12-08 12:34:20 - data_processing - INFO - Overlapping segments processed: 1767
+2025-12-08 12:34:20 - data_processing - INFO - Total segments processed: 3910
+2025-12-08 12:34:20 - data_processing - INFO - Overlap percentage in final dataset: 45.19%
+2025-12-08 12:34:20 - data_processing - INFO - 
+2025-12-08 12:34:20 - data_processing - INFO - ✓✓✓ FINAL CONFIRMATION: OVERLAPPING SPEECH IN FINAL DATASET ✓✓✓
+2025-12-08 12:34:20 - data_processing - INFO -    - 1767 overlapping segments with multi-speaker labels are in the dataset
+2025-12-08 12:34:20 - data_processing - INFO -    - These segments use Power Set Encoding for multiple active speakers
+2025-12-08 12:34:20 - data_processing - INFO -    - The model will be trained on both single-speaker and multi-speaker segments
+2025-12-08 12:34:20 - data_processing - INFO -    - Unique overlap labels: 6
+2025-12-08 12:34:20 - data_processing - INFO -    - Label distribution (first 10):
+2025-12-08 12:34:20 - data_processing - INFO -      * Label 6: Slots [1, 0] (Speakers ['MEE071', 'FEO070']) -> Decoded: [0, 1], Count: 202
+2025-12-08 12:34:20 - data_processing - INFO -      * Label 7: Slots [0, 2] (Speakers ['FEO070', 'FEO072']) -> Decoded: [0, 2], Count: 229
+2025-12-08 12:34:20 - data_processing - INFO -      * Label 8: Slots [3, 0] (Speakers ['MEE073', 'FEO070']) -> Decoded: [0, 3], Count: 307
+2025-12-08 12:34:20 - data_processing - INFO -      * Label 10: Slots [2, 1] (Speakers ['FEO072', 'MEE071']) -> Decoded: [1, 2], Count: 256
+2025-12-08 12:34:20 - data_processing - INFO -      * Label 11: Slots [1, 3] (Speakers ['MEE071', 'MEE073']) -> Decoded: [1, 3], Count: 353
+2025-12-08 12:34:20 - data_processing - INFO -      * Label 13: Slots [3, 2] (Speakers ['MEE073', 'FEO072']) -> Decoded: [2, 3], Count: 420
+2025-12-08 12:34:20 - data_processing - INFO - 
+2025-12-08 12:34:20 - data_processing - INFO - ================================================================================
+2025-12-08 12:34:20 - data_processing - INFO - Padding complete.
+2025-12-08 12:34:20 - data_processing - INFO - Features array created: shape (3910, 1864, 80), size 2.17 GB
+2025-12-08 12:34:20 - data_processing - INFO - Labels array created: shape (3910, 1864)
+2025-12-08 12:34:20 - data_processing - INFO - Meeting IDs array created: shape (3910, 1864)
+2025-12-08 12:34:20 - data_processing - INFO - Speaker IDs list length: 3910
+2025-12-08 12:34:20 - root - INFO - STATS: ========================================== DATASET STATISTICS ==========================================
+2025-12-08 12:34:20 - root - INFO - STATS: STARTING FUNCTION: print_dataset_statistics
+2025-12-08 12:34:20 - root - INFO - STATS: Dataset size (number of samples): 3910
+2025-12-08 12:34:20 - root - INFO - STATS: Feature shape (samples, frames, mel-bands): (3910, 1864, 80)
+2025-12-08 12:34:20 - root - INFO - STATS: Label shape: (3910, 1864)
+2025-12-08 12:34:20 - root - INFO - STATS: Meeting IDs shape: (3910, 1864)
+2025-12-08 12:34:20 - root - INFO - STATS: Frame size (frames per sample): min=13, max=1864, mean=144.8
+2025-12-08 12:34:20 - root - INFO - STATS: Audio segment length distribution: min=13, max=1864, mean=144.8, median=84.0
+2025-12-08 12:34:20 - root - INFO - STATS: Feature dtype: float32, Label dtype: int64
+2025-12-08 12:34:20 - root - INFO - STATS: Example feature[0] shape: (1864, 80), min=-87.98, max=0.00
+2025-12-08 12:34:20 - root - INFO - STATS: Example label[0] shape: (1864,), values: [-100    2]
+2025-12-08 12:34:20 - root - INFO - STATS: COMPLETED FUNCTION: print_dataset_statistics
+2025-12-08 12:34:20 - root - INFO - STATS: COMPLETED FUNCTION: create_dataset_from_grouped - Created dataset with 3910 samples, 1864 max frames, 80 mel-bands
+2025-12-08 12:34:20 - root - INFO - [OverlappingSpeechDataset] Slot->Speaker mapping: {0: 'FEO065', 1: 'FEO066', 2: 'MEE067', 3: 'MEE068', 4: 'MEO069'}
+2025-12-08 12:34:20 - root - INFO - [OverlappingSpeechDataset] Embeddings shape: torch.Size([5, 192])
+2025-12-08 12:34:20 - root - INFO - [OverlappingSpeechDataset] Dataset size: 7146 samples
+2025-12-08 12:34:20 - root - INFO - [OverlappingSpeechDataset] Slot->Speaker mapping: {0: 'FEE041', 1: 'FEE042', 2: 'FEE043', 3: 'FEE044', 4: 'FIE037'}
+2025-12-08 12:34:20 - root - INFO - [OverlappingSpeechDataset] Embeddings shape: torch.Size([5, 192])
+2025-12-08 12:34:20 - root - INFO - [OverlappingSpeechDataset] Dataset size: 3349 samples
+2025-12-08 12:34:20 - root - INFO - [OverlappingSpeechDataset] Slot->Speaker mapping: {0: 'FEO070', 1: 'FEO072', 2: 'MEE071', 3: 'MEE073'}
+2025-12-08 12:34:20 - root - INFO - [OverlappingSpeechDataset] Embeddings shape: torch.Size([4, 192])
+2025-12-08 12:34:20 - root - INFO - [OverlappingSpeechDataset] Dataset size: 3910 samples
+2025-12-08 12:34:20 - root - INFO - STATS: ========================================== DATA LOADERS CREATION ==========================================
+2025-12-08 12:34:20 - root - INFO - STATS: STARTING FUNCTION: print_data_loaders_info
+2025-12-08 12:34:20 - root - INFO - STATS: Created data loaders with batch size 4
+2025-12-08 12:34:20 - root - INFO - STATS: Training set: 7146 samples | 1787 batches | 17236152 frames
+2025-12-08 12:34:20 - root - INFO - STATS: Validation set: 3349 samples | 838 batches | 8114627 frames
+2025-12-08 12:34:20 - root - INFO - STATS: Test set: 3910 samples | 978 batches | 7288240 frames
+2025-12-08 12:34:20 - root - INFO - STATS: === EXAMPLE TRAIN SAMPLE ===
+2025-12-08 12:34:20 - root - INFO - STATS: Feature shape: torch.Size([2412, 80]), dtype: torch.float32
+2025-12-08 12:34:20 - root - INFO - STATS: Feature (first frame): tensor([-49.3524, -42.3996, -39.0898, -38.2995, -39.5050, -42.3087, -46.6636,
+        -51.2216, -52.5629, -52.4078, -51.6367, -53.2650, -59.7357, -52.4311,
+        -48.2684, -47.9646, -50.1930, -53.6167, -56.5557, -60.4115, -66.5015,
+        -68.6079, -67.2580, -68.0331, -67.9495, -67.1957, -68.7844, -72.0982,
+        -76.6603, -83.5993, -75.8198, -71.9346, -71.6388, -76.4410, -78.6483,
+        -69.9946, -67.2365, -69.4086, -69.3819, -73.8343, -73.5713, -66.9967,
+        -60.6751, -62.6454, -69.2271, -71.6304, -77.2688, -74.5019, -70.0833,
+        -68.7045, -70.1697, -71.1309, -74.2786, -75.5372, -73.3641, -69.1050,
+        -71.8619, -73.0814, -74.9927, -76.7171, -79.6620, -79.1525, -78.3315,
+        -76.8796, -79.3553, -77.8002, -75.9562, -83.0937, -83.8574, -82.2431,
+        -76.9726, -81.3241, -84.2371, -81.8383, -81.8296, -85.8441, -85.8441,
+        -85.8441, -85.1233, -83.8953])
+2025-12-08 12:34:20 - root - INFO - STATS: Speaker embeddings shape: torch.Size([5, 192]), dtype: torch.float32
+2025-12-08 12:34:20 - root - INFO - STATS: Label shape: torch.Size([2412]), dtype: torch.int64
+2025-12-08 12:34:20 - root - INFO - STATS: Label (first 10 frames): tensor([4, 4, 4, 4, 4, 4, 4, 4, 4, 4])
+2025-12-08 12:34:20 - root - INFO - STATS: Meeting ID shape: (2412,), dtype: object
+2025-12-08 12:34:20 - root - INFO - STATS: Meeting ID (first 10 frames): ['EN2001a' 'EN2001a' 'EN2001a' 'EN2001a' 'EN2001a' 'EN2001a' 'EN2001a'
+ 'EN2001a' 'EN2001a' 'EN2001a']
+2025-12-08 12:34:20 - root - INFO - STATS: Sample = audio segment (feature matrix), batch = group of samples, frame = row in the feature matrix (one time step)
+2025-12-08 12:34:20 - root - INFO - STATS: Frames are NOT independent: the model takes their sequence/context into account
+2025-12-08 12:34:20 - root - INFO - STATS: COMPLETED FUNCTION: print_data_loaders_info
+2025-12-08 12:34:20 - root - INFO - STATS: COMPLETED FUNCTION: prepare_data_loaders - Created 3 data loaders: train(1787 batches), val(838 batches), test(978 batches)
+2025-12-08 12:34:20 - root - INFO - 
+ STATS: ========================================== EXPERIMENT CONFIGURATION ==========================================
+2025-12-08 12:34:20 - root - INFO - Number of clients: 1
+2025-12-08 12:34:20 - root - INFO - Number of rounds: 1
+2025-12-08 12:34:20 - root - INFO - Number of epochs per round: 1
+2025-12-08 12:34:20 - root - INFO - Test size: 5000
+2025-12-08 12:34:20 - root - INFO - MAIN: Early stopping patience: 5 epochs
+2025-12-08 12:34:20 - root - INFO - MAIN: Early stopping min delta: 0.001
+2025-12-08 12:34:20 - root - INFO - 
+ STATS: ========================================== SPEAKER DISTRIBUTION ANALYSIS ==========================================
+2025-12-08 12:34:20 - root - INFO -   Meeting EN2001a: 5 unique speakers
+2025-12-08 12:34:20 - root - INFO -   Meeting EN2001b: 4 unique speakers
+2025-12-08 12:34:20 - root - INFO -   Meeting EN2001d: 5 unique speakers
+2025-12-08 12:34:20 - root - INFO -   Meeting EN2001e: 5 unique speakers
+2025-12-08 12:34:20 - root - INFO - 
+Total unique speakers across all meetings: 5
+2025-12-08 12:34:20 - root - INFO - Speakers per meeting:
+2025-12-08 12:34:20 - root - INFO -   Min: 4
+2025-12-08 12:34:20 - root - INFO -   Max: 5
+2025-12-08 12:34:20 - root - INFO -   Mean: 4.8
+2025-12-08 12:34:20 - root - INFO -   Median: 5
+2025-12-08 12:34:20 - root - INFO - MAIN: Creating SEND model...
+2025-12-08 12:34:20 - root - INFO - MAIN: Model architecture: hidden_dim=256, speech_encoder_layers=4, post_net_layers=3, transformer_layers=2
+2025-12-08 12:34:20 - root - INFO - 
+ STATS: ========================================== SEND MODEL STATISTICS ==========================================
+2025-12-08 12:34:20 - root - INFO -  STATS: STARTING FUNCTION: print_send_model_statistics
+2025-12-08 12:34:20 - root - INFO -  STATS: Model Architecture:
+2025-12-08 12:34:20 - root - INFO -  STATS:   - Model type: SENDModel
+2025-12-08 12:34:20 - root - INFO -  STATS:   - Total parameters: 2,776,352
+2025-12-08 12:34:20 - root - INFO -  STATS:   - Trainable parameters: 2,776,352
+2025-12-08 12:34:20 - root - INFO -  STATS:   - Non-trainable parameters: 0
+2025-12-08 12:34:20 - root - INFO -  STATS: Model Configuration:
+2025-12-08 12:34:20 - root - INFO -  STATS:   - Input dimension: 80
+2025-12-08 12:34:20 - root - INFO -  STATS:   - Hidden dimension: 256
+2025-12-08 12:34:20 - root - INFO -  STATS:   - Number of classes: 31
+2025-12-08 12:34:20 - root - INFO -  STATS:   - Dropout probability: 0.1
+2025-12-08 12:34:20 - root - INFO -  STATS: Layer Structure:
+2025-12-08 12:34:20 - root - INFO -  STATS:   - speech_encoder.0.0.input_lin: Linear (20,736 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - speech_encoder.0.0.linear: Linear (65,792 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - speech_encoder.0.0.memory: Linear (65,792 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - speech_encoder.0.1: Dropout (0 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - speech_encoder.1.0.linear: Linear (65,792 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - speech_encoder.1.0.memory: Linear (65,792 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - speech_encoder.1.1: Dropout (0 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - speech_encoder.2.0.linear: Linear (65,792 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - speech_encoder.2.0.memory: Linear (65,792 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - speech_encoder.2.1: Dropout (0 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - speech_encoder.3.0.linear: Linear (65,792 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - speech_encoder.3.0.memory: Linear (65,792 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - speech_encoder.3.1: Dropout (0 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - speaker_encoder.0: Linear (49,408 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - speaker_encoder.1: ReLU (0 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - speaker_encoder.2: Dropout (0 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - speaker_encoder.3: Linear (65,792 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - speaker_encoder.4: ReLU (0 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - speaker_encoder.5: Dropout (0 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - speaker_encoder.6: Linear (65,792 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - speaker_encoder.7: Dropout (0 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - ci_scorer: Linear (257 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - cd_scorer.layers.0.self_attn.out_proj: NonDynamicallyQuantizableLinear (65,792 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - cd_scorer.layers.0.linear1: Linear (263,168 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - cd_scorer.layers.0.dropout: Dropout (0 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - cd_scorer.layers.0.linear2: Linear (262,400 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - cd_scorer.layers.0.norm1: LayerNorm (512 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - cd_scorer.layers.0.norm2: LayerNorm (512 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - cd_scorer.layers.0.dropout1: Dropout (0 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - cd_scorer.layers.0.dropout2: Dropout (0 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - cd_scorer.layers.1.self_attn.out_proj: NonDynamicallyQuantizableLinear (65,792 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - cd_scorer.layers.1.linear1: Linear (263,168 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - cd_scorer.layers.1.dropout: Dropout (0 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - cd_scorer.layers.1.linear2: Linear (262,400 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - cd_scorer.layers.1.norm1: LayerNorm (512 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - cd_scorer.layers.1.norm2: LayerNorm (512 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - cd_scorer.layers.1.dropout1: Dropout (0 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - cd_scorer.layers.1.dropout2: Dropout (0 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - post_net.0.0.linear: Linear (65,792 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - post_net.0.0.memory: Linear (65,792 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - post_net.0.1: Dropout (0 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - post_net.1.0.linear: Linear (65,792 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - post_net.1.0.memory: Linear (65,792 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - post_net.1.1: Dropout (0 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - post_net.2.0.linear: Linear (65,792 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - post_net.2.0.memory: Linear (65,792 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - post_net.2.1: Dropout (0 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - classifier.0: Linear (65,792 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - classifier.1: ReLU (0 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - classifier.2: Dropout (0 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - classifier.3: Linear (7,967 params)
+2025-12-08 12:34:20 - root - INFO -  STATS:   - Total layers: 51
+2025-12-08 12:34:20 - root - INFO -  STATS: Memory Estimation:
+2025-12-08 12:34:20 - root - INFO -  STATS:   - Model size: ~10.6 MB
+2025-12-08 12:34:20 - root - INFO -  STATS:   - Training memory: ~31.8 MB (including gradients and optimizer)
+2025-12-08 12:34:20 - root - INFO -  STATS: COMPLETED FUNCTION: print_send_model_statistics
+2025-12-08 12:34:20 - root - INFO - MAIN: Using centralized training data loaders...
+2025-12-08 12:34:20 - root - INFO - MAIN: Training samples: 7146
+2025-12-08 12:34:20 - root - INFO - MAIN: Validation samples: 3349
+2025-12-08 12:34:20 - root - INFO - MAIN: Test samples: 3910
+2025-12-08 12:34:20 - root - INFO - MAIN: Total training frames: 17236152
+2025-12-08 12:34:20 - root - INFO - MAIN: Average frames per sample: 2412.0
+2025-12-08 12:34:20 - root - INFO - MAIN: Note: test_size=5000 refers to number of dataset records selected for training
+2025-12-08 12:34:20 - root - INFO - MAIN: Each meeting recording contains multiple audio segments, each segment becomes multiple training samples
+2025-12-08 12:34:20 - root - INFO - MAIN: Each training sample contains multiple frames (time steps) for sequence learning
+2025-12-08 12:34:20 - root - INFO - MAIN: Experiment tag: exp_5000size_1epochs_centralized_2025-12-08-12-34
+2025-12-08 12:34:20 - root - INFO - MAIN: Logs directory: experiments/centralized_out_artifacts/logs/exp_5000size_1epochs_centralized_2025-12-08-12-34
+2025-12-08 12:34:20 - root - INFO - MAIN: Plots directory: experiments/centralized_out_artifacts/plots/exp_5000size_1epochs_centralized_2025-12-08-12-34
+2025-12-08 12:34:20 - root - INFO - MAIN: Computing speaker embeddings for train set...
+2025-12-08 12:34:21 - root - INFO - 
+==================== STARTING CENTRALIZED TRAINING ====================
+
+2025-12-08 12:34:21 - root - INFO - MAIN: DER computation during training: DISABLED (faster training)
+2025-12-08 12:34:21 - root - INFO - MAIN: Progress will be logged to: experiments/centralized_out_artifacts/logs/exp_5000size_1epochs_centralized_2025-12-08-12-34/training_progress.txt
+2025-12-08 12:34:22 - root - INFO - ⚠️  Mixed Precision Training (AMP) DISABLED - CUDA not available
+2025-12-08 12:34:22 - root - INFO -  Starting epoch 1/1
+2025-12-08 12:34:22 - root - INFO -  Epoch 1/1: Processing 1787 batches...
+2025-12-08 12:34:28 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-12-08 12:34:29 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for _speechbrain_save
+2025-12-08 12:34:29 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for _speechbrain_load
+2025-12-08 12:34:29 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for save
+2025-12-08 12:34:29 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for load
+2025-12-08 12:34:29 - speechbrain.utils.quirks - INFO - Applied quirks (see `speechbrain.utils.quirks`): [allow_tf32, disable_jit_profiling]
+2025-12-08 12:34:29 - speechbrain.utils.quirks - INFO - Excluded quirks specified by the `SB_DISABLE_QUIRKS` environment (comma-separated list): []
+2025-12-08 12:34:29 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for _save
+2025-12-08 12:34:29 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for _recover
+2025-12-08 12:34:30 - root - INFO - Using device: cpu
+2025-12-08 12:34:39 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-12-08 12:34:40 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for _speechbrain_save
+2025-12-08 12:34:40 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for _speechbrain_load
+2025-12-08 12:34:40 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for save
+2025-12-08 12:34:40 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for load
+2025-12-08 12:34:40 - speechbrain.utils.quirks - INFO - Applied quirks (see `speechbrain.utils.quirks`): [disable_jit_profiling, allow_tf32]
+2025-12-08 12:34:40 - speechbrain.utils.quirks - INFO - Excluded quirks specified by the `SB_DISABLE_QUIRKS` environment (comma-separated list): []
+2025-12-08 12:34:40 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for _save
+2025-12-08 12:34:40 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for _recover
+2025-12-08 12:34:40 - root - INFO - Using device: cpu
+2025-12-08 12:34:50 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-12-08 12:34:51 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for _speechbrain_save
+2025-12-08 12:34:51 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for _speechbrain_load
+2025-12-08 12:34:51 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for save
+2025-12-08 12:34:51 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for load
+2025-12-08 12:34:51 - speechbrain.utils.quirks - INFO - Applied quirks (see `speechbrain.utils.quirks`): [allow_tf32, disable_jit_profiling]
+2025-12-08 12:34:51 - speechbrain.utils.quirks - INFO - Excluded quirks specified by the `SB_DISABLE_QUIRKS` environment (comma-separated list): []
+2025-12-08 12:34:51 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for _save
+2025-12-08 12:34:51 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for _recover
+2025-12-08 12:34:51 - root - INFO - Using device: cpu
+2025-12-08 12:35:01 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-12-08 12:35:02 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for _speechbrain_save
+2025-12-08 12:35:02 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for _speechbrain_load
+2025-12-08 12:35:02 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for save
+2025-12-08 12:35:02 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for load
+2025-12-08 12:35:02 - speechbrain.utils.quirks - INFO - Applied quirks (see `speechbrain.utils.quirks`): [disable_jit_profiling, allow_tf32]
+2025-12-08 12:35:02 - speechbrain.utils.quirks - INFO - Excluded quirks specified by the `SB_DISABLE_QUIRKS` environment (comma-separated list): []
+2025-12-08 12:35:02 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for _save
+2025-12-08 12:35:02 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for _recover
+2025-12-08 12:35:03 - root - INFO - Using device: cpu
+2025-12-08 12:35:13 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-12-08 12:35:14 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for _speechbrain_save
+2025-12-08 12:35:14 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for _speechbrain_load
+2025-12-08 12:35:14 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for save
+2025-12-08 12:35:14 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for load
+2025-12-08 12:35:14 - speechbrain.utils.quirks - INFO - Applied quirks (see `speechbrain.utils.quirks`): [allow_tf32, disable_jit_profiling]
+2025-12-08 12:35:14 - speechbrain.utils.quirks - INFO - Excluded quirks specified by the `SB_DISABLE_QUIRKS` environment (comma-separated list): []
+2025-12-08 12:35:14 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for _save
+2025-12-08 12:35:14 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for _recover
+2025-12-08 12:35:15 - root - INFO - Using device: cpu
+2025-12-08 12:35:25 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-12-08 12:35:26 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for _speechbrain_save
+2025-12-08 12:35:26 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for _speechbrain_load
+2025-12-08 12:35:26 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for save
+2025-12-08 12:35:26 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for load
+2025-12-08 12:35:26 - speechbrain.utils.quirks - INFO - Applied quirks (see `speechbrain.utils.quirks`): [disable_jit_profiling, allow_tf32]
+2025-12-08 12:35:26 - speechbrain.utils.quirks - INFO - Excluded quirks specified by the `SB_DISABLE_QUIRKS` environment (comma-separated list): []
+2025-12-08 12:35:26 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for _save
+2025-12-08 12:35:26 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for _recover
+2025-12-08 12:35:27 - root - INFO - Using device: cpu
+2025-12-08 12:35:36 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-12-08 12:35:37 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for _speechbrain_save
+2025-12-08 12:35:37 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for _speechbrain_load
+2025-12-08 12:35:37 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for save
+2025-12-08 12:35:37 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for load
+2025-12-08 12:35:37 - speechbrain.utils.quirks - INFO - Applied quirks (see `speechbrain.utils.quirks`): [allow_tf32, disable_jit_profiling]
+2025-12-08 12:35:37 - speechbrain.utils.quirks - INFO - Excluded quirks specified by the `SB_DISABLE_QUIRKS` environment (comma-separated list): []
+2025-12-08 12:35:37 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for _save
+2025-12-08 12:35:37 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for _recover
+2025-12-08 12:35:38 - root - INFO - Using device: cpu
+2025-12-08 12:35:48 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-12-08 12:35:49 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for _speechbrain_save
+2025-12-08 12:35:49 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for _speechbrain_load
+2025-12-08 12:35:49 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for save
+2025-12-08 12:35:49 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for load
+2025-12-08 12:35:49 - speechbrain.utils.quirks - INFO - Applied quirks (see `speechbrain.utils.quirks`): [disable_jit_profiling, allow_tf32]
+2025-12-08 12:35:49 - speechbrain.utils.quirks - INFO - Excluded quirks specified by the `SB_DISABLE_QUIRKS` environment (comma-separated list): []
+2025-12-08 12:35:49 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint save hook for _save
+2025-12-08 12:35:49 - speechbrain.utils.checkpoints - DEBUG - Registered checkpoint load hook for _recover
+2025-12-08 12:35:50 - root - INFO - Using device: cpu
+2025-12-08 12:35:54 - root - INFO -  First batch in epoch 1
+2025-12-08 12:35:57 - __main__ - ERROR - An error occurred: Sizes of tensors must match except in dimension 2. Expected size 5 but got size 2412 for tensor number 1 in the list.
+2025-12-08 12:35:57 - root - INFO - Cleaning up DataLoader workers...
+2025-12-08 12:35:58 - root - INFO - DataLoader workers cleanup completed.
+2025-12-08 12:35:58 - root - INFO - Process completed.
+Traceback (most recent call last):
+  File "/Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/src/SEND_PSE_AMI.py", line 1426, in <module>
+    main() 
+    ^^^^^^
+  File "/Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/src/SEND_PSE_AMI.py", line 994, in main
+    training_metrics = train_model(model, train_loader, val_loader, device, power_set_encoder, epochs, compute_der_during_training, progress_log_file, early_stopping_patience, early_stopping_min_delta)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/src/SEND_PSE_AMI.py", line 484, in train_model
+    outputs = model(features, speaker_embeddings)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/khumachbayramova/anaconda3/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/khumachbayramova/Science/FL-SEND-diarization/FL-SEND/src/SEND_PSE_AMI.py", line 385, in forward
+    combined = torch.cat([
+               ^^^^^^^^^^^
+RuntimeError: Sizes of tensors must match except in dimension 2. Expected size 5 but got size 2412 for tensor number 1 in the list.

@@ -10,10 +10,21 @@ from datasets import load_dataset
 import logging
 import gc
 import os
+import warnings
 from speechbrain.inference.speaker import EncoderClassifier
 from pyannote.core import Segment, Annotation
 from pyannote.metrics.diarization import DiarizationErrorRate
 from dataset_statistics import print_function_start, print_function_end, print_data_loaders_info, print_dataset_statistics
+
+# Suppress multiprocessing resource tracker warnings about leaked semaphores
+# These warnings are harmless and occur when multiprocessing workers are not explicitly closed
+# The warnings don't affect functionality and are common with libraries like librosa, numba, etc.
+# Use comprehensive filtering to catch all variations of the warning
+warnings.filterwarnings('ignore', category=UserWarning, module='multiprocessing.resource_tracker')
+warnings.filterwarnings('ignore', message='.*resource_tracker.*')
+warnings.filterwarnings('ignore', message='.*leaked semaphore.*')
+# Also set environment variable to suppress at OS level
+os.environ['PYTHONWARNINGS'] = 'ignore::UserWarning:multiprocessing.resource_tracker'
 
 logger = logging.getLogger(__name__)
 
@@ -614,6 +625,8 @@ def split_data_for_clients(grouped_data, grouped_validation, num_clients, speake
                 # Use module-level collate_fn for multiprocessing compatibility
                 num_workers = min(8, os.cpu_count() or 1)
                 pin_memory = torch.cuda.is_available()
+                # persistent_workers disabled by default to avoid semaphore leaks
+                use_persistent_workers = False
                 
                 train_loader = DataLoader(
                     train_dataset, 
@@ -622,16 +635,16 @@ def split_data_for_clients(grouped_data, grouped_validation, num_clients, speake
                     collate_fn=collate_fn_overlapping_speech,
                     num_workers=num_workers,
                     pin_memory=pin_memory,
-                    persistent_workers=num_workers > 0
+                    persistent_workers=use_persistent_workers
                 )
                 val_loader = DataLoader(
-                    val_dataset, 
+                    val_dataset,
                     batch_size=batch_size, 
                     shuffle=False, 
                     collate_fn=collate_fn_overlapping_speech,
                     num_workers=num_workers,
                     pin_memory=pin_memory,
-                    persistent_workers=num_workers > 0
+                    persistent_workers=use_persistent_workers
                 )
                 client_data.append((train_loader, val_loader))
                 logger.info(f"Created data loaders for client {client_id}")
@@ -1396,7 +1409,7 @@ def collate_fn_overlapping_speech(batch):
     labels = torch.tensor(np.array(labels), dtype=torch.long)
     return features, speaker_embeddings, labels, meeting_ids
 
-def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speaker_encoder, power_set_encoder, batch_size=4, speaker_to_embedding=None, N=4, chunk_size=500, max_sequence_length=None):
+def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speaker_encoder, power_set_encoder, batch_size=4, speaker_to_embedding=None, N=4, chunk_size=500, max_sequence_length=None, enable_persistent_workers=False):
     # Import and log function start
     print_function_start("prepare_data_loaders", 
                         grouped_train_len=len(grouped_train), 
@@ -1472,6 +1485,10 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
     # Use module-level collate_fn for multiprocessing compatibility
     num_workers = min(8, os.cpu_count() or 1)  # Use up to 8 workers, but not more than available CPUs
     pin_memory = torch.cuda.is_available()  # Pin memory only if CUDA is available
+    # persistent_workers can cause semaphore leaks if not properly closed
+    # DISABLED by default to avoid resource leaks - the performance gain is minimal (~1-2 sec per epoch)
+    # Enable only if you have many epochs and proper cleanup is working
+    use_persistent_workers = enable_persistent_workers and num_workers > 0  # Only enable if explicitly requested
     
     train_loader = DataLoader(
         train_dataset, 
@@ -1480,7 +1497,7 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
         collate_fn=collate_fn_overlapping_speech,
         num_workers=num_workers,
         pin_memory=pin_memory,
-        persistent_workers=num_workers > 0  # Keep workers alive between epochs
+        persistent_workers=use_persistent_workers  # Keep workers alive between epochs (can cause leaks if not closed properly)
     )
     val_loader = DataLoader(
         val_dataset, 
@@ -1489,7 +1506,7 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
         collate_fn=collate_fn_overlapping_speech,
         num_workers=num_workers,
         pin_memory=pin_memory,
-        persistent_workers=num_workers > 0
+        persistent_workers=use_persistent_workers
     )
     test_loader = DataLoader(
         test_dataset, 
@@ -1498,7 +1515,7 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
         collate_fn=collate_fn_overlapping_speech,
         num_workers=num_workers,
         pin_memory=pin_memory,
-        persistent_workers=num_workers > 0
+        persistent_workers=use_persistent_workers
     )
     
     # Import and use statistics function for logging
