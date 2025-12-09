@@ -121,7 +121,7 @@ export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
 # PYTHONUNBUFFERED=1 ensures all print/log statements appear immediately in logs
 PYTHONUNBUFFERED=1 python src/SEND_PSE_AMI.py \
   --test_size 5000 \
-  --epochs 1 \
+  --epochs 50 \
   --hidden_dim 256 \
   --num_speech_encoder_layers 4 \
   --num_post_net_layers 3 \
