@@ -317,21 +317,27 @@ class SENDModel(nn.Module):
                  num_speech_encoder_layers: int = 8, num_post_net_layers: int = 6, num_transformer_layers: int = 4):
         super().__init__()
         # Speech Encoder (FSMN) - configurable number of layers
+        # Added LayerNorm for better training stability (prevents gradient explosion)
         self.speech_encoder = nn.ModuleList([
             nn.Sequential(
                 FSMNLayer(input_dim if i == 0 else hidden_dim, hidden_dim, stride=2**i),
+                nn.LayerNorm(hidden_dim),  # Normalize across features (not batch/sequence)
                 nn.Dropout(dropout_p)
             ) for i in range(num_speech_encoder_layers)
         ])
-        # Speaker Encoder (MLP) with Dropout after each activation
+        # Speaker Encoder (MLP) with LayerNorm and Dropout after each activation
+        # LayerNorm stabilizes activations and helps prevent gradient explosion
         self.speaker_encoder = nn.Sequential(
             nn.Linear(192, hidden_dim),
+            nn.LayerNorm(hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout_p),
             nn.Linear(hidden_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout_p),
             nn.Linear(hidden_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
             nn.Dropout(dropout_p)
         )
         # CI Scorer (Context-Independent)
@@ -345,16 +351,19 @@ class SENDModel(nn.Module):
             batch_first=True
         )
         self.cd_scorer = nn.TransformerEncoder(encoder_layer, num_layers=num_transformer_layers)
-        # Post-Net (FSMN) with Dropout after each layer - configurable number of layers
+        # Post-Net (FSMN) with LayerNorm and Dropout after each layer - configurable number of layers
+        # Added LayerNorm for better training stability
         self.post_net = nn.ModuleList([
             nn.Sequential(
                 FSMNLayer(hidden_dim, hidden_dim, stride=2**i),
+                nn.LayerNorm(hidden_dim),  # Normalize across features
                 nn.Dropout(dropout_p)
             ) for i in range(num_post_net_layers)
         ])
-        # Final classification
+        # Final classification with LayerNorm for stability
         self.classifier = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout_p),
             nn.Linear(hidden_dim, num_classes)
@@ -475,10 +484,19 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                         logger.error(f"Found label out of range! min={labels_flat.min()}, max={labels_flat.max()}, num_classes={num_classes}")
                         raise ValueError("Label out of range for CrossEntropyLoss")
                     loss = criterion(outputs, labels_flat)
+                    
+                    # Check for NaN in loss or outputs (early detection)
+                    if torch.isnan(loss) or torch.isinf(loss):
+                        logger.error(f"NaN/Inf loss detected at batch {batch_idx}! Loss: {loss.item()}")
+                        logger.error(f"Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
+                        raise ValueError(f"Training stopped: NaN/Inf loss detected at batch {batch_idx}")
                 
                 # Backward pass
                 backward_start = time.time() if batch_idx < 2 else None
                 scaler.scale(loss).backward()
+                # Gradient clipping to prevent gradient explosion (fixes NaN loss issue)
+                scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 scaler.step(optimizer)
                 scaler.update()
                 backward_time = (time.time() - backward_start) if backward_start else 0.0
@@ -492,17 +510,31 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                     raise ValueError("Label out of range for CrossEntropyLoss")
                 loss = criterion(outputs, labels_flat)
                 
+                # Check for NaN in loss or outputs (early detection)
+                if torch.isnan(loss) or torch.isinf(loss):
+                    logger.error(f"NaN/Inf loss detected at batch {batch_idx}! Loss: {loss.item()}")
+                    logger.error(f"Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
+                    raise ValueError(f"Training stopped: NaN/Inf loss detected at batch {batch_idx}")
+                
                 # Backward pass
                 backward_start = time.time() if batch_idx < 2 else None
                 loss.backward()
+                # Gradient clipping to prevent gradient explosion (fixes NaN loss issue)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 optimizer.step()
                 backward_time = (time.time() - backward_start) if backward_start else 0.0
             
             forward_time = (time.time() - forward_start) if forward_start else 0.0
             total_batch_time = (time.time() - batch_start_time) if batch_idx < 2 else 0.0
             
-            train_loss += loss.item()
-            batch_losses.append(loss.item())
+            # Check loss value before adding (additional safety check)
+            loss_value = loss.item()
+            if np.isnan(loss_value) or np.isinf(loss_value):
+                logger.error(f"NaN/Inf loss value detected after backward pass at batch {batch_idx}! Loss: {loss_value}")
+                raise ValueError(f"Training stopped: Invalid loss value at batch {batch_idx}")
+            
+            train_loss += loss_value
+            batch_losses.append(loss_value)
             
             # TIMING: Log timing for first 2 batches
             if batch_idx < 2:
@@ -594,16 +626,21 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         print(f" Running validation for epoch {epoch+1}...")
         val_loss, val_der, _, _ = evaluate_model(model, val_loader, device, power_set_encoder, compute_der=False)
         
-        # Early stopping logic
-        improvement = best_val_loss - val_loss
-        if improvement > early_stopping_min_delta:
-            best_val_loss = val_loss
-            patience_counter = 0
-            best_model_state = model.state_dict().copy()
-            print(f" ✅ Validation improved! New best val_loss: {val_loss:.4f}")
-        else:
+        # Early stopping logic (skip if val_loss is NaN)
+        if np.isnan(val_loss) or np.isinf(val_loss):
+            logger.warning(f"Validation loss is NaN/Inf at epoch {epoch+1}, skipping early stopping check")
             patience_counter += 1
-            print(f" ⚠️  No improvement for {patience_counter}/{early_stopping_patience} epochs")
+            print(f" ⚠️  Invalid validation loss (NaN/Inf) - No improvement for {patience_counter}/{early_stopping_patience} epochs")
+        else:
+            improvement = best_val_loss - val_loss
+            if improvement > early_stopping_min_delta:
+                best_val_loss = val_loss
+                patience_counter = 0
+                best_model_state = model.state_dict().copy()
+                print(f" ✅ Validation improved! New best val_loss: {val_loss:.4f}")
+            else:
+                patience_counter += 1
+                print(f" ⚠️  No improvement for {patience_counter}/{early_stopping_patience} epochs")
         
         # CAPS progress output with validation metrics
         val_der_display = f"{val_der:.4f}" if not np.isnan(val_der) else "N/A"
@@ -688,9 +725,16 @@ def evaluate_model(model, val_loader, device, power_set_encoder, compute_der=Fal
                 outputs = outputs.reshape(-1, num_classes)
                 labels_flat = labels.reshape(-1)
                 loss = criterion(outputs, labels_flat)
-            
-            val_loss += loss.item()
-            batch_losses.append(loss.item())
+
+            # Check for NaN in loss (validation) - skip this batch if invalid
+            loss_value = loss.item()
+            if np.isnan(loss_value) or np.isinf(loss_value):
+                logger.warning(f"NaN/Inf loss in validation at batch {batch_idx}! Loss: {loss_value}")
+                # Skip this batch but continue validation
+                continue
+
+            val_loss += loss_value
+            batch_losses.append(loss_value)
             
             # DER COMPUTATION: Only if explicitly enabled (disabled by default for speed)
             if compute_der:
@@ -1199,7 +1243,7 @@ def main():
             f"Final Test DER: {der:.4f}",
             f"Final Validation Loss: {val_loss:.4f}",
             f"Final Validation DER: {val_der:.4f}",
-            f"Best Validation Loss: {min([m.get('val_loss', float('inf')) for m in epoch_metrics]) if epoch_metrics else 'N/A'}",
+            f"Best Validation Loss: {min([m.get('val_loss') for m in epoch_metrics if m.get('val_loss') is not None], default='N/A') if epoch_metrics else 'N/A'}",
             f"Model Status: {'TRAINED with centralized learning' if epoch_metrics else 'NOT TRAINED'}",
             f"Training Epochs: {len(epoch_metrics) if epoch_metrics else 0}",
             f"Total Execution Time: {time.time() - start_time:.2f} seconds ({((time.time() - start_time)/60):.2f} minutes)",
