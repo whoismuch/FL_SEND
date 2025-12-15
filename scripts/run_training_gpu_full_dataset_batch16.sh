@@ -10,6 +10,14 @@
 #SBATCH --output=training_full_dataset_gpu_batch16_%j.out
 #SBATCH --error=training_full_dataset_gpu_batch16_%j.err
 
+# Debug: Output to .out file immediately
+echo "=== SLURM Script Started ==="
+echo "Script: $0"
+echo "Date: $(date)"
+echo "User: $(whoami)"
+echo "Working directory: $(pwd)"
+echo ""
+
 # Initialize conda - try multiple common locations
 if [ -f ~/.conda/etc/profile.d/conda.sh ]; then
     source ~/.conda/etc/profile.d/conda.sh
@@ -65,7 +73,7 @@ fi
 echo "Active conda environment: ${CONDA_DEFAULT_ENV:-not set}"
 echo "Python path: $(which python || echo 'NOT FOUND - WILL FAIL')"
 
-# Print environment info
+# Print environment info (output to stdout for .out file)
 echo "=== Job Environment ==="
 echo "Job ID: $SLURM_JOB_ID"
 echo "Job Name: $SLURM_JOB_NAME"
@@ -74,12 +82,12 @@ echo "CPUs: $SLURM_CPUS_PER_TASK"
 echo "Memory: $SLURM_MEM"
 echo "GPU: $SLURM_GPUS_ON_NODE"
 echo "Python: $(which python)"
-echo "Python version: $(python --version)"
+echo "Python version: $(python --version 2>&1)"
 
 # Check GPU
 echo "=== GPU Check ==="
-python -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('Device count:', torch.cuda.device_count() if torch.cuda.is_available() else 0)"
-nvidia-smi || echo "nvidia-smi not available"
+python -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('Device count:', torch.cuda.device_count() if torch.cuda.is_available() else 0)" 2>&1
+nvidia-smi 2>&1 || echo "nvidia-smi not available"
 
 echo "=== Starting Training on FULL DATASET with 100 EPOCHS ==="
 
@@ -99,8 +107,19 @@ else
     fi
 fi
 
-cd "$WORK_DIR"
+cd "$WORK_DIR" || {
+    echo "ERROR: Failed to change to directory $WORK_DIR"
+    exit 1
+}
 echo "Working directory: $(pwd)"
+
+# Verify we're in the right place
+if [ ! -f "src/SEND_PSE_AMI.py" ]; then
+    echo "ERROR: SEND_PSE_AMI.py not found in $(pwd)/src/"
+    echo "Current directory contents:"
+    ls -la
+    exit 1
+fi
 
 # Create logs directory if it doesn't exist
 mkdir -p logs
@@ -110,6 +129,7 @@ LOG_FILE="logs/training_full_dataset_gpu_batch16_$(date +%Y%m%d_%H%M%S).log"
 
 echo "Logs will be saved to: $LOG_FILE"
 echo "To view logs in real-time, run in another terminal: tail -f $LOG_FILE"
+echo "Starting Python training script..."
 echo ""
 
 # Add src to PYTHONPATH for imports
@@ -137,7 +157,14 @@ PYTHONUNBUFFERED=1 python src/SEND_PSE_AMI.py \
   --max_memory_gb 64 \
   > "$LOG_FILE" 2>&1
 
+TRAIN_EXIT_CODE=$?
 echo ""
-echo "=== Training Complete ==="
+if [ $TRAIN_EXIT_CODE -eq 0 ]; then
+    echo "=== Training Complete ==="
+else
+    echo "=== Training Failed with exit code $TRAIN_EXIT_CODE ==="
+fi
 echo "Logs saved to: $LOG_FILE"
+echo "Script finished at: $(date)"
+exit $TRAIN_EXIT_CODE
 

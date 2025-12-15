@@ -1,14 +1,14 @@
 #!/bin/bash
-#SBATCH --job-name=send_training_full_b8
-#SBATCH --time=30-00:00:00  # 30 days (max for pascal partition)
+#SBATCH --job-name=send_training_20k_b8
+#SBATCH --time=15-00:00:00  # 15 days (should be enough for 20000 samples)
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G  # Maximum available memory (will auto-limit sequence length to fit)
 #SBATCH --gres=gpu:1
 #SBATCH --partition=pascal  # Using pascal partition (infinite timelimit, 6 idle nodes available)
-#SBATCH --output=training_full_dataset_gpu_batch8_%j.out
-#SBATCH --error=training_full_dataset_gpu_batch8_%j.err
+#SBATCH --output=training_20000_samples_gpu_batch8_%j.out
+#SBATCH --error=training_20000_samples_gpu_batch8_%j.err
 
 # Enable debugging and ensure output is not buffered
 set -x
@@ -95,7 +95,7 @@ echo "=== GPU Check ==="
 python -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('Device count:', torch.cuda.device_count() if torch.cuda.is_available() else 0)" 2>&1
 nvidia-smi 2>&1 || echo "nvidia-smi not available"
 
-echo "=== Starting Training on FULL DATASET with 100 EPOCHS ==="
+echo "=== Starting Training on 20000 SAMPLES with 100 EPOCHS ==="
 
 # Change to working directory
 # Update this path to match your server's directory structure
@@ -106,7 +106,7 @@ if [ -f "src/SEND_PSE_AMI.py" ]; then
     WORK_DIR=$(pwd)
 else
     # Try to find project root or use common path
-    WORK_DIR="${FL_SEND_WORK_DIR:-$HOME/FL_SEND/17dec/FL_SEND}"
+    WORK_DIR="${FL_SEND_WORK_DIR:-$HOME/FL_SEND/17dec_2/FL_SEND}"
     if [ ! -f "$WORK_DIR/src/SEND_PSE_AMI.py" ]; then
         echo "WARNING: Could not find SEND_PSE_AMI.py at $WORK_DIR"
         echo "Please set FL_SEND_WORK_DIR environment variable or update WORK_DIR in script"
@@ -131,7 +131,7 @@ fi
 mkdir -p logs
 
 # Generate log filename with timestamp
-LOG_FILE="logs/training_full_dataset_gpu_batch8_$(date +%Y%m%d_%H%M%S).log"
+LOG_FILE="logs/training_20000_samples_gpu_batch8_$(date +%Y%m%d_%H%M%S).log"
 
 echo "Logs will be saved to: $LOG_FILE"
 echo "To view logs in real-time, run in another terminal: tail -f $LOG_FILE"
@@ -143,7 +143,7 @@ export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
 
 # Run training and save all output to log file
 # 2>&1 redirects stderr to stdout, so both go to the log file
-# Note: --test_size not specified means using ALL available data
+# Using --test_size 20000 to limit dataset to 20000 samples
 # Memory optimizations:
 #   --chunk_size 250: Process 250 samples at a time (reduces peak memory)
 #   --batch_size 8: Batch size for training (larger batch for better GPU utilization)
@@ -152,7 +152,8 @@ export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
 #   Consider removing this flag for faster training - DER is still computed on validation set
 # PYTHONUNBUFFERED=1 ensures all print/log statements appear immediately in logs
 PYTHONUNBUFFERED=1 python src/SEND_PSE_AMI.py \
-  --epochs 100 \
+  --test_size 20000 \
+  --epochs 50 \
   --hidden_dim 256 \
   --num_speech_encoder_layers 4 \
   --num_post_net_layers 3 \
@@ -172,4 +173,3 @@ fi
 echo "Logs saved to: $LOG_FILE"
 echo "Script finished at: $(date)"
 exit $TRAIN_EXIT_CODE
-
