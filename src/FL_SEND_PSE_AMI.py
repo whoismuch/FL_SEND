@@ -837,8 +837,7 @@ def main():
         print(f"MAIN: Splitting data for federated learning...")
         client_data = split_data_for_clients(
             grouped_train, grouped_validation, num_clients, speaker_encoder, power_set_encoder,
-            batch_size=batch_size, chunk_size=chunk_size, max_sequence_length=max_sequence_length,
-            enable_persistent_workers=enable_persistent_workers
+            batch_size=batch_size
         )
         
         # Print detailed statistics about client data split
