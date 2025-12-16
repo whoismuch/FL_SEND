@@ -432,8 +432,9 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
     
     epoch_metrics = []
     
-    # Early stopping variables
-    best_val_loss = float('inf')
+    # Early stopping variables - now using DER instead of loss
+    best_val_der = float('inf')  # DER: lower is better
+    best_val_loss = float('inf')  # Keep for logging
     patience_counter = 0
     best_model_state = None
     
@@ -560,12 +561,29 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                 progress = (batch_idx + 1) / total_batches * 100
                 print(f" Epoch {epoch+1} Progress: {progress:.1f}% ({batch_idx+1}/{total_batches}) - Loss: {loss.item():.4f}")
             
-            # Debug info (only for first batch, no CPU copies)
-            if batch_idx == 0:
-                print(f"Batch {batch_idx}, labels shape: {labels_flat.shape}, unique labels: {torch.unique(labels_flat).cpu().numpy()}")
+            # Sanity-check: Analyze label distribution (especially for first few batches)
+            if batch_idx < 5:  # Check first 5 batches
+                unique_labels = torch.unique(labels_flat).cpu().numpy()
+                num_padding = (labels_flat == -100).sum().item()
+                total_frames = labels_flat.numel()
+                padding_ratio = num_padding / total_frames if total_frames > 0 else 0.0
+                num_valid_labels = total_frames - num_padding
+                valid_unique_labels = unique_labels[unique_labels != -100]
+                
+                print(f"Train batch {batch_idx} sanity-check:")
+                print(f"  - Labels shape: {labels_flat.shape}")
+                print(f"  - Unique labels: {unique_labels}")
+                print(f"  - Valid unique labels (excluding -100): {valid_unique_labels}")
+                print(f"  - Padding ratio: {padding_ratio:.2%} ({num_padding}/{total_frames} frames)")
+                print(f"  - Valid frames: {num_valid_labels}")
+                
+                if padding_ratio > 0.9:
+                    logger.warning(f"⚠️  WARNING: Batch {batch_idx} has >90% padding ({padding_ratio:.2%})! This may indicate data pipeline issues.")
+                
                 if compute_der_during_training:
                     predictions = torch.argmax(outputs, dim=-1)
-                    print(f"Batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(predictions).cpu().numpy()}")
+                    unique_preds = torch.unique(predictions).cpu().numpy()
+                    print(f"  - Unique predictions: {unique_preds}")
             
         # Calculate DER per recording and aggregate (only if requested)
         ders = {}
@@ -622,25 +640,41 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         
         print(f" Epoch {epoch+1}/{epochs} summary: min_loss={min(batch_losses) if batch_losses else 'nan'}, max_loss={max(batch_losses) if batch_losses else 'nan'}, mean_loss={mean_loss}, acc={acc}, DER={der if compute_der_during_training else 'skipped'}")
         
-        # Validation after each epoch (DER disabled by default for speed)
+        # Validation after each epoch (DER enabled for early stopping)
         print(f" Running validation for epoch {epoch+1}...")
-        val_loss, val_der, _, _ = evaluate_model(model, val_loader, device, power_set_encoder, compute_der=False)
+        val_loss, val_der, _, _ = evaluate_model(model, val_loader, device, power_set_encoder, compute_der=True)
         
-        # Early stopping logic (skip if val_loss is NaN)
-        if np.isnan(val_loss) or np.isinf(val_loss):
-            logger.warning(f"Validation loss is NaN/Inf at epoch {epoch+1}, skipping early stopping check")
-            patience_counter += 1
-            print(f" ⚠️  Invalid validation loss (NaN/Inf) - No improvement for {patience_counter}/{early_stopping_patience} epochs")
+        # Early stopping logic based on DER (lower is better)
+        # Skip if val_der is NaN/Inf, fallback to loss if DER not available
+        if np.isnan(val_der) or np.isinf(val_der):
+            # Fallback to loss-based early stopping if DER is invalid
+            logger.warning(f"Validation DER is NaN/Inf at epoch {epoch+1}, falling back to loss-based early stopping")
+            if np.isnan(val_loss) or np.isinf(val_loss):
+                logger.warning(f"Validation loss is also NaN/Inf at epoch {epoch+1}, skipping early stopping check")
+                patience_counter += 1
+                print(f" ⚠️  Invalid validation metrics (NaN/Inf) - No improvement for {patience_counter}/{early_stopping_patience} epochs")
+            else:
+                improvement = best_val_loss - val_loss
+                if improvement > early_stopping_min_delta:
+                    best_val_loss = val_loss
+                    patience_counter = 0
+                    best_model_state = model.state_dict().copy()
+                    print(f" ✅ Validation improved (loss)! New best val_loss: {val_loss:.4f}")
+                else:
+                    patience_counter += 1
+                    print(f" ⚠️  No improvement (loss) for {patience_counter}/{early_stopping_patience} epochs")
         else:
-            improvement = best_val_loss - val_loss
+            # Primary: DER-based early stopping (lower DER is better)
+            improvement = best_val_der - val_der  # Positive improvement means DER decreased
             if improvement > early_stopping_min_delta:
-                best_val_loss = val_loss
+                best_val_der = val_der
+                best_val_loss = val_loss  # Also track best loss for logging
                 patience_counter = 0
                 best_model_state = model.state_dict().copy()
-                print(f" ✅ Validation improved! New best val_loss: {val_loss:.4f}")
+                print(f" ✅ Validation improved (DER)! New best val_der: {val_der:.4f}, val_loss: {val_loss:.4f}")
             else:
                 patience_counter += 1
-                print(f" ⚠️  No improvement for {patience_counter}/{early_stopping_patience} epochs")
+                print(f" ⚠️  No improvement (DER) for {patience_counter}/{early_stopping_patience} epochs (best DER: {best_val_der:.4f}, current: {val_der:.4f})")
         
         # CAPS progress output with validation metrics
         val_der_display = f"{val_der:.4f}" if not np.isnan(val_der) else "N/A"
@@ -652,7 +686,11 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         print(f"TRAIN DER:  {der_display}")
         print(f"TRAIN ACC:  {acc_display}")
         print(f"VAL LOSS:   {val_loss_display}")
-        print(f"VAL DER:    {val_der_display}")
+        # Show (BEST) marker if this is the best DER so far
+        best_marker = ""
+        if not np.isnan(val_der) and not np.isnan(best_val_der) and abs(val_der - best_val_der) < 1e-6:
+            best_marker = "  (BEST)"
+        print(f"VAL DER:    {val_der_display}{best_marker}")
         print(f"TIME:       {datetime.now().strftime('%H:%M:%S')}")
         print(f"{'='*80}\n")
         
@@ -673,13 +711,13 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         # Early stopping check
         if patience_counter >= early_stopping_patience:
             print(f" 🛑 Early stopping triggered! No improvement for {early_stopping_patience} epochs.")
-            print(f" Best validation loss: {best_val_loss:.4f}")
+            print(f" Best validation DER: {best_val_der:.4f}, Best validation loss: {best_val_loss:.4f}")
             break
     
     # Restore best model
     if best_model_state is not None:
         model.load_state_dict(best_model_state)
-        print(f" ✅ Restored best model (val_loss: {best_val_loss:.4f})")
+        print(f" ✅ Restored best model (val_der: {best_val_der:.4f}, val_loss: {best_val_loss:.4f})")
     
     return epoch_metrics
 
@@ -748,11 +786,29 @@ def evaluate_model(model, val_loader, device, power_set_encoder, compute_der=Fal
                         pred_by_rec[meeting_id].append(pred)
                         lab_by_rec[meeting_id].append(label)
             
-            if batch_idx == 0:
-                print(f"Eval batch {batch_idx}, labels shape: {labels_flat.shape}, unique labels: {torch.unique(labels_flat).cpu().numpy()}")
+            # Sanity-check: Analyze label distribution (especially for first few batches)
+            if batch_idx < 5:  # Check first 5 batches
+                unique_labels = torch.unique(labels_flat).cpu().numpy()
+                num_padding = (labels_flat == -100).sum().item()
+                total_frames = labels_flat.numel()
+                padding_ratio = num_padding / total_frames if total_frames > 0 else 0.0
+                num_valid_labels = total_frames - num_padding
+                valid_unique_labels = unique_labels[unique_labels != -100]
+                
+                print(f"Eval batch {batch_idx} sanity-check:")
+                print(f"  - Labels shape: {labels_flat.shape}")
+                print(f"  - Unique labels: {unique_labels}")
+                print(f"  - Valid unique labels (excluding -100): {valid_unique_labels}")
+                print(f"  - Padding ratio: {padding_ratio:.2%} ({num_padding}/{total_frames} frames)")
+                print(f"  - Valid frames: {num_valid_labels}")
+                
+                if padding_ratio > 0.9:
+                    logger.warning(f"⚠️  WARNING: Batch {batch_idx} has >90% padding ({padding_ratio:.2%})! This may indicate data pipeline issues.")
+                
                 if compute_der:
                     predictions = torch.argmax(outputs, dim=-1)
-                    print(f"Eval batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(predictions).cpu().numpy()}")
+                    unique_preds = torch.unique(predictions).cpu().numpy()
+                    print(f"  - Unique predictions: {unique_preds}")
     
     # Calculate DER per recording and aggregate (only if compute_der=True)
     ders = {}
@@ -773,7 +829,9 @@ def evaluate_model(model, val_loader, device, power_set_encoder, compute_der=Fal
                 )
                 print(f" Recording {rec_id} DER: {ders[rec_id]:.4f}")
     else:
-        print(f" Skipping DER computation during validation for speed (set compute_der=True to enable)")
+        # This should not happen in normal flow since DER is now always computed for validation
+        # But keep this branch for backward compatibility
+        print(f" ⚠️  NOTE: DER computation was skipped (this is unexpected in normal flow)")
     
     print(f" Eval summary: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={np.mean(batch_losses):.4f}")
     # Average DER across recordings (only if computed)
@@ -792,12 +850,12 @@ def main():
     parser.add_argument('--test_size', type=int, default=None, help='Number of dataset records to use for training (if not specified, use all available data)')
     parser.add_argument('--epochs', type=int, default=50, help='Maximum number of epochs for training (early stopping will stop earlier if no improvement)')
     parser.add_argument('--compute_der_during_training', action='store_true', help='Compute DER during training (slower but provides more metrics)')
-    parser.add_argument('--early_stopping_patience', type=int, default=5, help='Number of epochs to wait before early stopping')
+    parser.add_argument('--early_stopping_patience', type=int, default=10, help='Number of epochs to wait before early stopping (default: 10, increased from 5 for more stable training)')
     parser.add_argument('--early_stopping_min_delta', type=float, default=0.001, help='Minimum improvement required to reset patience counter')
     parser.add_argument('--chunk_size', type=int, default=500, help='Number of samples to process at once during dataset creation (smaller = less memory, default: 500)')
     parser.add_argument('--batch_size', type=int, default=4, help='Batch size for training (smaller = less memory, default: 4)')
-    parser.add_argument('--max_sequence_length', type=int, default=None, help='Maximum sequence length to truncate longer sequences (default: None = no limit). Use to limit memory usage.')
-    parser.add_argument('--max_memory_gb', type=float, default=64.0, help='Maximum memory to use in GB (default: 64.0). Will auto-calculate max_sequence_length if needed.')
+    parser.add_argument('--max_sequence_length', type=int, default=1000, help='Maximum sequence length to truncate longer sequences (default: 1000). Typical SEND uses 100-2000 frames, not 16k+. Use 1000-1500 for stable training.')
+    parser.add_argument('--max_memory_gb', type=float, default=64.0, help='Maximum memory to use in GB (default: 64.0). Auto-calculation is DISABLED - use --max_sequence_length directly.')
     # Model simplification parameters for speed testing
     parser.add_argument('--hidden_dim', type=int, default=512, help='Hidden dimension for model (default: 512, use 256 for faster training)')
     parser.add_argument('--num_speech_encoder_layers', type=int, default=8, help='Number of speech encoder layers (default: 8, use 4 for faster training)')
@@ -899,30 +957,24 @@ def main():
         # Print PowerSetEncoder examples and statistics
         print_power_set_encoder_examples(power_set_encoder)
         
-        # Auto-calculate max_sequence_length based on available memory if not specified
+        # FIXED: Use fixed max_sequence_length instead of dangerous auto-calculation
+        # Auto-calculation was producing values like 16361, which is:
+        # 1. Too large for 1080 Ti GPU to handle efficiently
+        # 2. Not needed for SEND (typical T is hundreds to ~2000 frames, not 16k+)
+        # 3. Causes memory issues and slow training
+        # 
+        # Default is now 1000 (can be overridden via --max_sequence_length)
+        # For SEND, recommended range is 1000-1500 frames
         if max_sequence_length is None:
-            # Estimate number of samples in training set (rough estimate)
-            estimated_train_samples = sum(len(samples) for samples in grouped_train.values())
-            feature_dim = 80  # mel-bands
-            
-            # Calculate memory per sample: features (float32) + labels (int64) + meeting_ids (object ~8 bytes)
-            # features: max_len × 80 × 4 bytes
-            # labels: max_len × 8 bytes
-            # meeting_ids: max_len × 8 bytes (approx)
-            bytes_per_frame = (feature_dim * 4) + 8 + 8  # 336 bytes per frame per sample
-            
-            # Calculate max_sequence_length that fits in max_memory_gb
-            # Leave 20% buffer for other operations
-            usable_memory_bytes = (max_memory_gb * 0.8) * (1024**3)
-            max_sequence_length = int(usable_memory_bytes / (estimated_train_samples * bytes_per_frame))
-            
-            print(f"MAIN: Auto-calculated max_sequence_length={max_sequence_length} based on:")
-            print(f"MAIN:   - Estimated train samples: {estimated_train_samples}")
-            print(f"MAIN:   - Max memory: {max_memory_gb} GB")
-            print(f"MAIN:   - Usable memory (80%): {max_memory_gb * 0.8:.1f} GB")
-            print(f"MAIN:   - Estimated memory usage: {(estimated_train_samples * max_sequence_length * bytes_per_frame) / (1024**3):.2f} GB")
+            # This should not happen with default=1000, but keep as safety fallback
+            max_sequence_length = 1000
+            print(f"MAIN: WARNING: max_sequence_length was None, using safe default: {max_sequence_length}")
         else:
-            print(f"MAIN: Using user-specified max_sequence_length={max_sequence_length}")
+            print(f"MAIN: Using max_sequence_length={max_sequence_length}")
+            if max_sequence_length > 2000:
+                print(f"MAIN: ⚠️  WARNING: max_sequence_length={max_sequence_length} is very large!")
+                print(f"MAIN:    SEND typically uses 100-2000 frames. Consider using 1000-1500 for stable training.")
+                print(f"MAIN:    Large sequences will be slow on 1080 Ti and may cause memory issues.")
         
         # Prepare data loaders for training and evaluation
         train_loader, val_loader, test_loader = prepare_data_loaders(
@@ -1032,6 +1084,8 @@ def main():
         
         # Train the model
         print(f"MAIN: DER computation during training: {'ENABLED' if compute_der_during_training else 'DISABLED (faster training)'}")
+        print(f"MAIN: DER computation during validation: ALWAYS ENABLED (required for early stopping based on DER)")
+        print(f"MAIN: Early stopping: Based on VAL DER (lower is better), patience={early_stopping_patience}, min_delta={early_stopping_min_delta}")
         
         # Create progress log file path
         progress_log_file = os.path.join(artifact_logs_dir, "training_progress.txt")

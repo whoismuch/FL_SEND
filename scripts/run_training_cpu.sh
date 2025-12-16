@@ -84,7 +84,7 @@ export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
 
 # Run training
 # PYTHONUNBUFFERED=1 ensures all print/log statements appear immediately in logs
-PYTHONUNBUFFERED=1 python src/SEND_PSE_AMI.py --epochs 100 --compute_der_during_training --chunk_size 250 --batch_size 2 --max_memory_gb 32
+PYTHONUNBUFFERED=1 python src/SEND_PSE_AMI.py --epochs 100 --compute_der_during_training --chunk_size 250 --batch_size 2 --max_sequence_length 1000
 
 echo "=== Training Complete ==="
 

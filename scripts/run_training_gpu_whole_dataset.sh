@@ -94,11 +94,11 @@ export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
 # Memory optimizations:
 #   --chunk_size 250: Process 250 samples at a time (reduces peak memory)
 #   --batch_size 2: Smaller batch size (reduces memory during training)
-#   --max_memory_gb 64: Auto-calculate max_sequence_length to fit in 64 GB
+#   --max_sequence_length 1000: Fixed sequence length (SEND uses 100-2000 frames, not 16k+)
 # Performance note: --compute_der_during_training significantly slows down training (30-50% slower)
 #   Consider removing this flag for faster training - DER is still computed on validation set
 # PYTHONUNBUFFERED=1 ensures all print/log statements appear immediately in logs
-PYTHONUNBUFFERED=1 python src/SEND_PSE_AMI.py --epochs 100 --compute_der_during_training --chunk_size 250 --batch_size 2 --max_memory_gb 64
+PYTHONUNBUFFERED=1 python src/SEND_PSE_AMI.py --epochs 100 --compute_der_during_training --chunk_size 250 --batch_size 2 --max_sequence_length 1000
 
 echo "=== Training Complete ==="
 

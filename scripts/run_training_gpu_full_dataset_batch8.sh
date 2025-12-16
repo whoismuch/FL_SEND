@@ -4,7 +4,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=64G  # Maximum available memory (will auto-limit sequence length to fit)
+#SBATCH --mem=64G  # Maximum available memory (sequence length is fixed at 1000 frames)
 #SBATCH --gres=gpu:1
 #SBATCH --partition=pascal  # Using pascal partition (infinite timelimit, 6 idle nodes available)
 #SBATCH --output=training_full_dataset_gpu_batch8_%j.out
@@ -147,7 +147,8 @@ export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
 # Memory optimizations:
 #   --chunk_size 250: Process 250 samples at a time (reduces peak memory)
 #   --batch_size 8: Batch size for training (larger batch for better GPU utilization)
-#   --max_memory_gb 64: Auto-calculate max_sequence_length to fit in 64 GB
+#   --max_sequence_length 1000: Fixed sequence length (SEND uses 100-2000 frames, not 16k+)
+#     This prevents dangerous auto-calculation that produced 16361 frames (51GB memory!)
 # Performance note: --compute_der_during_training significantly slows down training (30-50% slower)
 #   Consider removing this flag for faster training - DER is still computed on validation set
 # PYTHONUNBUFFERED=1 ensures all print/log statements appear immediately in logs
@@ -159,7 +160,7 @@ PYTHONUNBUFFERED=1 python src/SEND_PSE_AMI.py \
   --num_transformer_layers 2 \
   --batch_size 8 \
   --chunk_size 250 \
-  --max_memory_gb 64 \
+  --max_sequence_length 1000 \
   > "$LOG_FILE" 2>&1
 
 TRAIN_EXIT_CODE=$?
