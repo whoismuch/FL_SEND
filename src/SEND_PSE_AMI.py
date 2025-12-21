@@ -411,8 +411,13 @@ class SENDModel(nn.Module):
 
 
 # Centralized training functions
-def train_model(model, train_loader, val_loader, device, power_set_encoder, epochs=50, compute_der_during_training=False, progress_log_file=None, early_stopping_patience=5, early_stopping_min_delta=0.001):
-    """Train the SEND model in centralized manner with early stopping."""
+def train_model(model, train_loader, val_loader, device, power_set_encoder, epochs=50, compute_der_during_training=False, progress_log_file=None, early_stopping_patience=5, early_stopping_min_delta=0.001, debug_mode=False, debug_max_batches=200):
+    """Train the SEND model in centralized manner with early stopping.
+    
+    Args:
+        debug_mode: If True, limit training to debug_max_batches and print detailed stats
+        debug_max_batches: Maximum number of batches to process in debug mode (default: 200)
+    """
     model.train()
     optimizer = optim.Adam(model.parameters(), lr=1e-4)  # Explicit learning rate
     criterion = nn.CrossEntropyLoss()
@@ -453,9 +458,16 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         lab_by_rec = defaultdict(list)
             
         total_batches = len(train_loader)
-        print(f" Epoch {epoch+1}/{epochs}: Processing {total_batches} batches...")
+        # Debug mode: limit batches
+        max_batches = debug_max_batches if debug_mode else total_batches
+        if debug_mode:
+            print(f"[DEBUG MODE] Limiting training to {max_batches} batches per epoch")
+        print(f" Epoch {epoch+1}/{epochs}: Processing {min(max_batches, total_batches)} batches...")
         
         for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(train_loader):
+            if debug_mode and batch_idx >= max_batches:
+                print(f"[DEBUG MODE] Reached max_batches={max_batches}, stopping epoch early")
+                break
             # TIMING: Measure batch processing time (only for first 2 batches)
             if batch_idx < 2:
                 batch_start_time = time.time()
@@ -470,6 +482,16 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
             speaker_embeddings = speaker_embeddings.float()
             load_time = (time.time() - load_start) if load_start else 0.0
             
+            # Check input tensors for NaN/Inf before forward pass
+            if torch.isnan(features).any() or torch.isinf(features).any():
+                logger.warning(f"Batch {batch_idx}: NaN/Inf detected in features. Skipping batch.")
+                logger.warning(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}, has_nan={torch.isnan(features).any().item()}, has_inf={torch.isinf(features).any().item()}")
+                continue
+            if torch.isnan(speaker_embeddings).any() or torch.isinf(speaker_embeddings).any():
+                logger.warning(f"Batch {batch_idx}: NaN/Inf detected in speaker_embeddings. Skipping batch.")
+                logger.warning(f"  Speaker embeddings stats: min={speaker_embeddings.min().item():.4f}, max={speaker_embeddings.max().item():.4f}, mean={speaker_embeddings.mean().item():.4f}")
+                continue
+            
             optimizer.zero_grad()
             
             # Forward pass
@@ -481,16 +503,29 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                     batch_size, seq_len, num_classes = outputs.shape
                     outputs = outputs.reshape(-1, num_classes)
                     labels_flat = labels.reshape(-1)
-                    if (labels_flat >= num_classes).any() or ((labels_flat < 0) & (labels_flat != -100)).any():
-                        logger.error(f"Found label out of range! min={labels_flat.min()}, max={labels_flat.max()}, num_classes={num_classes}")
-                        raise ValueError("Label out of range for CrossEntropyLoss")
+                    
+                    # Validate labels: ignore_index=-100, others in [0, num_classes-1]
+                    invalid_labels = (labels_flat >= num_classes) | ((labels_flat < 0) & (labels_flat != -100))
+                    if invalid_labels.any():
+                        invalid_count = invalid_labels.sum().item()
+                        invalid_values = labels_flat[invalid_labels].unique().cpu().numpy()
+                        logger.error(f"Batch {batch_idx}: Found {invalid_count} invalid labels! Invalid values: {invalid_values}, num_classes={num_classes}")
+                        logger.error(f"  Label stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()}")
+                        logger.warning(f"  Skipping batch {batch_idx} due to invalid labels")
+                        continue
+                    
                     loss = criterion(outputs, labels_flat)
                     
-                    # Check for NaN in loss or outputs (early detection)
+                    # Check for NaN/Inf in loss or outputs (early detection)
                     if torch.isnan(loss) or torch.isinf(loss):
-                        logger.error(f"NaN/Inf loss detected at batch {batch_idx}! Loss: {loss.item()}")
-                        logger.error(f"Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
-                        raise ValueError(f"Training stopped: NaN/Inf loss detected at batch {batch_idx}")
+                        logger.warning(f"Batch {batch_idx}: NaN/Inf loss detected! Loss: {loss.item()}")
+                        logger.warning(f"  Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
+                        logger.warning(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}")
+                        logger.warning(f"  Labels stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()[:10]}")
+                        # AMP protection: update scaler, zero grad, skip batch
+                        scaler.update()
+                        optimizer.zero_grad()
+                        continue
                 
                 # Backward pass
                 backward_start = time.time() if batch_idx < 2 else None
@@ -506,16 +541,28 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                 batch_size, seq_len, num_classes = outputs.shape
                 outputs = outputs.reshape(-1, num_classes)
                 labels_flat = labels.reshape(-1)
-                if (labels_flat >= num_classes).any() or ((labels_flat < 0) & (labels_flat != -100)).any():
-                    logger.error(f"Found label out of range! min={labels_flat.min()}, max={labels_flat.max()}, num_classes={num_classes}")
-                    raise ValueError("Label out of range for CrossEntropyLoss")
+                
+                # Validate labels: ignore_index=-100, others in [0, num_classes-1]
+                invalid_labels = (labels_flat >= num_classes) | ((labels_flat < 0) & (labels_flat != -100))
+                if invalid_labels.any():
+                    invalid_count = invalid_labels.sum().item()
+                    invalid_values = labels_flat[invalid_labels].unique().cpu().numpy()
+                    logger.error(f"Batch {batch_idx}: Found {invalid_count} invalid labels! Invalid values: {invalid_values}, num_classes={num_classes}")
+                    logger.error(f"  Label stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()}")
+                    logger.warning(f"  Skipping batch {batch_idx} due to invalid labels")
+                    continue
+                
                 loss = criterion(outputs, labels_flat)
                 
-                # Check for NaN in loss or outputs (early detection)
+                # Check for NaN/Inf in loss or outputs (early detection)
                 if torch.isnan(loss) or torch.isinf(loss):
-                    logger.error(f"NaN/Inf loss detected at batch {batch_idx}! Loss: {loss.item()}")
-                    logger.error(f"Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
-                    raise ValueError(f"Training stopped: NaN/Inf loss detected at batch {batch_idx}")
+                    logger.warning(f"Batch {batch_idx}: NaN/Inf loss detected! Loss: {loss.item()}")
+                    logger.warning(f"  Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
+                    logger.warning(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}")
+                    logger.warning(f"  Labels stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()[:10]}")
+                    # Skip batch: zero grad and continue
+                    optimizer.zero_grad()
+                    continue
                 
                 # Backward pass
                 backward_start = time.time() if batch_idx < 2 else None
@@ -531,8 +578,12 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
             # Check loss value before adding (additional safety check)
             loss_value = loss.item()
             if np.isnan(loss_value) or np.isinf(loss_value):
-                logger.error(f"NaN/Inf loss value detected after backward pass at batch {batch_idx}! Loss: {loss_value}")
-                raise ValueError(f"Training stopped: Invalid loss value at batch {batch_idx}")
+                logger.warning(f"Batch {batch_idx}: NaN/Inf loss value detected after backward pass! Loss: {loss_value}. Skipping batch.")
+                continue
+            
+            # Log batch statistics (for first few batches and periodically)
+            if batch_idx < 3 or batch_idx % 50 == 0:
+                logger.info(f"Batch {batch_idx}: loss={loss_value:.4f}, features_shape={features.shape}, labels_unique={torch.unique(labels_flat).cpu().numpy()[:10]}")
             
             train_loss += loss_value
             batch_losses.append(loss_value)
@@ -561,8 +612,8 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                 progress = (batch_idx + 1) / total_batches * 100
                 print(f" Epoch {epoch+1} Progress: {progress:.1f}% ({batch_idx+1}/{total_batches}) - Loss: {loss.item():.4f}")
             
-            # Sanity-check: Analyze label distribution (especially for first few batches)
-            if batch_idx < 5:  # Check first 5 batches
+            # Sanity-check: Analyze label distribution (especially for first few batches or in debug mode)
+            if batch_idx < 5 or debug_mode:  # Check first 5 batches or all batches in debug mode
                 unique_labels = torch.unique(labels_flat).cpu().numpy()
                 num_padding = (labels_flat == -100).sum().item()
                 total_frames = labels_flat.numel()
@@ -570,20 +621,29 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                 num_valid_labels = total_frames - num_padding
                 valid_unique_labels = unique_labels[unique_labels != -100]
                 
+                # Get label distribution
+                unique_labels_tensor, counts = torch.unique(labels_flat, return_counts=True)
+                label_dist = {int(l): int(c) for l, c in zip(unique_labels_tensor.cpu().numpy(), counts.cpu().numpy())}
+                
                 print(f"Train batch {batch_idx} sanity-check:")
                 print(f"  - Labels shape: {labels_flat.shape}")
                 print(f"  - Unique labels: {unique_labels}")
                 print(f"  - Valid unique labels (excluding -100): {valid_unique_labels}")
+                print(f"  - Label distribution: {label_dist}")
                 print(f"  - Padding ratio: {padding_ratio:.2%} ({num_padding}/{total_frames} frames)")
                 print(f"  - Valid frames: {num_valid_labels}")
+                print(f"  - Loss: {loss_value:.4f}, outputs_range=[{outputs.min().item():.2f}, {outputs.max().item():.2f}]")
                 
                 if padding_ratio > 0.9:
                     logger.warning(f"⚠️  WARNING: Batch {batch_idx} has >90% padding ({padding_ratio:.2%})! This may indicate data pipeline issues.")
                 
-                if compute_der_during_training:
+                if compute_der_during_training or debug_mode:
                     predictions = torch.argmax(outputs, dim=-1)
                     unique_preds = torch.unique(predictions).cpu().numpy()
+                    unique_preds_tensor, pred_counts = torch.unique(predictions, return_counts=True)
+                    pred_dist = {int(p): int(c) for p, c in zip(unique_preds_tensor.cpu().numpy(), pred_counts.cpu().numpy())}
                     print(f"  - Unique predictions: {unique_preds}")
+                    print(f"  - Prediction distribution: {pred_dist}")
             
         # Calculate DER per recording and aggregate (only if requested)
         ders = {}

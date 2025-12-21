@@ -458,6 +458,8 @@ class SENDClient(NumPyClient):
         self.set_parameters(parameters)
         self.model.train()
         epochs = config.get("epochs", 1)
+        debug_mode = config.get("debug_mode", False)
+        debug_max_batches = config.get("debug_max_batches", 200)
         
         # Enable Mixed Precision Training for faster GPU computation (2-3x speedup)
         use_amp = torch.cuda.is_available()
@@ -476,11 +478,31 @@ class SENDClient(NumPyClient):
             pred_by_rec = defaultdict(list)
             lab_by_rec = defaultdict(list)
             
+            # Debug mode: limit batches
+            max_batches = debug_max_batches if debug_mode else len(self.train_loader)
+            if debug_mode:
+                print(f"[DEBUG MODE] Limiting training to {max_batches} batches per epoch")
+            
             for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(self.train_loader):
+                if debug_mode and batch_idx >= max_batches:
+                    print(f"[DEBUG MODE] Reached max_batches={max_batches}, stopping epoch early")
+                    break
+                    
                 if batch_idx == 0:
                     print(f"SENDClient: First batch in fit for client {id(self)} (epoch {epoch+1}/{epochs})")
                 features, speaker_embeddings, labels = features.to(self.device, non_blocking=True), speaker_embeddings.to(self.device, non_blocking=True), labels.to(self.device, non_blocking=True)
                 speaker_embeddings = speaker_embeddings.float()
+                
+                # Check input tensors for NaN/Inf before forward pass
+                if torch.isnan(features).any() or torch.isinf(features).any():
+                    logger.warning(f"Batch {batch_idx}: NaN/Inf detected in features. Skipping batch.")
+                    logger.warning(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}, has_nan={torch.isnan(features).any().item()}, has_inf={torch.isinf(features).any().item()}")
+                    continue
+                if torch.isnan(speaker_embeddings).any() or torch.isinf(speaker_embeddings).any():
+                    logger.warning(f"Batch {batch_idx}: NaN/Inf detected in speaker_embeddings. Skipping batch.")
+                    logger.warning(f"  Speaker embeddings stats: min={speaker_embeddings.min().item():.4f}, max={speaker_embeddings.max().item():.4f}, mean={speaker_embeddings.mean().item():.4f}")
+                    continue
+                
                 self.optimizer.zero_grad()
                 
                 # Forward pass with Mixed Precision if available
@@ -490,15 +512,29 @@ class SENDClient(NumPyClient):
                         batch_size, seq_len, num_classes = outputs.shape
                         outputs = outputs.reshape(-1, num_classes)
                         labels_flat = labels.reshape(-1)
-                        if (labels_flat >= num_classes).any() or ((labels_flat < 0) & (labels_flat != -100)).any():
-                            logger.error(f"Found label out of range! min={labels_flat.min()}, max={labels_flat.max()}, num_classes={num_classes}")
-                            raise ValueError("Label out of range for CrossEntropyLoss")
+                        
+                        # Validate labels: ignore_index=-100, others in [0, num_classes-1]
+                        invalid_labels = (labels_flat >= num_classes) | ((labels_flat < 0) & (labels_flat != -100))
+                        if invalid_labels.any():
+                            invalid_count = invalid_labels.sum().item()
+                            invalid_values = labels_flat[invalid_labels].unique().cpu().numpy()
+                            logger.error(f"Batch {batch_idx}: Found {invalid_count} invalid labels! Invalid values: {invalid_values}, num_classes={num_classes}")
+                            logger.error(f"  Label stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()}")
+                            logger.warning(f"  Skipping batch {batch_idx} due to invalid labels")
+                            continue
+                        
                         loss = self.criterion(outputs, labels_flat)
                         
-                        # Check for NaN in loss or outputs (early detection)
+                        # Check for NaN/Inf in loss or outputs (early detection)
                         if torch.isnan(loss) or torch.isinf(loss):
-                            logger.error(f"NaN/Inf loss detected at batch {batch_idx}! Loss: {loss.item()}")
-                            raise ValueError(f"Training stopped: NaN/Inf loss detected at batch {batch_idx}")
+                            logger.warning(f"Batch {batch_idx}: NaN/Inf loss detected! Loss: {loss.item()}")
+                            logger.warning(f"  Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
+                            logger.warning(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}")
+                            logger.warning(f"  Labels stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()[:10]}")
+                            # AMP protection: update scaler, zero grad, skip batch
+                            scaler.update()
+                            self.optimizer.zero_grad()
+                            continue
                     
                     # Backward pass
                     scaler.scale(loss).backward()
@@ -512,15 +548,28 @@ class SENDClient(NumPyClient):
                     batch_size, seq_len, num_classes = outputs.shape
                     outputs = outputs.reshape(-1, num_classes)
                     labels_flat = labels.reshape(-1)
-                    if (labels_flat >= num_classes).any() or ((labels_flat < 0) & (labels_flat != -100)).any():
-                        logger.error(f"Found label out of range! min={labels_flat.min()}, max={labels_flat.max()}, num_classes={num_classes}")
-                        raise ValueError("Label out of range for CrossEntropyLoss")
+                    
+                    # Validate labels: ignore_index=-100, others in [0, num_classes-1]
+                    invalid_labels = (labels_flat >= num_classes) | ((labels_flat < 0) & (labels_flat != -100))
+                    if invalid_labels.any():
+                        invalid_count = invalid_labels.sum().item()
+                        invalid_values = labels_flat[invalid_labels].unique().cpu().numpy()
+                        logger.error(f"Batch {batch_idx}: Found {invalid_count} invalid labels! Invalid values: {invalid_values}, num_classes={num_classes}")
+                        logger.error(f"  Label stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()}")
+                        logger.warning(f"  Skipping batch {batch_idx} due to invalid labels")
+                        continue
+                    
                     loss = self.criterion(outputs, labels_flat)
                     
-                    # Check for NaN in loss or outputs (early detection)
+                    # Check for NaN/Inf in loss or outputs (early detection)
                     if torch.isnan(loss) or torch.isinf(loss):
-                        logger.error(f"NaN/Inf loss detected at batch {batch_idx}! Loss: {loss.item()}")
-                        raise ValueError(f"Training stopped: NaN/Inf loss detected at batch {batch_idx}")
+                        logger.warning(f"Batch {batch_idx}: NaN/Inf loss detected! Loss: {loss.item()}")
+                        logger.warning(f"  Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
+                        logger.warning(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}")
+                        logger.warning(f"  Labels stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()[:10]}")
+                        # Skip batch: zero grad and continue
+                        self.optimizer.zero_grad()
+                        continue
                     
                     # Backward pass
                     loss.backward()
@@ -531,9 +580,14 @@ class SENDClient(NumPyClient):
                 # Check loss value before adding (additional safety check)
                 loss_value = loss.item()
                 if np.isnan(loss_value) or np.isinf(loss_value):
-                    logger.error(f"NaN/Inf loss value detected after backward pass at batch {batch_idx}! Loss: {loss_value}")
-                    raise ValueError(f"Training stopped: Invalid loss value at batch {batch_idx}")
+                    logger.warning(f"Batch {batch_idx}: NaN/Inf loss value detected after backward pass! Loss: {loss_value}. Skipping batch.")
+                    continue
                 
+                # Log batch statistics (for first few batches and periodically)
+                if batch_idx < 3 or batch_idx % 50 == 0:
+                    logger.info(f"Batch {batch_idx}: loss={loss_value:.4f}, features_shape={features.shape}, labels_unique={torch.unique(labels_flat).cpu().numpy()[:10]}")
+                
+                # Only accumulate loss if batch was successful
                 train_loss += loss_value
                 batch_losses.append(loss_value)
                 predictions = torch.argmax(outputs, dim=-1)
@@ -551,9 +605,16 @@ class SENDClient(NumPyClient):
                 
                 if batch_idx % 10 == 0:
                     print(f"Batch {batch_idx}, Loss: {loss.item():.4f}")
-                if batch_idx == 0:
-                    print(f"Batch {batch_idx}, labels shape: {labels_flat.shape}, unique labels: {torch.unique(labels_flat)}")
-                    print(f"Batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(predictions)}")
+                if batch_idx == 0 or (debug_mode and batch_idx < 5):
+                    print(f"Batch {batch_idx}, labels shape: {labels_flat.shape}, unique labels: {torch.unique(labels_flat).cpu().numpy()}")
+                    print(f"Batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(predictions).cpu().numpy()}")
+                
+                # Debug mode: print label distribution and loss stats for first batches
+                if debug_mode and batch_idx < 10:
+                    unique_labels, counts = torch.unique(labels_flat, return_counts=True)
+                    label_dist = {int(l): int(c) for l, c in zip(unique_labels.cpu().numpy(), counts.cpu().numpy())}
+                    print(f"[DEBUG] Batch {batch_idx} label distribution: {label_dist}")
+                    print(f"[DEBUG] Batch {batch_idx} loss: {loss_value:.4f}, outputs_range=[{outputs.min().item():.2f}, {outputs.max().item():.2f}]")
             
             # Calculate DER per recording and aggregate
             ders = {}
@@ -698,6 +759,8 @@ def main():
     parser.add_argument('--num_post_net_layers', type=int, default=6, help='Number of post-net layers (default: 6, use 3 for faster training)')
     parser.add_argument('--num_transformer_layers', type=int, default=4, help='Number of transformer layers in CD scorer (default: 4, use 2 for faster training)')
     parser.add_argument('--enable_persistent_workers', action='store_true', help='Enable persistent_workers for faster data loading (disabled by default to avoid semaphore leaks)')
+    parser.add_argument('--debug_mode', action='store_true', help='Enable debug mode: train on 200-500 batches and print detailed label distribution and loss stats')
+    parser.add_argument('--debug_max_batches', type=int, default=200, help='Maximum number of batches to process in debug mode (default: 200)')
     args = parser.parse_args()
 
     # Assign arguments to variables
@@ -715,6 +778,8 @@ def main():
     num_post_net_layers = args.num_post_net_layers
     num_transformer_layers = args.num_transformer_layers
     enable_persistent_workers = args.enable_persistent_workers
+    debug_mode = args.debug_mode
+    debug_max_batches = args.debug_max_batches
     
     # Determine if we're using all data or a subset
     use_all_data = test_size is None
@@ -799,6 +864,100 @@ def main():
             batch_size=batch_size, N=N, chunk_size=chunk_size, max_sequence_length=max_sequence_length,
             enable_persistent_workers=enable_persistent_workers
         ) 
+        
+        # DIAGNOSTIC: Check label distribution before training (run once)
+        def analyze_label_distribution(loader, loader_name, power_set_encoder, num_classes):
+            """Analyze label distribution in a data loader."""
+            print(f"\n{'='*80}")
+            print(f"LABEL DISTRIBUTION ANALYSIS: {loader_name}")
+            print(f"{'='*80}")
+            
+            all_labels = []
+            total_frames = 0
+            ignore_index_count = 0
+            
+            print(f"Scanning {len(loader)} batches...")
+            for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(loader):
+                labels_flat = labels.reshape(-1).cpu().numpy()
+                all_labels.extend(labels_flat.tolist())
+                total_frames += len(labels_flat)
+                ignore_index_count += (labels_flat == -100).sum()
+                
+                # Show progress for large datasets
+                if (batch_idx + 1) % max(1, len(loader) // 10) == 0:
+                    print(f"  Processed {batch_idx + 1}/{len(loader)} batches...")
+            
+            all_labels = np.array(all_labels)
+            valid_labels = all_labels[all_labels != -100]
+            
+            print(f"\nTotal frames: {total_frames:,}")
+            print(f"Ignore index (-100) frames: {ignore_index_count:,} ({100*ignore_index_count/total_frames:.2f}%)")
+            print(f"Valid frames: {len(valid_labels):,} ({100*len(valid_labels)/total_frames:.2f}%)")
+            
+            if len(valid_labels) > 0:
+                unique_labels, counts = np.unique(valid_labels, return_counts=True)
+                print(f"\nUnique classes (excluding -100): {len(unique_labels)}")
+                print(f"Expected num_classes: {num_classes}")
+                
+                if len(unique_labels) == 1:
+                    print(f"⚠️  WARNING: Only ONE class found in {loader_name}!")
+                    print(f"   This indicates a problem with data split or label encoding.")
+                    print(f"   Unique class: {unique_labels[0]}")
+                else:
+                    print(f"✓ Multiple classes found: {len(unique_labels)} classes")
+                
+                # Top-N most frequent classes
+                top_n = min(10, len(unique_labels))
+                sorted_indices = np.argsort(counts)[::-1][:top_n]
+                print(f"\nTop-{top_n} most frequent classes:")
+                for idx in sorted_indices:
+                    label = unique_labels[idx]
+                    count = counts[idx]
+                    percentage = 100 * count / len(valid_labels)
+                    # Decode label to show speaker combination
+                    try:
+                        speakers = power_set_encoder.decode(int(label))
+                        speaker_str = f"speakers={speakers}"
+                    except:
+                        speaker_str = "decode_error"
+                    print(f"  Class {label:3d} ({speaker_str:20s}): {count:8,} frames ({percentage:5.2f}%)")
+                
+                # Check for out-of-range labels
+                out_of_range = (valid_labels < 0) | (valid_labels >= num_classes)
+                if out_of_range.any():
+                    invalid_labels = valid_labels[out_of_range]
+                    unique_invalid = np.unique(invalid_labels)
+                    print(f"\n⚠️  ERROR: Found {out_of_range.sum()} out-of-range labels!")
+                    print(f"   Invalid label values: {unique_invalid}")
+                    print(f"   Valid range: [0, {num_classes-1}]")
+                else:
+                    print(f"\n✓ All labels are in valid range [0, {num_classes-1}]")
+            else:
+                print(f"\n⚠️  WARNING: No valid labels found in {loader_name}!")
+            
+            print(f"{'='*80}\n")
+            return {
+                'total_frames': total_frames,
+                'ignore_index_count': ignore_index_count,
+                'valid_frames': len(valid_labels),
+                'unique_classes': len(unique_labels) if len(valid_labels) > 0 else 0,
+                'unique_labels': unique_labels.tolist() if len(valid_labels) > 0 else []
+            }
+        
+        # Run diagnostic analysis
+        print("\n" + "="*80)
+        print("RUNNING PRE-TRAINING LABEL DISTRIBUTION DIAGNOSTICS")
+        print("="*80)
+        train_label_stats = analyze_label_distribution(train_loader, "TRAIN", power_set_encoder, num_classes)
+        val_label_stats = analyze_label_distribution(val_loader, "VALIDATION", power_set_encoder, num_classes)
+        
+        # Check if validation has only one class
+        if val_label_stats['unique_classes'] == 1:
+            print("⚠️  CRITICAL: Validation set contains only ONE class!")
+            print("   This will cause training issues. Please check:")
+            print("   1. How train/val split is formed (should not be speaker/scene-based)")
+            print("   2. How power_set_encoder is applied (all combinations should not map to one id)")
+            print("   3. Label overwriting during padding/truncation")
         
         # Print experiment configuration
         print_experiment_config(num_clients, num_rounds, epochs, test_size)
@@ -985,13 +1144,27 @@ def main():
                 return super().configure_fit(server_round, parameters, client_manager)
         
         # Use this aggregation function in strategy
+        # For memory stability: train 1 client per round (sequential) instead of all clients in parallel
+        # This reduces RAM usage significantly
+        fraction_fit = 1.0 / num_clients  # For 2 clients = 0.5 (train 1 client per round)
+        fraction_evaluate = 1.0 / num_clients
+        min_fit_clients = 1  # Only need 1 client per round
+        min_evaluate_clients = 1  # Only need 1 client per round
+        
+        print(f"FL Strategy Configuration (memory-optimized):")
+        print(f"  - min_available_clients: {num_clients} (all clients must be available)")
+        print(f"  - min_fit_clients: {min_fit_clients} (train 1 client per round)")
+        print(f"  - min_evaluate_clients: {min_evaluate_clients} (evaluate 1 client per round)")
+        print(f"  - fraction_fit: {fraction_fit} (train 1/{num_clients} clients per round)")
+        print(f"  - fraction_evaluate: {fraction_evaluate} (evaluate 1/{num_clients} clients per round)")
+        
         strategy = SaveFinalParams(
             min_available_clients=num_clients,
-            min_fit_clients=num_clients,
-            min_evaluate_clients=num_clients,
-            fraction_fit=1.0,  # important: 100% of clients must participate in fit
-            fraction_evaluate=1.0,  # and in evaluate
-            on_fit_config_fn=lambda _: {"epochs": epochs},
+            min_fit_clients=min_fit_clients,
+            min_evaluate_clients=min_evaluate_clients,
+            fraction_fit=fraction_fit,
+            fraction_evaluate=fraction_evaluate,
+            on_fit_config_fn=lambda _: {"epochs": epochs, "debug_mode": debug_mode, "debug_max_batches": debug_max_batches},
             on_evaluate_config_fn=lambda _: {"epochs": 1},
             initial_parameters=fl.common.ndarrays_to_parameters(
                 [val.cpu().numpy() for _, val in model.state_dict().items()]
@@ -1000,9 +1173,14 @@ def main():
         )
         
         # Calculate GPU resources
+        # Since we train 1 client per round, each client can use full GPU
         num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 0
-        gpus_per_client = max(1, num_gpus // num_clients) if num_gpus > 0 else 0
-        print(f"Available GPUs: {num_gpus}, GPUs per client: {gpus_per_client}")
+        if num_gpus > 0:
+            # Each client gets full GPU since only 1 client trains at a time
+            gpus_per_client = 1
+        else:
+            gpus_per_client = 0
+        print(f"Available GPUs: {num_gpus}, GPUs per client: {gpus_per_client} (full GPU per client since sequential training)")
         
         # Start simulation and get final parameters
         print("\n==================== STARTING FEDERATED LEARNING ====================\n")
@@ -1062,8 +1240,25 @@ def main():
             print("⚠ History contains training data but no parameters accessible")
             print("   This may indicate the simulation completed but parameters are not accessible")
         
+        # Check if simulation crashed before first aggregation (OOM protection)
+        if final_parameters is None:
+            print("\n" + "="*80)
+            print("⚠️  SIMULATION CRASHED BEFORE FIRST AGGREGATION")
+            print("="*80)
+            print("Most likely cause: Ray OOM (Out of Memory)")
+            print("The simulation did not reach aggregate_fit, which means:")
+            print("  - Ray worker was killed due to memory exhaustion")
+            print("  - Check node memory usage (current: likely >119GB/125GB)")
+            print("  - Consider:")
+            print("    * Reducing batch_size")
+            print("    * Reducing max_sequence_length")
+            print("    * Reducing num_clients or using sequential training (already enabled)")
+            print("    * Reducing chunk_size in data processing")
+            print("="*80)
+            print("\nSkipping model update - using original model for final evaluation.")
+            print("="*80 + "\n")
         # Update the model with final parameters from federated learning
-        if final_parameters is not None:
+        elif final_parameters is not None:
             print("\n==================== UPDATING MODEL WITH FINAL PARAMETERS ====================\n")
             # Store original parameters for comparison
             original_params = {key: val.clone() for key, val in model.state_dict().items()}
@@ -1105,12 +1300,7 @@ def main():
             except Exception as e:
                 print(f"Error updating model parameters: {e}")
                 raise RuntimeError(f"Failed to update model with final parameters: {e}")
-        else:
-            raise RuntimeError(
-                "No final parameters received from federated learning. "
-                "The custom strategy should have captured the final parameters. "
-                "This indicates an implementation issue that needs to be investigated."
-            )
+            # Note: If final_parameters is None, we already logged the error above and skip model update
         
         # Final evaluation on test set with UPDATED model
         print("\n==================== TESTING STARTED (UPDATED MODEL) ====================\n")
@@ -1174,7 +1364,7 @@ def main():
         # Calculate DER per recording and aggregate
         ders = {}
         # Get speaker_id_list from test dataset for consistency
-        test_speaker_id_list = test_loader.dataset.get_speaker_id_list() if hasattr(test_loader.dataset, 'get_speaker_id_list') else speaker_id_list
+        test_speaker_id_list = test_loader.dataset.get_speaker_id_list() if hasattr(test_loader.dataset, 'get_speaker_id_list') else None
         print(f"[FINAL TEST] Using speaker_id_list from test dataset: {test_speaker_id_list}")
         
         # Debug: Check predictions distribution

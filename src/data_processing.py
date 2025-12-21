@@ -11,6 +11,7 @@ import logging
 import gc
 import os
 import warnings
+from functools import partial
 from speechbrain.inference.speaker import EncoderClassifier
 from pyannote.core import Segment, Annotation
 from pyannote.metrics.diarization import DiarizationErrorRate
@@ -621,12 +622,13 @@ def split_data_for_clients(grouped_data, grouped_validation, num_clients, speake
                     speaker_to_embedding=val_speaker_to_embedding,
                     max_speakers=len(val_speaker_to_idx)
                 )
-                # Optimize DataLoader with num_workers and pin_memory for faster data loading
-                # Use module-level collate_fn for multiprocessing compatibility
-                num_workers = min(8, os.cpu_count() or 1)
+                # For FL clients: use num_workers=0 and persistent_workers=False to reduce RAM usage
+                # This is critical for avoiding OOM in federated learning with Ray
+                num_workers = 0  # Disable multiprocessing to save RAM
                 pin_memory = torch.cuda.is_available()
-                # persistent_workers disabled by default to avoid semaphore leaks
-                use_persistent_workers = False
+                use_persistent_workers = False  # Disable persistent workers to save RAM
+                
+                logger.info(f"Creating FL client DataLoaders with num_workers=0, persistent_workers=False (memory-optimized)")
                 
                 train_loader = DataLoader(
                     train_dataset, 
@@ -1116,6 +1118,11 @@ def _extract_features_and_labels(all_samples_info, features, labels, meeting_ids
     overlap_count = 0
     non_overlap_count = 0
     
+    # Track truncation statistics
+    truncation_count = 0
+    total_original_length = 0
+    total_truncated_length = 0
+    
     for chunk_start in range(0, total_samples, chunk_size):
         chunk_end = min(chunk_start + chunk_size, total_samples)
         chunk_info = all_samples_info[chunk_start:chunk_end]
@@ -1130,12 +1137,23 @@ def _extract_features_and_labels(all_samples_info, features, labels, meeting_ids
             sample = item['sample']
             is_overlap = item.get('is_overlap', False)
             
+            original_length = feature.shape[0]
+            total_original_length += original_length
+            
             # Truncate if longer than max_len
             if feature.shape[0] > max_len:
+                truncation_count += 1
+                truncated_length = feature.shape[0] - max_len
+                total_truncated_length += truncated_length
                 if max_sequence_length is None:
                     logger.error(f"CRITICAL: Found longer sequence ({feature.shape[0]} > {max_len})!")
                     logger.error(f"This should not happen - we checked all samples. Truncating to {max_len}.")
+                else:
+                    if truncation_count <= 5:  # Log first 5 truncations
+                        logger.warning(f"Truncating sequence from {feature.shape[0]} to {max_len} frames (meeting_id={meeting_id})")
                 feature = feature[:max_len, :]
+            else:
+                total_truncated_length += 0
             
             # Encode speaker label
             speaker_id = sample["speaker_id"]
@@ -1185,6 +1203,17 @@ def _extract_features_and_labels(all_samples_info, features, labels, meeting_ids
     logger.info(f"Total segments processed: {non_overlap_count + overlap_count}")
     if (non_overlap_count + overlap_count) > 0:
         logger.info(f"Overlap percentage in final dataset: {100*overlap_count/(non_overlap_count + overlap_count):.2f}%")
+    
+    # Log truncation statistics
+    if max_sequence_length is not None:
+        truncation_ratio = total_truncated_length / total_original_length if total_original_length > 0 else 0.0
+        logger.info(f"Truncation statistics (max_sequence_length={max_sequence_length}):")
+        logger.info(f"  - Samples truncated: {truncation_count}/{total_samples} ({100*truncation_count/total_samples:.2f}%)")
+        logger.info(f"  - Total original length: {total_original_length:,} frames")
+        logger.info(f"  - Total truncated length: {total_truncated_length:,} frames")
+        logger.info(f"  - Truncation ratio: {truncation_ratio:.2%}")
+        if truncation_ratio > 0.1:
+            logger.warning(f"  ⚠️  High truncation ratio ({truncation_ratio:.2%})! Consider increasing max_sequence_length.")
     
     # Final confirmation with label statistics
     if overlap_count > 0:
@@ -1387,29 +1416,60 @@ def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, 
     print(f"[DER DEBUG] DER calculation: valid frames used = {len(predictions)}, DER = {der}")
     return der
 
-def collate_fn_overlapping_speech(batch):
-    """Collate function for overlapping speech dataset. Must be at module level for multiprocessing."""
+def collate_fn_overlapping_speech(batch, enable_bucketing=True):
+    """Collate function for overlapping speech dataset. Must be at module level for multiprocessing.
+    
+    Args:
+        batch: List of tuples (feature, speaker_embeddings, label, meeting_id)
+        enable_bucketing: If True, sort batch by sequence length to reduce padding ratio
+    """
+    # Optional: Sort by sequence length to reduce padding (bucketing)
+    if enable_bucketing and len(batch) > 1:
+        # Sort by feature length (descending) to group similar-length sequences
+        batch = sorted(batch, key=lambda x: x[0].shape[0], reverse=True)
+    
     max_len = max(x[0].shape[0] for x in batch)
     features = []
     speaker_embeddings = []
     labels = []
     meeting_ids = []
+    total_original_length = 0
+    total_padded_length = 0
+    
     for feature, all_embeddings, label, meeting_id in batch:
+        original_len = feature.shape[0]
+        total_original_length += original_len
+        
         if feature.shape[0] < max_len:
             pad_len = max_len - feature.shape[0]
             feature = np.pad(feature, ((0, pad_len), (0, 0)), mode='constant')
             # Pad meeting_id array with None for padded frames
             meeting_id = np.pad(meeting_id, (0, pad_len), mode='constant', constant_values=None)
+            total_padded_length += pad_len
+        else:
+            total_padded_length += 0
+        
         features.append(feature)
         speaker_embeddings.append(all_embeddings)  # [num_speakers, 192]
         labels.append(label)
         meeting_ids.append(meeting_id)
+    
     features = torch.tensor(np.array(features), dtype=torch.float32)
     speaker_embeddings = torch.stack(speaker_embeddings).float()  # [batch, num_speakers, 192]
     labels = torch.tensor(np.array(labels), dtype=torch.long)
+    
+    # Log padding ratio (only for first few batches to avoid spam)
+    if not hasattr(collate_fn_overlapping_speech, '_batch_count'):
+        collate_fn_overlapping_speech._batch_count = 0
+    collate_fn_overlapping_speech._batch_count += 1
+    
+    if collate_fn_overlapping_speech._batch_count <= 5:
+        padding_ratio = total_padded_length / (total_original_length + total_padded_length) if (total_original_length + total_padded_length) > 0 else 0.0
+        logger.debug(f"Collate batch {collate_fn_overlapping_speech._batch_count}: padding_ratio={padding_ratio:.2%}, max_len={max_len}, avg_len={total_original_length/len(batch):.1f}")
+    
     return features, speaker_embeddings, labels, meeting_ids
 
-def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speaker_encoder, power_set_encoder, batch_size=4, speaker_to_embedding=None, N=4, chunk_size=500, max_sequence_length=None, enable_persistent_workers=False):
+def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speaker_encoder, power_set_encoder, batch_size=4, speaker_to_embedding=None, N=4, chunk_size=500, max_sequence_length=None, enable_persistent_workers=False, enable_bucketing=True):
     # Import and log function start
     print_function_start("prepare_data_loaders", 
                         grouped_train_len=len(grouped_train), 
@@ -1490,11 +1550,14 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
     # Enable only if you have many epochs and proper cleanup is working
     use_persistent_workers = enable_persistent_workers and num_workers > 0  # Only enable if explicitly requested
     
+    # Create collate function with bucketing enabled
+    collate_fn = partial(collate_fn_overlapping_speech, enable_bucketing=enable_bucketing)
+    
     train_loader = DataLoader(
         train_dataset, 
         batch_size=batch_size, 
         shuffle=True, 
-        collate_fn=collate_fn_overlapping_speech,
+        collate_fn=collate_fn,
         num_workers=num_workers,
         pin_memory=pin_memory,
         persistent_workers=use_persistent_workers  # Keep workers alive between epochs (can cause leaks if not closed properly)
@@ -1503,7 +1566,7 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
         val_dataset, 
         batch_size=batch_size, 
         shuffle=False, 
-        collate_fn=collate_fn_overlapping_speech,
+        collate_fn=collate_fn,
         num_workers=num_workers,
         pin_memory=pin_memory,
         persistent_workers=use_persistent_workers
@@ -1512,7 +1575,7 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
         test_dataset, 
         batch_size=batch_size, 
         shuffle=False, 
-        collate_fn=collate_fn_overlapping_speech,
+        collate_fn=collate_fn,
         num_workers=num_workers,
         pin_memory=pin_memory,
         persistent_workers=use_persistent_workers
