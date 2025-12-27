@@ -420,7 +420,7 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
     """
     model.train()
     optimizer = optim.Adam(model.parameters(), lr=1e-4)  # Explicit learning rate
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(ignore_index=-100)  # Ignore padding labels (-100)
     
     # Enable Mixed Precision Training for faster GPU computation (2-3x speedup)
     use_amp = torch.cuda.is_available()
@@ -492,7 +492,8 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                 logger.warning(f"  Speaker embeddings stats: min={speaker_embeddings.min().item():.4f}, max={speaker_embeddings.max().item():.4f}, mean={speaker_embeddings.mean().item():.4f}")
                 continue
             
-            optimizer.zero_grad()
+            optimizer.zero_grad(set_to_none=True)
+            did_step = False  # Track if scaler.step() was executed
             
             # Forward pass
             forward_start = time.time() if batch_idx < 2 else None
@@ -503,6 +504,12 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                     batch_size, seq_len, num_classes = outputs.shape
                     outputs = outputs.reshape(-1, num_classes)
                     labels_flat = labels.reshape(-1)
+                    
+                    # Check for valid frames: skip batch if all labels are padding (-100)
+                    valid = (labels_flat != -100)
+                    if valid.sum() == 0:
+                        logger.warning(f"Batch {batch_idx}: All labels are -100 (padding). Skipping batch safely.")
+                        continue
                     
                     # Validate labels: ignore_index=-100, others in [0, num_classes-1]
                     invalid_labels = (labels_flat >= num_classes) | ((labels_flat < 0) & (labels_flat != -100))
@@ -517,14 +524,12 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                     loss = criterion(outputs, labels_flat)
                     
                     # Check for NaN/Inf in loss or outputs (early detection)
-                    if torch.isnan(loss) or torch.isinf(loss):
+                    if not torch.isfinite(loss):
                         logger.warning(f"Batch {batch_idx}: NaN/Inf loss detected! Loss: {loss.item()}")
                         logger.warning(f"  Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
                         logger.warning(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}")
                         logger.warning(f"  Labels stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()[:10]}")
-                        # AMP protection: update scaler, zero grad, skip batch
-                        scaler.update()
-                        optimizer.zero_grad()
+                        # Skip batch: no backward, no step, no update
                         continue
                 
                 # Backward pass
@@ -534,13 +539,20 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                 scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 scaler.step(optimizer)
-                scaler.update()
+                did_step = True  # Mark that step was executed
+                scaler.update()  # Update scaler only after step was executed
                 backward_time = (time.time() - backward_start) if backward_start else 0.0
             else:
                 outputs = model(features, speaker_embeddings)
                 batch_size, seq_len, num_classes = outputs.shape
                 outputs = outputs.reshape(-1, num_classes)
                 labels_flat = labels.reshape(-1)
+                
+                # Check for valid frames: skip batch if all labels are padding (-100)
+                valid = (labels_flat != -100)
+                if valid.sum() == 0:
+                    logger.warning(f"Batch {batch_idx}: All labels are -100 (padding). Skipping batch safely.")
+                    continue
                 
                 # Validate labels: ignore_index=-100, others in [0, num_classes-1]
                 invalid_labels = (labels_flat >= num_classes) | ((labels_flat < 0) & (labels_flat != -100))
@@ -555,13 +567,12 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                 loss = criterion(outputs, labels_flat)
                 
                 # Check for NaN/Inf in loss or outputs (early detection)
-                if torch.isnan(loss) or torch.isinf(loss):
+                if not torch.isfinite(loss):
                     logger.warning(f"Batch {batch_idx}: NaN/Inf loss detected! Loss: {loss.item()}")
                     logger.warning(f"  Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
                     logger.warning(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}")
                     logger.warning(f"  Labels stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()[:10]}")
-                    # Skip batch: zero grad and continue
-                    optimizer.zero_grad()
+                    # Skip batch: no backward, no step
                     continue
                 
                 # Backward pass
@@ -792,7 +803,7 @@ def evaluate_model(model, val_loader, device, power_set_encoder, compute_der=Fal
         compute_der: If False (default), skip DER computation for speed. Set True only when needed.
     """
     model.eval()
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(ignore_index=-100)  # Ignore padding labels (-100)
     val_loss = 0.0
     batch_losses = []
     # Group predictions by meeting_id for proper DER calculation (only if compute_der=True)
@@ -816,12 +827,26 @@ def evaluate_model(model, val_loader, device, power_set_encoder, compute_der=Fal
                     batch_size, seq_len, num_classes = outputs.shape
                     outputs = outputs.reshape(-1, num_classes)
                     labels_flat = labels.reshape(-1)
+                    
+                    # Check for valid frames: skip batch if all labels are padding (-100)
+                    valid = (labels_flat != -100)
+                    if valid.sum() == 0:
+                        logger.warning(f"Eval batch {batch_idx}: All labels are -100 (padding). Skipping batch safely.")
+                        continue
+                    
                     loss = criterion(outputs, labels_flat)
             else:
                 outputs = model(features, speaker_embeddings)
                 batch_size, seq_len, num_classes = outputs.shape
                 outputs = outputs.reshape(-1, num_classes)
                 labels_flat = labels.reshape(-1)
+                
+                # Check for valid frames: skip batch if all labels are padding (-100)
+                valid = (labels_flat != -100)
+                if valid.sum() == 0:
+                    logger.warning(f"Eval batch {batch_idx}: All labels are -100 (padding). Skipping batch safely.")
+                    continue
+                
                 loss = criterion(outputs, labels_flat)
 
             # Check for NaN in loss (validation) - skip this batch if invalid
@@ -1191,7 +1216,14 @@ def main():
                 outputs = model(features, speaker_embeddings)
                 outputs = outputs.reshape(-1, outputs.shape[-1])
                 labels = labels.reshape(-1)
-                loss = nn.CrossEntropyLoss()(outputs, labels)
+                
+                # Check for valid frames: skip batch if all labels are padding (-100)
+                valid = (labels != -100)
+                if valid.sum() == 0:
+                    logger.warning(f"Test batch {batch_idx}: All labels are -100 (padding). Skipping batch safely.")
+                    continue
+                
+                loss = nn.CrossEntropyLoss(ignore_index=-100)(outputs, labels)
                 test_loss += loss.item()
                 predictions = torch.argmax(outputs, dim=-1)
                 
