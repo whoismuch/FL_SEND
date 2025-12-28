@@ -13,7 +13,7 @@ import os
 import warnings
 from functools import partial
 from speechbrain.inference.speaker import EncoderClassifier
-from pyannote.core import Segment, Annotation
+from pyannote.core import Segment, Annotation, Timeline
 from pyannote.metrics.diarization import DiarizationErrorRate
 from dataset_statistics import print_function_start, print_function_end, print_data_loaders_info, print_dataset_statistics
 
@@ -1332,8 +1332,77 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder
     
     return features, labels, meeting_ids, speaker_ids
 
-def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, debug=True, frame_shift=0.01, uri=None):
-    """Calculate Diarization Error Rate with detailed logging and correct multi-speaker segments.
+def frames_to_annotation(active_speakers_per_frame, frame_shift, speaker_id_list, uri=None):
+    """Convert frame-wise active speaker sets to pyannote Annotation by merging consecutive frames.
+    
+    This function efficiently merges consecutive frames with the same set of active speakers
+    into single segments, reducing the number of segments from hundreds of thousands to thousands.
+    
+    Args:
+        active_speakers_per_frame: List of sets of active speaker indices per frame
+        frame_shift: Time shift between frames in seconds
+        speaker_id_list: List of speaker IDs for naming
+        uri: Optional URI for the Annotation
+    
+    Returns:
+        pyannote.core.Annotation with merged segments
+    """
+    annotation = Annotation(uri=uri)
+    
+    if not active_speakers_per_frame:
+        return annotation
+    
+    # Track current segments for each speaker
+    # speaker_segments: dict[speaker_idx] -> (start_time, end_time)
+    speaker_segments = {}
+    
+    for frame_idx, active_speakers in enumerate(active_speakers_per_frame):
+        current_time = frame_idx * frame_shift
+        next_time = (frame_idx + 1) * frame_shift
+        
+        # Get currently active speakers
+        current_active = set(active_speakers)
+        
+        # Close segments for speakers that are no longer active
+        for speaker_idx in list(speaker_segments.keys()):
+            if speaker_idx not in current_active:
+                # Close this segment
+                start_time, _ = speaker_segments.pop(speaker_idx)
+                if speaker_idx < len(speaker_id_list):
+                    speaker_name = f"speaker_{speaker_id_list[speaker_idx]}"
+                else:
+                    speaker_name = f"speaker_slot_{speaker_idx}"
+                # CRITICAL FIX: Use explicit track=speaker_idx to support overlapping speech correctly
+                # Without track, overlapping segments with same time can overwrite each other
+                annotation[Segment(start_time, current_time), speaker_idx] = speaker_name
+        
+        # Open/continue segments for currently active speakers
+        for speaker_idx in current_active:
+            if speaker_idx not in speaker_segments:
+                # Start new segment
+                speaker_segments[speaker_idx] = (current_time, next_time)
+            else:
+                # Continue existing segment (update end time)
+                start_time, _ = speaker_segments[speaker_idx]
+                speaker_segments[speaker_idx] = (start_time, next_time)
+    
+    # Close all remaining segments at the end
+    final_time = len(active_speakers_per_frame) * frame_shift
+    for speaker_idx, (start_time, _) in speaker_segments.items():
+        if speaker_idx < len(speaker_id_list):
+            speaker_name = f"speaker_{speaker_id_list[speaker_idx]}"
+        else:
+            speaker_name = f"speaker_slot_{speaker_idx}"
+        # CRITICAL FIX: Use explicit track=speaker_idx to support overlapping speech correctly
+        annotation[Segment(start_time, final_time), speaker_idx] = speaker_name
+    
+    return annotation
+
+def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, debug=True, frame_shift=0.01, der_frame_shift=None, uri=None, max_duration_seconds=1800, max_duration_warning=True):
+    """Calculate Diarization Error Rate with detailed logging and optimized frame merging.
+    
+    This function now efficiently merges consecutive frames with the same speaker set,
+    reducing segments from hundreds of thousands to thousands for better performance.
     
     Args:
         predictions: List of predicted power-set encoded values
@@ -1341,80 +1410,139 @@ def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, 
         power_set_encoder: PowerSetEncoder instance
         speaker_id_list: Optional list of speaker IDs
         debug: Whether to print debug information
-        frame_shift: Time shift between frames in seconds (default: 0.01)
+        frame_shift: Time shift between frames in seconds (default: 0.01) - used for model inference
+        der_frame_shift: Time shift for DER evaluation (default: 0.05) - can be larger than frame_shift for speed
         uri: Optional URI for the recording (for Annotation)
+        max_duration_seconds: Maximum recording duration in seconds before warning/skipping (default: 1800 = 30 min)
+        max_duration_warning: If True, log warning for long recordings; if False, skip DER computation
     """
-    from pyannote.core import Segment, Annotation
-    from pyannote.metrics.diarization import DiarizationErrorRate
-    reference = Annotation(uri=uri)
-    hypothesis = Annotation(uri=uri)
-    mismatches = 0
-    unique_label_values = set()
-    unique_pred_values = set()
+    
+    # Use der_frame_shift for evaluation (can be larger than frame_shift for speed)
+    if der_frame_shift is None:
+        der_frame_shift = 0.05  # Default: 50ms for DER evaluation (5x larger than typical 10ms frame_shift)
+    
+    # Calculate total duration
+    total_duration = len(predictions) * frame_shift
+    
+    # Safeguard: Check if recording is too long
+    if total_duration > max_duration_seconds:
+        if max_duration_warning:
+            logger.warning(
+                f"[DER] Recording {uri or 'unknown'} is too long ({total_duration:.1f}s > {max_duration_seconds}s). "
+                f"DER computation may be slow. Consider using der_frame_shift={der_frame_shift} or "
+                f"limiting evaluation to first N seconds."
+            )
+        else:
+            logger.warning(
+                f"[DER] Skipping DER for recording {uri or 'unknown'} (duration {total_duration:.1f}s > {max_duration_seconds}s)"
+            )
+            return float('nan')
+    
+    # Prepare speaker_id_list
+    if speaker_id_list is None:
+        speaker_id_list = list(range(power_set_encoder.max_speakers))
+    
+    # Decode all frames to get active speaker sets
     active_speakers_labels = []
     active_speakers_preds = []
-    for i, (pred, label) in enumerate(zip(predictions, labels)):
+    unique_label_values = set()
+    unique_pred_values = set()
+    mismatches = 0
+    valid_frames_count = 0
+    
+    # CRITICAL FIX: Create decode cache for performance (only 31 classes max)
+    # This avoids repeated decoding of the same power-set values
+    decode_cache = {}
+    
+    # Process frames with optional downsampling for DER evaluation
+    # If der_frame_shift > frame_shift, we can downsample to speed up
+    downsample_factor = max(1, int(round(der_frame_shift / frame_shift)))
+    effective_frame_shift = frame_shift * downsample_factor
+    
+    # CRITICAL FIX: Process ALL downsampled frames to preserve temporal axis
+    # Instead of skipping frames with continue, we use empty sets for invalid frames
+    downsampled_indices = [i for i in range(len(predictions)) if i % downsample_factor == 0]
+    
+    for downsampled_idx, i in enumerate(downsampled_indices):
+        pred, label = predictions[i], labels[i]
+        
+        # Handle invalid labels - use empty set instead of skipping
         if isinstance(label, str):
             if label == '-' or not label.isdigit():
+                active_speakers_labels.append(set())
+                active_speakers_preds.append(set())
                 continue
             label = int(label)
+        
         if label == -100:
+            # CRITICAL FIX: Use empty set instead of continue to preserve temporal axis
+            active_speakers_labels.append(set())
+            active_speakers_preds.append(set())
             continue
         
-        # Decode to get indices of active speakers
-        true_indices = set(power_set_encoder.decode(label))  # e.g., {0, 2}
-        pred_indices = set(power_set_encoder.decode(pred))   # e.g., {1, 3}
+        # Decode to get indices of active speakers (with caching)
+        if label not in decode_cache:
+            decode_cache[label] = set(power_set_encoder.decode(label))
+        true_indices = decode_cache[label].copy()
         
-        if speaker_id_list is None:
-            # Create stable speaker ID list based on max_speakers
-            speaker_id_list = list(range(power_set_encoder.max_speakers))
+        if pred not in decode_cache:
+            decode_cache[pred] = set(power_set_encoder.decode(pred))
+        pred_indices = decode_cache[pred].copy()
         
         # Limit indices to valid speaker indices (0 to max_speakers-1)
         max_valid_idx = power_set_encoder.max_speakers - 1
         true_indices = {idx for idx in true_indices if 0 <= idx <= max_valid_idx}
         pred_indices = {idx for idx in pred_indices if 0 <= idx <= max_valid_idx}
         
-        # Create time segment for this frame using frame_shift
-        t0 = i * frame_shift
-        t1 = (i + 1) * frame_shift
-        
-        # REFERENCE: Add separate track for each active speaker
-        for track_idx, idx in enumerate(true_indices):
-            if idx < len(speaker_id_list):
-                speaker_name = f"speaker_{speaker_id_list[idx]}"
-            else:
-                speaker_name = f"speaker_slot_{idx}"
-            reference[Segment(t0, t1), track_idx] = speaker_name
-        
-        # HYPOTHESIS: Same approach - separate track for each active speaker
-        for track_idx, idx in enumerate(pred_indices):
-            if idx < len(speaker_id_list):
-                speaker_name = f"speaker_{speaker_id_list[idx]}"
-            else:
-                speaker_name = f"speaker_slot_{idx}"
-            hypothesis[Segment(t0, t1), track_idx] = speaker_name
+        active_speakers_labels.append(true_indices)
+        active_speakers_preds.append(pred_indices)
+        valid_frames_count += 1
         
         unique_label_values.add(label)
         unique_pred_values.add(pred)
-        active_speakers_labels.append(len(true_indices))  # Count of active speakers
-        active_speakers_preds.append(len(pred_indices))   # Count of active speakers
         
         if debug and mismatches < 10 and true_indices != pred_indices:
-            print(f"[DER DEBUG] Frame {i}: label={label}, pred={pred}, true_indices={true_indices}, pred_indices={pred_indices}")
+            print(f"[DER DEBUG] Frame {i} (downsampled_idx {downsampled_idx}): label={label}, pred={pred}, true_indices={true_indices}, pred_indices={pred_indices}")
             mismatches += 1
+    
+    # Use optimized frames_to_annotation to merge consecutive frames
+    reference = frames_to_annotation(active_speakers_labels, effective_frame_shift, speaker_id_list, uri=uri)
+    hypothesis = frames_to_annotation(active_speakers_preds, effective_frame_shift, speaker_id_list, uri=uri)
+    
+    # Check if we have any valid frames
+    if valid_frames_count == 0:
+        logger.warning(f"[DER] No valid frames found for recording {uri or 'unknown'}. Returning NaN.")
+        return float('nan')
+    
     if debug:
         print(f"[DER DEBUG] Power set encoder max_speakers: {power_set_encoder.max_speakers}")
         print(f"[DER DEBUG] Valid speaker indices: 0 to {power_set_encoder.max_speakers - 1}")
         print(f"[DER DEBUG] Unique label values: {unique_label_values}")
         print(f"[DER DEBUG] Unique pred values: {unique_pred_values}")
-        print(f"[DER DEBUG] Active speakers per frame (labels): min={min(active_speakers_labels)}, max={max(active_speakers_labels)}, mean={np.mean(active_speakers_labels):.2f}")
-        print(f"[DER DEBUG] Active speakers per frame (preds): min={min(active_speakers_preds)}, max={max(active_speakers_preds)}, mean={np.mean(active_speakers_preds):.2f}")
-        print(f"[DER DEBUG] Reference segments (first 10): {list(reference.itertracks(yield_label=True))[:10]}")
-        print(f"[DER DEBUG] Hypothesis segments (first 10): {list(hypothesis.itertracks(yield_label=True))[:10]}")
-        print(f"[DER DEBUG] Frame shift: {frame_shift}s, Total duration: {len(predictions) * frame_shift:.2f}s")
+        if active_speakers_labels:
+            valid_labels = [s for s in active_speakers_labels if len(s) > 0]
+            if valid_labels:
+                print(f"[DER DEBUG] Active speakers per frame (labels): min={min(len(s) for s in valid_labels)}, max={max(len(s) for s in valid_labels)}, mean={np.mean([len(s) for s in valid_labels]):.2f}")
+        if active_speakers_preds:
+            valid_preds = [s for s in active_speakers_preds if len(s) > 0]
+            if valid_preds:
+                print(f"[DER DEBUG] Active speakers per frame (preds): min={min(len(s) for s in valid_preds)}, max={max(len(s) for s in valid_preds)}, mean={np.mean([len(s) for s in valid_preds]):.2f}")
+        print(f"[DER DEBUG] Reference segments count: {len(reference)}, first 10: {list(reference.itertracks(yield_label=True))[:10]}")
+        print(f"[DER DEBUG] Hypothesis segments count: {len(hypothesis)}, first 10: {list(hypothesis.itertracks(yield_label=True))[:10]}")
+        print(f"[DER DEBUG] Frame shift: {frame_shift}s, DER frame shift: {effective_frame_shift}s, Total duration: {total_duration:.2f}s")
+        print(f"[DER DEBUG] Downsample factor: {downsample_factor}, Total downsampled frames: {len(active_speakers_labels)}, Valid frames: {valid_frames_count}")
+    
+    # Create metric with explicit UEM (Universal Evaluation Map)
     metric = DiarizationErrorRate()
-    der = metric(reference, hypothesis)
-    print(f"[DER DEBUG] DER calculation: valid frames used = {len(predictions)}, DER = {der}")
+    
+    # Add explicit UEM if we have duration information
+    if total_duration > 0:
+        uem = Timeline([Segment(0, total_duration)])
+        der = metric(reference, hypothesis, uem=uem)
+    else:
+        der = metric(reference, hypothesis)
+    
+    print(f"[DER DEBUG] DER calculation: total downsampled frames = {len(active_speakers_labels)}, valid frames = {valid_frames_count}, DER = {der}")
     return der
 
 def collate_fn_overlapping_speech(batch, enable_bucketing=True):
