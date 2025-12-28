@@ -622,13 +622,14 @@ def split_data_for_clients(grouped_data, grouped_validation, num_clients, speake
                     speaker_to_embedding=val_speaker_to_embedding,
                     max_speakers=len(val_speaker_to_idx)
                 )
-                # For FL clients: use num_workers=0 and persistent_workers=False to reduce RAM usage
+                # For FL clients: use num_workers=0, pin_memory=False, and persistent_workers=False to reduce RAM usage
                 # This is critical for avoiding OOM in federated learning with Ray
+                # D: In Ray workers, multiprocessing and pin_memory can cause memory issues
                 num_workers = 0  # Disable multiprocessing to save RAM
-                pin_memory = torch.cuda.is_available()
+                pin_memory = False  # D: Disable pin_memory for Ray workers (causes memory issues)
                 use_persistent_workers = False  # Disable persistent workers to save RAM
                 
-                logger.info(f"Creating FL client DataLoaders with num_workers=0, persistent_workers=False (memory-optimized)")
+                logger.info(f"Creating FL client DataLoaders with num_workers=0, pin_memory=False, persistent_workers=False (memory-optimized for Ray)")
                 
                 train_loader = DataLoader(
                     train_dataset, 

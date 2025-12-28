@@ -127,6 +127,7 @@ builtins.print = print
 
 import pickle
 import random
+import gc
 import numpy as np
 import torch
 import torch.nn as nn
@@ -413,34 +414,37 @@ class SENDModel(nn.Module):
 
 
 class SENDClient(NumPyClient):
-    """Federated Learning client for SEND model."""
+    """Federated Learning client for SEND model.
+    
+    Memory-optimized: Does NOT store DataLoaders or large datasets in actor state.
+    Creates DataLoaders lazily inside fit()/evaluate() and cleans up after.
+    """
     def __init__(
         self,
         model: SENDModel,
-        train_loader: DataLoader,
-        val_loader: DataLoader,
+        train_dataset,  # Dataset object, not DataLoader
+        val_dataset,    # Dataset object, not DataLoader
         device: torch.device,
         power_set_encoder: PowerSetEncoder,
         speaker_encoder: EncoderClassifier,
-        speaker_to_embedding: Dict[int, np.ndarray]
+        batch_size: int,
+        client_id: int = 0
     ):
-        print(f"SENDClient: Initializing client {id(self)}")
+        print(f"SENDClient: Initializing client {client_id} (memory-optimized)")
         self.model = model
-        self.train_loader = train_loader
-        self.val_loader = val_loader
+        # C1: Store only datasets (not DataLoaders) - DataLoaders created lazily
+        self.train_dataset = train_dataset
+        self.val_dataset = val_dataset
         self.device = device
         self.power_set_encoder = power_set_encoder
         self.speaker_encoder = speaker_encoder
-        self.speaker_to_embedding = speaker_to_embedding
+        self.batch_size = batch_size
+        self.client_id = client_id
         self.optimizer = optim.Adam(model.parameters())
         self.criterion = nn.CrossEntropyLoss()
-        print(f"SENDClient: Initialization complete for client {id(self)}")
-        print(f"[DEBUG] SENDClient: train_loader size: {len(self.train_loader)}")
-        print(f"[DEBUG] SENDClient: val_loader size: {len(self.val_loader)}")
-        if len(self.train_loader) == 0:
-            print(f"[WARNING] SENDClient: train_loader is EMPTY for client {id(self)}!")
-        if len(self.val_loader) == 0:
-            print(f"[WARNING] SENDClient: val_loader is EMPTY for client {id(self)}!")
+        print(f"SENDClient: Initialization complete for client {client_id}")
+        print(f"[DEBUG] SENDClient: train_dataset size: {len(self.train_dataset) if self.train_dataset else 0}")
+        print(f"[DEBUG] SENDClient: val_dataset size: {len(self.val_dataset) if self.val_dataset else 0}")
     
     def get_parameters(self, config):
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
@@ -450,99 +454,145 @@ class SENDClient(NumPyClient):
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
         self.model.load_state_dict(state_dict, strict=True)
     
+    def _create_train_loader(self):
+        """Create train DataLoader with memory-optimized settings for Ray."""
+        from data_processing import collate_fn_overlapping_speech
+        return DataLoader(
+            self.train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            collate_fn=collate_fn_overlapping_speech,
+            num_workers=0,  # D: Disable multiprocessing in Ray
+            pin_memory=False,  # D: Disable pin_memory for Ray workers
+            persistent_workers=False,  # D: Disable persistent workers
+        )
+    
+    def _create_val_loader(self):
+        """Create validation DataLoader with memory-optimized settings for Ray."""
+        from data_processing import collate_fn_overlapping_speech
+        return DataLoader(
+            self.val_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            collate_fn=collate_fn_overlapping_speech,
+            num_workers=0,  # D: Disable multiprocessing in Ray
+            pin_memory=False,  # D: Disable pin_memory for Ray workers
+            persistent_workers=False,  # D: Disable persistent workers
+        )
+    
     def fit(self, parameters, config):
-        print("=== CLIENT LOG: fit started ===")
-        print(f"[DEBUG] fit: train_loader size: {len(self.train_loader)}")
-        print(f"[DEBUG] fit: number of batches: {len(self.train_loader)}")
-        print(f"SENDClient: Starting fit for client {id(self)}")
-        self.set_parameters(parameters)
-        self.model.train()
-        epochs = config.get("epochs", 1)
-        debug_mode = config.get("debug_mode", False)
-        debug_max_batches = config.get("debug_max_batches", 200)
+        """Fit model on client data.
         
-        # Enable Mixed Precision Training for faster GPU computation (2-3x speedup)
-        use_amp = torch.cuda.is_available()
-        scaler = torch.cuda.amp.GradScaler() if use_amp else None
-        if use_amp:
-            print(f"SENDClient: Mixed Precision Training (AMP) ENABLED for client {id(self)}")
-        else:
-            print(f"SENDClient: Mixed Precision Training (AMP) DISABLED - CUDA not available for client {id(self)}")
-        
-        start_time = time.time()
-        epoch_metrics = []  # Collect metrics for each epoch
-        for epoch in range(epochs):
-            train_loss = 0.0
-            batch_losses = []
-            # Group predictions by meeting_id for proper DER calculation
-            pred_by_rec = defaultdict(list)
-            lab_by_rec = defaultdict(list)
+        C2: Creates DataLoader lazily inside fit() and cleans up after.
+        C3: Returns only small metrics, no large objects.
+        E: DER computation is optional (only when enabled or every N rounds).
+        F: Wrapped in try/except for error handling.
+        """
+        # F: Error handling - return previous params on failure
+        try:
+            print("=== CLIENT LOG: fit started ===")
+            print(f"SENDClient: Starting fit for client {self.client_id}")
+            self.set_parameters(parameters)
+            self.model.train()
+            epochs = config.get("epochs", 1)
+            debug_mode = config.get("debug_mode", False)
+            debug_max_batches = config.get("debug_max_batches", 200)
+            server_round = config.get("server_round", 0)
+            compute_der = config.get("compute_der", False)  # E: DER computation optional
+            der_round_interval = config.get("der_round_interval", 5)  # E: Compute DER every N rounds
             
-            # Debug mode: limit batches
-            max_batches = debug_max_batches if debug_mode else len(self.train_loader)
-            if debug_mode:
-                print(f"[DEBUG MODE] Limiting training to {max_batches} batches per epoch")
+            # E: Only compute DER if enabled or every N rounds
+            should_compute_der = compute_der or (server_round % der_round_interval == 0)
             
-            for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(self.train_loader):
-                if debug_mode and batch_idx >= max_batches:
-                    print(f"[DEBUG MODE] Reached max_batches={max_batches}, stopping epoch early")
-                    break
+            # C2: Create DataLoader lazily inside fit()
+            train_loader = self._create_train_loader()
+            print(f"[DEBUG] fit: train_loader size: {len(train_loader)}")
+            print(f"[DEBUG] fit: number of batches: {len(train_loader)}")
+            
+            # Enable Mixed Precision Training for faster GPU computation (2-3x speedup)
+            use_amp = torch.cuda.is_available()
+            scaler = torch.cuda.amp.GradScaler() if use_amp else None
+            if use_amp:
+                print(f"SENDClient: Mixed Precision Training (AMP) ENABLED for client {self.client_id}")
+            else:
+                print(f"SENDClient: Mixed Precision Training (AMP) DISABLED - CUDA not available for client {self.client_id}")
+            
+            start_time = time.time()
+            epoch_metrics = []  # Collect metrics for each epoch
+            num_examples = len(train_loader.dataset)
+            
+            for epoch in range(epochs):
+                train_loss = 0.0
+                batch_losses = []
+                # E: Only accumulate predictions if DER is needed (memory optimization)
+                pred_by_rec = defaultdict(list) if should_compute_der else None
+                lab_by_rec = defaultdict(list) if should_compute_der else None
+                
+                # Debug mode: limit batches
+                max_batches = debug_max_batches if debug_mode else len(train_loader)
+                if debug_mode:
+                    print(f"[DEBUG MODE] Limiting training to {max_batches} batches per epoch")
+                
+                for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(train_loader):
+                    if debug_mode and batch_idx >= max_batches:
+                        print(f"[DEBUG MODE] Reached max_batches={max_batches}, stopping epoch early")
+                        break
+                        
+                    if batch_idx == 0:
+                        print(f"SENDClient: First batch in fit for client {self.client_id} (epoch {epoch+1}/{epochs})")
+                    features, speaker_embeddings, labels = features.to(self.device, non_blocking=True), speaker_embeddings.to(self.device, non_blocking=True), labels.to(self.device, non_blocking=True)
+                    speaker_embeddings = speaker_embeddings.float()
                     
-                if batch_idx == 0:
-                    print(f"SENDClient: First batch in fit for client {id(self)} (epoch {epoch+1}/{epochs})")
-                features, speaker_embeddings, labels = features.to(self.device, non_blocking=True), speaker_embeddings.to(self.device, non_blocking=True), labels.to(self.device, non_blocking=True)
-                speaker_embeddings = speaker_embeddings.float()
-                
-                # Check input tensors for NaN/Inf before forward pass
-                if torch.isnan(features).any() or torch.isinf(features).any():
-                    logger.warning(f"Batch {batch_idx}: NaN/Inf detected in features. Skipping batch.")
-                    logger.warning(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}, has_nan={torch.isnan(features).any().item()}, has_inf={torch.isinf(features).any().item()}")
-                    continue
-                if torch.isnan(speaker_embeddings).any() or torch.isinf(speaker_embeddings).any():
-                    logger.warning(f"Batch {batch_idx}: NaN/Inf detected in speaker_embeddings. Skipping batch.")
-                    logger.warning(f"  Speaker embeddings stats: min={speaker_embeddings.min().item():.4f}, max={speaker_embeddings.max().item():.4f}, mean={speaker_embeddings.mean().item():.4f}")
-                    continue
-                
-                self.optimizer.zero_grad()
-                
-                # Forward pass with Mixed Precision if available
-                if use_amp:
-                    with torch.cuda.amp.autocast():
-                        outputs = self.model(features, speaker_embeddings)
-                        batch_size, seq_len, num_classes = outputs.shape
-                        outputs = outputs.reshape(-1, num_classes)
-                        labels_flat = labels.reshape(-1)
-                        
-                        # Validate labels: ignore_index=-100, others in [0, num_classes-1]
-                        invalid_labels = (labels_flat >= num_classes) | ((labels_flat < 0) & (labels_flat != -100))
-                        if invalid_labels.any():
-                            invalid_count = invalid_labels.sum().item()
-                            invalid_values = labels_flat[invalid_labels].unique().cpu().numpy()
-                            logger.error(f"Batch {batch_idx}: Found {invalid_count} invalid labels! Invalid values: {invalid_values}, num_classes={num_classes}")
-                            logger.error(f"  Label stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()}")
-                            logger.warning(f"  Skipping batch {batch_idx} due to invalid labels")
-                            continue
-                        
-                        loss = self.criterion(outputs, labels_flat)
-                        
-                        # Check for NaN/Inf in loss or outputs (early detection)
-                        if torch.isnan(loss) or torch.isinf(loss):
-                            logger.warning(f"Batch {batch_idx}: NaN/Inf loss detected! Loss: {loss.item()}")
-                            logger.warning(f"  Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
-                            logger.warning(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}")
-                            logger.warning(f"  Labels stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()[:10]}")
-                            # AMP protection: update scaler, zero grad, skip batch
-                            scaler.update()
-                            self.optimizer.zero_grad()
-                            continue
+                    # Check input tensors for NaN/Inf before forward pass
+                    if torch.isnan(features).any() or torch.isinf(features).any():
+                        logger.warning(f"Batch {batch_idx}: NaN/Inf detected in features. Skipping batch.")
+                        logger.warning(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}, has_nan={torch.isnan(features).any().item()}, has_inf={torch.isinf(features).any().item()}")
+                        continue
+                    if torch.isnan(speaker_embeddings).any() or torch.isinf(speaker_embeddings).any():
+                        logger.warning(f"Batch {batch_idx}: NaN/Inf detected in speaker_embeddings. Skipping batch.")
+                        logger.warning(f"  Speaker embeddings stats: min={speaker_embeddings.min().item():.4f}, max={speaker_embeddings.max().item():.4f}, mean={speaker_embeddings.mean().item():.4f}")
+                        continue
                     
-                    # Backward pass
-                    scaler.scale(loss).backward()
-                    # Gradient clipping to prevent gradient explosion (fixes NaN loss issue)
-                    scaler.unscale_(self.optimizer)
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-                    scaler.step(self.optimizer)
-                    scaler.update()
+                    self.optimizer.zero_grad()
+                    
+                    # Forward pass with Mixed Precision if available
+                    if use_amp:
+                        with torch.cuda.amp.autocast():
+                            outputs = self.model(features, speaker_embeddings)
+                            batch_size, seq_len, num_classes = outputs.shape
+                            outputs = outputs.reshape(-1, num_classes)
+                            labels_flat = labels.reshape(-1)
+                            
+                            # Validate labels: ignore_index=-100, others in [0, num_classes-1]
+                            invalid_labels = (labels_flat >= num_classes) | ((labels_flat < 0) & (labels_flat != -100))
+                            if invalid_labels.any():
+                                invalid_count = invalid_labels.sum().item()
+                                invalid_values = labels_flat[invalid_labels].unique().cpu().numpy()
+                                logger.error(f"Batch {batch_idx}: Found {invalid_count} invalid labels! Invalid values: {invalid_values}, num_classes={num_classes}")
+                                logger.error(f"  Label stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()}")
+                                logger.warning(f"  Skipping batch {batch_idx} due to invalid labels")
+                                continue
+                            
+                            loss = self.criterion(outputs, labels_flat)
+                            
+                            # Check for NaN/Inf in loss or outputs (early detection)
+                            if torch.isnan(loss) or torch.isinf(loss):
+                                logger.warning(f"Batch {batch_idx}: NaN/Inf loss detected! Loss: {loss.item()}")
+                                logger.warning(f"  Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
+                                logger.warning(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}")
+                                logger.warning(f"  Labels stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()[:10]}")
+                                # AMP protection: update scaler, zero grad, skip batch
+                                scaler.update()
+                                self.optimizer.zero_grad()
+                                continue
+                        
+                        # Backward pass
+                        scaler.scale(loss).backward()
+                        # Gradient clipping to prevent gradient explosion (fixes NaN loss issue)
+                        scaler.unscale_(self.optimizer)
+                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                        scaler.step(self.optimizer)
+                        scaler.update()
                 else:
                     outputs = self.model(features, speaker_embeddings)
                     batch_size, seq_len, num_classes = outputs.shape
@@ -577,161 +627,222 @@ class SENDClient(NumPyClient):
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
                     self.optimizer.step()
                 
-                # Check loss value before adding (additional safety check)
-                loss_value = loss.item()
-                if np.isnan(loss_value) or np.isinf(loss_value):
-                    logger.warning(f"Batch {batch_idx}: NaN/Inf loss value detected after backward pass! Loss: {loss_value}. Skipping batch.")
-                    continue
+                    # Check loss value before adding (additional safety check)
+                    loss_value = loss.item()
+                    if np.isnan(loss_value) or np.isinf(loss_value):
+                        logger.warning(f"Batch {batch_idx}: NaN/Inf loss value detected after backward pass! Loss: {loss_value}. Skipping batch.")
+                        continue
+                    
+                    # Log batch statistics (for first few batches and periodically)
+                    if batch_idx < 3 or batch_idx % 50 == 0:
+                        logger.info(f"Batch {batch_idx}: loss={loss_value:.4f}, features_shape={features.shape}, labels_unique={torch.unique(labels_flat).cpu().numpy()[:10]}")
+                    
+                    # Only accumulate loss if batch was successful
+                    train_loss += loss_value
+                    batch_losses.append(loss_value)
+                    
+                    # E: Only accumulate predictions if DER is needed (memory optimization)
+                    if should_compute_der:
+                        predictions = torch.argmax(outputs, dim=-1)
+                        predictions_np = predictions.cpu().numpy()
+                        labels_np = labels_flat.cpu().numpy()
+                        meeting_ids_flat = np.concatenate(meeting_ids, axis=0)
+                        for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
+                            if meeting_id is not None:  # Skip padded frames
+                                pred_by_rec[meeting_id].append(pred)
+                                lab_by_rec[meeting_id].append(label)
+                    
+                    if batch_idx % 10 == 0:
+                        print(f"Batch {batch_idx}, Loss: {loss.item():.4f}")
+                    if batch_idx == 0 or (debug_mode and batch_idx < 5):
+                        print(f"Batch {batch_idx}, labels shape: {labels_flat.shape}, unique labels: {torch.unique(labels_flat).cpu().numpy()}")
+                        if should_compute_der:
+                            print(f"Batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(predictions).cpu().numpy()}")
+                    
+                    # Debug mode: print label distribution and loss stats for first batches
+                    if debug_mode and batch_idx < 10:
+                        unique_labels, counts = torch.unique(labels_flat, return_counts=True)
+                        label_dist = {int(l): int(c) for l, c in zip(unique_labels.cpu().numpy(), counts.cpu().numpy())}
+                        print(f"[DEBUG] Batch {batch_idx} label distribution: {label_dist}")
+                        print(f"[DEBUG] Batch {batch_idx} loss: {loss_value:.4f}, outputs_range=[{outputs.min().item():.2f}, {outputs.max().item():.2f}]")
                 
-                # Log batch statistics (for first few batches and periodically)
-                if batch_idx < 3 or batch_idx % 50 == 0:
-                    logger.info(f"Batch {batch_idx}: loss={loss_value:.4f}, features_shape={features.shape}, labels_unique={torch.unique(labels_flat).cpu().numpy()[:10]}")
+                # E: Calculate DER only if needed (memory optimization)
+                der = None
+                acc = None
+                if should_compute_der and pred_by_rec and lab_by_rec:
+                    ders = {}
+                    for rec_id in pred_by_rec:
+                        if pred_by_rec[rec_id] and lab_by_rec[rec_id]:
+                            speaker_id_list = train_loader.dataset.get_speaker_id_list() if hasattr(train_loader.dataset, 'get_speaker_id_list') else None
+                            ders[rec_id] = self.calculate_der(
+                                pred_by_rec[rec_id],
+                                lab_by_rec[rec_id],
+                                speaker_id_list=speaker_id_list,
+                                debug=False,
+                                frame_shift=0.01,
+                                uri=rec_id
+                            )
+                    der = np.mean(list(ders.values())) if ders else float('nan')
+                    # Calculate accuracy across all frames
+                    all_predictions = []
+                    all_labels = []
+                    for rec_id in pred_by_rec:
+                        all_predictions.extend(pred_by_rec[rec_id])
+                        all_labels.extend(lab_by_rec[rec_id])
+                    acc = (np.array(all_predictions) == np.array(all_labels)).mean() if all_labels else float('nan')
+                    # Clean up large objects immediately after DER calculation
+                    del pred_by_rec, lab_by_rec, ders, all_predictions, all_labels
+                else:
+                    # C3: Don't accumulate predictions if DER not needed - save memory
+                    pass
                 
-                # Only accumulate loss if batch was successful
-                train_loss += loss_value
-                batch_losses.append(loss_value)
-                predictions = torch.argmax(outputs, dim=-1)
-                
-                # Group predictions by meeting_id
-                predictions_np = predictions.cpu().numpy()
-                labels_np = labels_flat.cpu().numpy()
-                # meeting_ids: List[np.ndarray] (each with length = max_len of batch)
-                meeting_ids_flat = np.concatenate(meeting_ids, axis=0)  # => shape: [batch_size*seq_len]
-                
-                for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
-                    if meeting_id is not None:  # Skip padded frames
-                        pred_by_rec[meeting_id].append(pred)
-                        lab_by_rec[meeting_id].append(label)
-                
-                if batch_idx % 10 == 0:
-                    print(f"Batch {batch_idx}, Loss: {loss.item():.4f}")
-                if batch_idx == 0 or (debug_mode and batch_idx < 5):
-                    print(f"Batch {batch_idx}, labels shape: {labels_flat.shape}, unique labels: {torch.unique(labels_flat).cpu().numpy()}")
-                    print(f"Batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {torch.unique(predictions).cpu().numpy()}")
-                
-                # Debug mode: print label distribution and loss stats for first batches
-                if debug_mode and batch_idx < 10:
-                    unique_labels, counts = torch.unique(labels_flat, return_counts=True)
-                    label_dist = {int(l): int(c) for l, c in zip(unique_labels.cpu().numpy(), counts.cpu().numpy())}
-                    print(f"[DEBUG] Batch {batch_idx} label distribution: {label_dist}")
-                    print(f"[DEBUG] Batch {batch_idx} loss: {loss_value:.4f}, outputs_range=[{outputs.min().item():.2f}, {outputs.max().item():.2f}]")
+                # Metrics per epoch
+                mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
+                print(f"SENDClient: Epoch {epoch+1}/{epochs} summary for client {self.client_id}: min_loss={min(batch_losses) if batch_losses else 'nan'}, max_loss={max(batch_losses) if batch_losses else 'nan'}, mean_loss={mean_loss}, acc={acc if acc is not None else 'N/A'}, DER={der if der is not None else 'N/A'}")
+                # Collect metrics for this epoch (C3: only small values)
+                epoch_metrics.append({
+                    "train_loss": float(mean_loss),
+                    "acc": float(acc) if acc is not None and not np.isnan(acc) else None,
+                    "der": float(der) if der is not None and not np.isnan(der) else None,
+                })
             
-            # Calculate DER per recording and aggregate
-            ders = {}
-            for rec_id in pred_by_rec:
-                if pred_by_rec[rec_id] and lab_by_rec[rec_id]:
-                    # Get speaker_id_list from the dataset
-                    speaker_id_list = self.train_loader.dataset.get_speaker_id_list() if hasattr(self.train_loader.dataset, 'get_speaker_id_list') else None
-                    ders[rec_id] = self.calculate_der(
-                        pred_by_rec[rec_id],
-                        lab_by_rec[rec_id],
-                        speaker_id_list=speaker_id_list,
-                        debug=False,
-                        frame_shift=0.01,
-                        uri=rec_id
-                    )
+            elapsed = time.time() - start_time
+            print(f"SENDClient: Finished fit for client {self.client_id}, total time: {elapsed:.2f} sec")
+            print("=== CLIENT LOG: fit finished ===")
             
-            # Metrics per epoch
-            mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
-            # Calculate accuracy across all frames
-            all_predictions = []
-            all_labels = []
-            for rec_id in pred_by_rec:
-                all_predictions.extend(pred_by_rec[rec_id])
-                all_labels.extend(lab_by_rec[rec_id])
-            acc = (np.array(all_predictions) == np.array(all_labels)).mean() if all_labels else float('nan')
-            # Average DER across recordings
-            der = np.mean(list(ders.values())) if ders else float('nan')
-            print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique labels: {np.unique(all_labels) if all_labels else 'EMPTY'}")
-            print(f"[DEBUG] Epoch {epoch+1}/{epochs} unique predictions: {np.unique(all_predictions) if all_predictions else 'EMPTY'}")
-            print(f"SENDClient: Epoch {epoch+1}/{epochs} summary for client {id(self)}: min_loss={min(batch_losses) if batch_losses else 'nan'}, max_loss={max(batch_losses) if batch_losses else 'nan'}, mean_loss={mean_loss}, acc={acc}, DER={der}")
-            # Collect metrics for this epoch
-            epoch_metrics.append({
-                "train_loss": float(mean_loss),
-                "acc": float(acc) if not np.isnan(acc) else None,
-                "der": float(der) if not np.isnan(der) else None,
-            })
-        elapsed = time.time() - start_time
-        print(f"SENDClient: Finished fit for client {id(self)}, total time: {elapsed:.2f} sec")
-        print("=== CLIENT LOG: fit finished ===")
-        print(f"=== CLIENT LOG: train_loader length: {len(self.train_loader)} ===")
-        # Return epoch_metrics for aggregation and plotting (as JSON string)
-        return self.get_parameters({}), len(self.train_loader), {"train_loss": mean_loss, "epoch_metrics": json.dumps(epoch_metrics)}
+            # C2: Cleanup - delete DataLoader and call garbage collection
+            del train_loader
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            
+            # C3: Return only small metrics (no large objects)
+            final_mean_loss = epoch_metrics[-1]["train_loss"] if epoch_metrics else float('nan')
+            return self.get_parameters({}), num_examples, {"train_loss": final_mean_loss, "epoch_metrics": json.dumps(epoch_metrics)}
+        
+        except Exception as e:
+            # F: Error handling - return previous parameters unchanged
+            logger.error(f"Client {self.client_id} fit() failed: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            # Return previous parameters, 0 examples, and failure flag
+            return self.get_parameters({}), 0, {"failed": 1, "error": str(e)}
     
     def evaluate(self, parameters, config):
-        print("=== CLIENT LOG: evaluate started ===")
-        print(f"SENDClient: Starting evaluate for client {id(self)}")
-        self.set_parameters(parameters)
-        self.model.eval()
-        val_loss = 0.0
-        batch_losses = []
-        # Group predictions by meeting_id for proper DER calculation
-        pred_by_rec = defaultdict(list)
-        lab_by_rec = defaultdict(list)
-        start_time = time.time()
-        epoch_metrics = []  # Collect metrics for each epoch (for compatibility)
-        with torch.no_grad():
-            for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(self.val_loader):
-                if batch_idx == 0:
-                    print(f"SENDClient: First batch in evaluate for client {id(self)}")
-                features, speaker_embeddings, labels = features.to(self.device), speaker_embeddings.to(self.device), labels.to(self.device)
-                speaker_embeddings = speaker_embeddings.float()
-                outputs = self.model(features, speaker_embeddings)
-                batch_size, seq_len, num_classes = outputs.shape
-                outputs = outputs.reshape(-1, num_classes)
-                labels = labels.reshape(-1)
-                loss = self.criterion(outputs, labels)
-                val_loss += loss.item()
-                batch_losses.append(loss.item())
-                predictions = torch.argmax(outputs, dim=-1)
-                
-                # Group predictions by meeting_id
-                predictions_np = predictions.cpu().numpy()
-                labels_np = labels.cpu().numpy()
-                # meeting_ids: List[np.ndarray] (each with length = max_len of batch)
-                meeting_ids_flat = np.concatenate(meeting_ids, axis=0)  # => shape: [batch_size*seq_len]
-                
-                for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
-                    if meeting_id is not None:  # Skip padded frames
-                        pred_by_rec[meeting_id].append(pred)
-                        lab_by_rec[meeting_id].append(label)
-                
-                if batch_idx == 0:
-                    print(f"Eval batch {batch_idx}, labels shape: {labels.shape}, unique labels: {np.unique(labels.cpu().numpy())}")
-                    print(f"Eval batch {batch_idx}, outputs shape: {outputs.shape}, unique preds: {np.unique(predictions.cpu().numpy())}")
+        """Evaluate model on client validation data.
         
-        # Calculate DER per recording and aggregate
-        ders = {}
-        for rec_id in pred_by_rec:
-            if pred_by_rec[rec_id] and lab_by_rec[rec_id]:
-                # Get speaker_id_list from the dataset
-                speaker_id_list = self.val_loader.dataset.get_speaker_id_list() if hasattr(self.val_loader.dataset, 'get_speaker_id_list') else None
-                ders[rec_id] = self.calculate_der(
-                    pred_by_rec[rec_id],
-                    lab_by_rec[rec_id],
-                    speaker_id_list=speaker_id_list,
-                    debug=False,
-                    frame_shift=0.01,
-                    uri=rec_id
-                )
+        C2: Creates DataLoader lazily inside evaluate() and cleans up after.
+        C3: Returns only small metrics, no large objects.
+        E: DER computation is optional (only when enabled or every N rounds).
+        F: Wrapped in try/except for error handling.
+        """
+        # F: Error handling - return previous params on failure
+        try:
+            print("=== CLIENT LOG: evaluate started ===")
+            print(f"SENDClient: Starting evaluate for client {self.client_id}")
+            self.set_parameters(parameters)
+            self.model.eval()
+            
+            server_round = config.get("server_round", 0)
+            compute_der = config.get("compute_der", False)  # E: DER computation optional
+            der_round_interval = config.get("der_round_interval", 5)  # E: Compute DER every N rounds
+            
+            # E: Only compute DER if enabled or every N rounds
+            should_compute_der = compute_der or (server_round % der_round_interval == 0)
+            
+            # C2: Create DataLoader lazily inside evaluate()
+            val_loader = self._create_val_loader()
+            num_examples = len(val_loader.dataset)
+            
+            val_loss = 0.0
+            batch_losses = []
+            # E: Only accumulate predictions if DER is needed (memory optimization)
+            pred_by_rec = defaultdict(list) if should_compute_der else None
+            lab_by_rec = defaultdict(list) if should_compute_der else None
+            start_time = time.time()
+            epoch_metrics = []  # Collect metrics for each epoch (for compatibility)
+            
+            with torch.no_grad():
+                for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(val_loader):
+                    if batch_idx == 0:
+                        print(f"SENDClient: First batch in evaluate for client {self.client_id}")
+                    features, speaker_embeddings, labels = features.to(self.device), speaker_embeddings.to(self.device), labels.to(self.device)
+                    speaker_embeddings = speaker_embeddings.float()
+                    outputs = self.model(features, speaker_embeddings)
+                    batch_size, seq_len, num_classes = outputs.shape
+                    outputs = outputs.reshape(-1, num_classes)
+                    labels = labels.reshape(-1)
+                    loss = self.criterion(outputs, labels)
+                    val_loss += loss.item()
+                    batch_losses.append(loss.item())
+                    
+                    # E: Only accumulate predictions if DER is needed (memory optimization)
+                    if should_compute_der:
+                        predictions = torch.argmax(outputs, dim=-1)
+                        predictions_np = predictions.cpu().numpy()
+                        labels_np = labels.cpu().numpy()
+                        meeting_ids_flat = np.concatenate(meeting_ids, axis=0)
+                        for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
+                            if meeting_id is not None:  # Skip padded frames
+                                pred_by_rec[meeting_id].append(pred)
+                                lab_by_rec[meeting_id].append(label)
+                    
+                    if batch_idx == 0:
+                        print(f"Eval batch {batch_idx}, labels shape: {labels.shape}, unique labels: {np.unique(labels.cpu().numpy())}")
+                        print(f"Eval batch {batch_idx}, outputs shape: {outputs.shape}")
+            
+            # E: Calculate DER only if needed (memory optimization)
+            der = None
+            if should_compute_der and pred_by_rec and lab_by_rec:
+                ders = {}
+                for rec_id in pred_by_rec:
+                    if pred_by_rec[rec_id] and lab_by_rec[rec_id]:
+                        speaker_id_list = val_loader.dataset.get_speaker_id_list() if hasattr(val_loader.dataset, 'get_speaker_id_list') else None
+                        ders[rec_id] = self.calculate_der(
+                            pred_by_rec[rec_id],
+                            lab_by_rec[rec_id],
+                            speaker_id_list=speaker_id_list,
+                            debug=False,
+                            frame_shift=0.01,
+                            uri=rec_id
+                        )
+                der = np.mean(list(ders.values())) if ders else float('nan')
+                # Clean up large objects immediately after DER calculation
+                del pred_by_rec, lab_by_rec, ders
+            else:
+                # C3: Don't accumulate predictions if DER not needed - save memory
+                pass
+            
+            print(f"SENDClient: Eval summary for client {self.client_id}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={np.mean(batch_losses):.4f}, DER={der if der is not None else 'N/A'}")
+            elapsed = time.time() - start_time
+            print(f"SENDClient: Finished evaluate for client {self.client_id}, total time: {elapsed:.2f} sec")
+            print("=== CLIENT LOG: evaluate finished ===")
+            
+            # C2: Cleanup - delete DataLoader and call garbage collection
+            del val_loader
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            
+            # C3: Return only small metrics (no large objects)
+            mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
+            epoch_metrics.append({
+                "val_loss": float(mean_loss),
+                "der": float(der) if der is not None and not np.isnan(der) else None,
+            })
+            return (
+                float(mean_loss),
+                num_examples,
+                {"val_loss": mean_loss, "der": der if der is not None else None, "epoch_metrics": json.dumps(epoch_metrics)}
+            )
         
-        print(f"SENDClient: Eval summary for client {id(self)}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={np.mean(batch_losses):.4f}")
-        elapsed = time.time() - start_time
-        print(f"SENDClient: Finished evaluate for client {id(self)}, total time: {elapsed:.2f} sec")
-        # Average DER across recordings
-        der = np.mean(list(ders.values())) if ders else float('nan')
-        print("=== CLIENT LOG: evaluate finished ===")
-        # For compatibility, return epoch_metrics (single epoch for val) as JSON string
-        mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
-        epoch_metrics.append({
-            "val_loss": float(mean_loss),
-            "der": float(der) if not np.isnan(der) else None,
-        })
-        return (
-            float(val_loss / len(self.val_loader)),
-            len(self.val_loader),
-            {"val_loss": val_loss / len(self.val_loader), "der": der, "epoch_metrics": json.dumps(epoch_metrics)}
-        )
+        except Exception as e:
+            # F: Error handling - return previous parameters unchanged
+            logger.error(f"Client {self.client_id} evaluate() failed: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            # Return 0 loss, 0 examples, and failure flag
+            return 0.0, 0, {"failed": 1, "error": str(e)}
     
     def calculate_der(self, predictions: List[int], labels: List[int], speaker_id_list: list = None, debug: bool = True, frame_shift: float = 0.01, uri: str = None) -> float:
         """Calculate Diarization Error Rate using the common function from data_processing."""
@@ -1074,6 +1185,9 @@ def main():
                 if client_idx >= len(client_data):
                     raise ValueError(f"Client ID {client_idx} is out of range. Only {len(client_data)} clients available.")
                 train_loader, val_loader = client_data[client_idx]
+                # C1: Extract datasets from DataLoaders (don't store DataLoaders in client)
+                train_dataset = train_loader.dataset
+                val_dataset = val_loader.dataset
                 # Create new model instance for each client with configurable architecture
                 client_model = SENDModel(
                     num_classes=num_classes,
@@ -1085,12 +1199,13 @@ def main():
                 print(f"MAIN: Client {cid} created and ready")
                 return SENDClient(
                     model=client_model,
-                    train_loader=train_loader,
-                    val_loader=val_loader,
+                    train_dataset=train_dataset,  # C1: Pass dataset, not DataLoader
+                    val_dataset=val_dataset,    # C1: Pass dataset, not DataLoader
                     device=device,
                     power_set_encoder=power_set_encoder,
                     speaker_encoder=speaker_encoder,
-                    speaker_to_embedding=speaker_to_embedding
+                    batch_size=batch_size,
+                    client_id=client_idx
                 ).to_client()
             except Exception as e:
                 logger.error(f"Error creating client {cid}: {str(e)}")
@@ -1164,8 +1279,21 @@ def main():
             min_evaluate_clients=min_evaluate_clients,
             fraction_fit=fraction_fit,
             fraction_evaluate=fraction_evaluate,
-            on_fit_config_fn=lambda _: {"epochs": epochs, "debug_mode": debug_mode, "debug_max_batches": debug_max_batches},
-            on_evaluate_config_fn=lambda _: {"epochs": 1},
+            # E: Pass server_round and compute_der=False by default (DER only every 5 rounds)
+            on_fit_config_fn=lambda server_round: {
+                "epochs": epochs, 
+                "debug_mode": debug_mode, 
+                "debug_max_batches": debug_max_batches,
+                "server_round": server_round,
+                "compute_der": False,  # E: DER disabled by default
+                "der_round_interval": 5  # E: Compute DER every 5 rounds
+            },
+            on_evaluate_config_fn=lambda server_round: {
+                "epochs": 1,
+                "server_round": server_round,
+                "compute_der": False,  # E: DER disabled by default
+                "der_round_interval": 5  # E: Compute DER every 5 rounds
+            },
             initial_parameters=fl.common.ndarrays_to_parameters(
                 [val.cpu().numpy() for _, val in model.state_dict().items()]
             ),
