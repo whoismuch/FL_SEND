@@ -1229,8 +1229,8 @@ def main():
                     last = epoch_metrics[-1] if epoch_metrics else {}
                     round_info['client_metrics'][cid] = last
             # Compute mean loss/der for this round
-            losses = [v.get('train_loss') for v in round_info['client_metrics'].values() if 'train_loss' in v]
-            ders = [v.get('der') for v in round_info['client_metrics'].values() if 'der' in v]
+            losses = [v.get('train_loss') for v in round_info['client_metrics'].values() if 'train_loss' in v and v.get('train_loss') is not None]
+            ders = [v.get('der') for v in round_info['client_metrics'].values() if 'der' in v and v.get('der') is not None]
             round_info['mean_loss'] = sum(losses)/len(losses) if losses else None
             round_info['mean_der'] = sum(ders)/len(ders) if ders else None
             round_info['round'] = len(round_metrics)
