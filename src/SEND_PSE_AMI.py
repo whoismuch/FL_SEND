@@ -660,7 +660,8 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                         skipped_nan += 1
                         continue
                 
-                grad_norms.append(grad_norm)
+                # Convert grad_norm to Python float before appending (CUDA tensor -> CPU)
+                grad_norms.append(grad_norm.item() if isinstance(grad_norm, torch.Tensor) else float(grad_norm))
                 scaler.step(optimizer)
                 did_step = True  # Mark that step was executed
                 scaler.update()  # Update scaler only after step was executed
@@ -751,7 +752,8 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                         skipped_nan += 1
                         continue
                 
-                grad_norms.append(grad_norm)
+                # Convert grad_norm to Python float before appending (CUDA tensor -> CPU)
+                grad_norms.append(grad_norm.item() if isinstance(grad_norm, torch.Tensor) else float(grad_norm))
                 optimizer.step()
                 did_step = True
                 backward_time = (time.time() - backward_start) if backward_start else 0.0
