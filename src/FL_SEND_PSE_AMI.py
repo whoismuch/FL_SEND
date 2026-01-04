@@ -563,6 +563,12 @@ class SENDClient(NumPyClient):
                             outputs = outputs.reshape(-1, num_classes)
                             labels_flat = labels.reshape(-1)
                             
+                            # Check for valid frames: skip batch if all labels are padding (-100)
+                            valid = (labels_flat != -100)
+                            if valid.sum() == 0:
+                                logger.warning(f"Batch {batch_idx}: All labels are -100 (padding). Skipping batch safely.")
+                                continue
+                            
                             # Validate labels: ignore_index=-100, others in [0, num_classes-1]
                             invalid_labels = (labels_flat >= num_classes) | ((labels_flat < 0) & (labels_flat != -100))
                             if invalid_labels.any():
@@ -576,13 +582,18 @@ class SENDClient(NumPyClient):
                             loss = self.criterion(outputs, labels_flat)
                             
                             # Check for NaN/Inf in loss or outputs (early detection)
-                            if torch.isnan(loss) or torch.isinf(loss):
+                            if not torch.isfinite(loss):
                                 logger.warning(f"Batch {batch_idx}: NaN/Inf loss detected! Loss: {loss.item()}")
                                 logger.warning(f"  Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
+                                logger.warning(f"  Logits stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}")
                                 logger.warning(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}")
                                 logger.warning(f"  Labels stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()[:10]}")
-                                # AMP protection: update scaler, zero grad, skip batch
-                                scaler.update()
+                                # Get label distribution for debugging
+                                unique_labels_tensor, counts = torch.unique(labels_flat, return_counts=True)
+                                label_dist = {int(l): int(c) for l, c in zip(unique_labels_tensor.cpu().numpy(), counts.cpu().numpy())}
+                                logger.warning(f"  Label distribution: {label_dist}")
+                                # CRITICAL: Skip batch completely - do NOT call scaler.update() without scaler.step()
+                                # scaler.update() requires scaler.step() to be called first (records inf checks)
                                 self.optimizer.zero_grad()
                                 continue
                         
@@ -591,6 +602,7 @@ class SENDClient(NumPyClient):
                         # Gradient clipping to prevent gradient explosion (fixes NaN loss issue)
                         scaler.unscale_(self.optimizer)
                         torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                        # CRITICAL: step and update must be called together
                         scaler.step(self.optimizer)
                         scaler.update()
                 else:
@@ -598,6 +610,12 @@ class SENDClient(NumPyClient):
                     batch_size, seq_len, num_classes = outputs.shape
                     outputs = outputs.reshape(-1, num_classes)
                     labels_flat = labels.reshape(-1)
+                    
+                    # Check for valid frames: skip batch if all labels are padding (-100)
+                    valid = (labels_flat != -100)
+                    if valid.sum() == 0:
+                        logger.warning(f"Batch {batch_idx}: All labels are -100 (padding). Skipping batch safely.")
+                        continue
                     
                     # Validate labels: ignore_index=-100, others in [0, num_classes-1]
                     invalid_labels = (labels_flat >= num_classes) | ((labels_flat < 0) & (labels_flat != -100))
@@ -612,11 +630,16 @@ class SENDClient(NumPyClient):
                     loss = self.criterion(outputs, labels_flat)
                     
                     # Check for NaN/Inf in loss or outputs (early detection)
-                    if torch.isnan(loss) or torch.isinf(loss):
+                    if not torch.isfinite(loss):
                         logger.warning(f"Batch {batch_idx}: NaN/Inf loss detected! Loss: {loss.item()}")
                         logger.warning(f"  Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
+                        logger.warning(f"  Logits stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}")
                         logger.warning(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}")
                         logger.warning(f"  Labels stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()[:10]}")
+                        # Get label distribution for debugging
+                        unique_labels_tensor, counts = torch.unique(labels_flat, return_counts=True)
+                        label_dist = {int(l): int(c) for l, c in zip(unique_labels_tensor.cpu().numpy(), counts.cpu().numpy())}
+                        logger.warning(f"  Label distribution: {label_dist}")
                         # Skip batch: zero grad and continue
                         self.optimizer.zero_grad()
                         continue
@@ -1246,6 +1269,19 @@ def main():
             
             def aggregate_fit(self, server_round, results, failures):
                 print(f"✓ Round {server_round}: aggregate_fit called with {len(results)} results, {len(failures)} failures")
+                
+                # Protection against division by zero: check if we have valid results
+                if not results:
+                    logger.error(f"Round {server_round}: no fit results (all clients failed). Skipping aggregation.")
+                    return None, {"skipped": 1, "reason": "no_results"}
+                
+                # Check if total num_examples is zero (would cause ZeroDivisionError in FedAvg)
+                num_examples_total = sum(fit_res.num_examples for _, fit_res in results)
+                if num_examples_total == 0:
+                    logger.error(f"Round {server_round}: num_examples_total=0. Skipping aggregation to avoid division by zero.")
+                    return None, {"skipped": 1, "reason": "zero_examples", "num_results": len(results)}
+                
+                # Proceed with normal aggregation
                 aggregated, metrics = super().aggregate_fit(server_round, results, failures)
                 if aggregated is not None:
                     self.final_parameters = aggregated  # save on server

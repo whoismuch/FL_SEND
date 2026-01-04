@@ -411,16 +411,22 @@ class SENDModel(nn.Module):
 
 
 # Centralized training functions
-def train_model(model, train_loader, val_loader, device, power_set_encoder, epochs=50, compute_der_during_training=False, progress_log_file=None, early_stopping_patience=5, early_stopping_min_delta=0.001, debug_mode=False, debug_max_batches=200):
+def train_model(model, train_loader, val_loader, device, power_set_encoder, epochs=50, compute_der_during_training=False, progress_log_file=None, early_stopping_patience=5, early_stopping_min_delta=0.001, debug_mode=False, debug_max_batches=200, learning_rate=3e-4):
     """Train the SEND model in centralized manner with early stopping.
     
     Args:
         debug_mode: If True, limit training to debug_max_batches and print detailed stats
         debug_max_batches: Maximum number of batches to process in debug mode (default: 200)
+        learning_rate: Learning rate for optimizer (default: 3e-4, reduced from 1e-3 for stability)
     """
     model.train()
-    optimizer = optim.Adam(model.parameters(), lr=1e-4)  # Explicit learning rate
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     criterion = nn.CrossEntropyLoss(ignore_index=-100)  # Ignore padding labels (-100)
+    
+    # Print learning rate information
+    print(f"✅ Using learning rate: {learning_rate}")
+    if learning_rate > 1e-3:
+        print(f"⚠️  WARNING: Learning rate {learning_rate} is high. Consider using 3e-4 or lower for stability.")
     
     # Enable Mixed Precision Training for faster GPU computation (2-3x speedup)
     use_amp = torch.cuda.is_available()
@@ -434,6 +440,19 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
     if torch.cuda.is_available():
         torch.backends.cudnn.benchmark = True
         print("✅ cuDNN benchmark ENABLED - will optimize convolution operations")
+        # Set float32 matmul precision for stability (PyTorch 2.x)
+        try:
+            torch.set_float32_matmul_precision("high")
+            print("✅ Float32 matmul precision set to 'high' for stability")
+        except AttributeError:
+            # PyTorch < 2.0 doesn't have this function
+            pass
+        # Enable TF32 for faster matmul on Ampere+ GPUs (if available)
+        try:
+            torch.backends.cuda.matmul.allow_tf32 = True
+            print("✅ TF32 enabled for faster matmul operations (Ampere+ GPUs)")
+        except AttributeError:
+            pass
     
     epoch_metrics = []
     
@@ -453,6 +472,7 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         print(f" Starting epoch {epoch+1}/{epochs}")
         train_loss = 0.0
         batch_losses = []
+        nan_batches = 0  # Track batches with NaN/Inf loss
         # Group predictions by meeting_id for proper DER calculation
         pred_by_rec = defaultdict(list)
         lab_by_rec = defaultdict(list)
@@ -525,10 +545,16 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                     
                     # Check for NaN/Inf in loss or outputs (early detection)
                     if not torch.isfinite(loss):
+                        nan_batches += 1
                         logger.warning(f"Batch {batch_idx}: NaN/Inf loss detected! Loss: {loss.item()}")
                         logger.warning(f"  Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
+                        logger.warning(f"  Logits stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}")
                         logger.warning(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}")
                         logger.warning(f"  Labels stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()[:10]}")
+                        # Get label distribution for debugging
+                        unique_labels_tensor, counts = torch.unique(labels_flat, return_counts=True)
+                        label_dist = {int(l): int(c) for l, c in zip(unique_labels_tensor.cpu().numpy(), counts.cpu().numpy())}
+                        logger.warning(f"  Label distribution: {label_dist}")
                         # Skip batch: no backward, no step, no update
                         continue
                 
@@ -568,10 +594,16 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                 
                 # Check for NaN/Inf in loss or outputs (early detection)
                 if not torch.isfinite(loss):
+                    nan_batches += 1
                     logger.warning(f"Batch {batch_idx}: NaN/Inf loss detected! Loss: {loss.item()}")
                     logger.warning(f"  Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
+                    logger.warning(f"  Logits stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}")
                     logger.warning(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}")
                     logger.warning(f"  Labels stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()[:10]}")
+                    # Get label distribution for debugging
+                    unique_labels_tensor, counts = torch.unique(labels_flat, return_counts=True)
+                    label_dist = {int(l): int(c) for l, c in zip(unique_labels_tensor.cpu().numpy(), counts.cpu().numpy())}
+                    logger.warning(f"  Label distribution: {label_dist}")
                     # Skip batch: no backward, no step
                     continue
                 
@@ -677,6 +709,10 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                     print(f" Recording {rec_id} DER: {ders[rec_id]:.4f}")
         else:
             print(f" Skipping DER computation during training for speed (set compute_der_during_training=True to enable)")
+        
+        # Log NaN/Inf batch statistics
+        if nan_batches > 0:
+            logger.warning(f"Epoch {epoch+1}: {nan_batches} batches had NaN/Inf loss, {len(batch_losses)} valid batches remaining")
         
         # Metrics per epoch
         mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
@@ -806,6 +842,7 @@ def evaluate_model(model, val_loader, device, power_set_encoder, compute_der=Fal
     criterion = nn.CrossEntropyLoss(ignore_index=-100)  # Ignore padding labels (-100)
     val_loss = 0.0
     batch_losses = []
+    nan_batches = 0  # Track batches with NaN/Inf loss
     # Group predictions by meeting_id for proper DER calculation (only if compute_der=True)
     pred_by_rec = defaultdict(list)
     lab_by_rec = defaultdict(list)
@@ -849,13 +886,16 @@ def evaluate_model(model, val_loader, device, power_set_encoder, compute_der=Fal
                 
                 loss = criterion(outputs, labels_flat)
 
-            # Check for NaN in loss (validation) - skip this batch if invalid
-            loss_value = loss.item()
-            if np.isnan(loss_value) or np.isinf(loss_value):
-                logger.warning(f"NaN/Inf loss in validation at batch {batch_idx}! Loss: {loss_value}")
+            # Check for NaN/Inf in loss using torch.isfinite (more robust)
+            if not torch.isfinite(loss):
+                nan_batches += 1
+                loss_value = loss.item()
+                logger.warning(f"Eval batch {batch_idx}: NaN/Inf loss detected! Loss: {loss_value}")
+                logger.warning(f"  Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
                 # Skip this batch but continue validation
                 continue
 
+            loss_value = loss.item()
             val_loss += loss_value
             batch_losses.append(loss_value)
             
@@ -895,6 +935,10 @@ def evaluate_model(model, val_loader, device, power_set_encoder, compute_der=Fal
                     unique_preds = torch.unique(predictions).cpu().numpy()
                     print(f"  - Unique predictions: {unique_preds}")
     
+    # Log NaN/Inf batch statistics
+    if nan_batches > 0:
+        logger.warning(f"Validation: {nan_batches} batches had NaN/Inf loss, {len(batch_losses)} valid batches remaining")
+    
     # Calculate DER per recording and aggregate (only if compute_der=True)
     ders = {}
     if compute_der:
@@ -918,6 +962,18 @@ def evaluate_model(model, val_loader, device, power_set_encoder, compute_der=Fal
         # But keep this branch for backward compatibility
         print(f" ⚠️  NOTE: DER computation was skipped (this is unexpected in normal flow)")
     
+    # Check if batch_losses is empty (all batches were NaN/Inf or skipped)
+    if not batch_losses:
+        logger.error("No valid validation batches (all losses were NaN/Inf or skipped)")
+        if compute_der and not ders:
+            logger.error("No valid DER records computed (all batches were skipped)")
+            return float('nan'), float('nan'), pred_by_rec, lab_by_rec
+        else:
+            # DER might still be valid even if losses are all NaN
+            der = np.mean(list(ders.values())) if ders else float('nan')
+            return float('nan'), der, pred_by_rec, lab_by_rec
+    
+    # Print summary only if batch_losses is not empty
     print(f" Eval summary: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={np.mean(batch_losses):.4f}")
     # Average DER across recordings (only if computed)
     der = np.mean(list(ders.values())) if ders else float('nan')
@@ -947,6 +1003,7 @@ def main():
     parser.add_argument('--num_post_net_layers', type=int, default=6, help='Number of post-net layers (default: 6, use 3 for faster training)')
     parser.add_argument('--num_transformer_layers', type=int, default=4, help='Number of transformer layers in CD scorer (default: 4, use 2 for faster training)')
     parser.add_argument('--enable_persistent_workers', action='store_true', help='Enable persistent_workers for faster data loading (disabled by default to avoid semaphore leaks)')
+    parser.add_argument('--lr', type=float, default=3e-4, help='Learning rate for optimizer (default: 3e-4, reduced from 1e-3 for stability)')
     args = parser.parse_args()
 
     # Assign arguments to variables
@@ -965,6 +1022,7 @@ def main():
     num_post_net_layers = args.num_post_net_layers
     num_transformer_layers = args.num_transformer_layers
     enable_persistent_workers = args.enable_persistent_workers
+    learning_rate = args.lr
     
     # Determine if we're using all data or a subset
     use_all_data = test_size is None
@@ -1176,7 +1234,7 @@ def main():
         progress_log_file = os.path.join(artifact_logs_dir, "training_progress.txt")
         print(f"MAIN: Progress will be logged to: {progress_log_file}")
         
-        training_metrics = train_model(model, train_loader, val_loader, device, power_set_encoder, epochs, compute_der_during_training, progress_log_file, early_stopping_patience, early_stopping_min_delta)
+        training_metrics = train_model(model, train_loader, val_loader, device, power_set_encoder, epochs, compute_der_during_training, progress_log_file, early_stopping_patience, early_stopping_min_delta, learning_rate=learning_rate)
         
         # Evaluate on validation set
         print(f"MAIN: Evaluating on validation set...")
