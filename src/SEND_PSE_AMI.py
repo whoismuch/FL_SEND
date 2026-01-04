@@ -411,13 +411,42 @@ class SENDModel(nn.Module):
 
 
 # Centralized training functions
-def train_model(model, train_loader, val_loader, device, power_set_encoder, epochs=50, compute_der_during_training=False, progress_log_file=None, early_stopping_patience=5, early_stopping_min_delta=0.001, debug_mode=False, debug_max_batches=200, learning_rate=3e-4):
+
+def _dump_nan_batch(features, speaker_embeddings, labels, meeting_ids, outputs, loss, epoch, batch_idx, device):
+    """Dump batch to disk for debugging NaN issues."""
+    try:
+        debug_dir = "logs/nan_debug"
+        os.makedirs(debug_dir, exist_ok=True)
+        filename = f"{debug_dir}/nan_epoch{epoch}_batch{batch_idx}.pt"
+        
+        # Move to CPU before saving
+        dump_data = {
+            'features': features.cpu() if features.is_cuda else features,
+            'speaker_embeddings': speaker_embeddings.cpu() if speaker_embeddings.is_cuda else speaker_embeddings,
+            'labels': labels.cpu() if labels.is_cuda else labels,
+            'meeting_ids': meeting_ids,
+            'outputs': outputs.cpu() if outputs.is_cuda else outputs if outputs is not None else None,
+            'loss': loss.item() if loss is not None else None,
+            'epoch': epoch,
+            'batch_idx': batch_idx,
+        }
+        torch.save(dump_data, filename)
+        logger.error(f"  Dumped batch to: {filename}")
+        return filename
+    except Exception as e:
+        logger.error(f"  Failed to dump batch: {e}")
+        return None
+
+def train_model(model, train_loader, val_loader, device, power_set_encoder, epochs=50, compute_der_during_training=False, progress_log_file=None, early_stopping_patience=5, early_stopping_min_delta=0.001, debug_mode=False, debug_max_batches=200, learning_rate=3e-4, nan_action='abort', use_amp=None, grad_clip=1.0, checkpoint_dir=None):
     """Train the SEND model in centralized manner with early stopping.
     
     Args:
         debug_mode: If True, limit training to debug_max_batches and print detailed stats
         debug_max_batches: Maximum number of batches to process in debug mode (default: 200)
         learning_rate: Learning rate for optimizer (default: 3e-4, reduced from 1e-3 for stability)
+        nan_action: Action when NaN detected - 'skip' (skip batch) or 'abort' (abort epoch, default)
+        use_amp: Enable AMP (None=auto-detect, True/False=force)
+        grad_clip: Gradient clipping max_norm (default: 1.0)
     """
     model.train()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -429,12 +458,19 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         print(f"⚠️  WARNING: Learning rate {learning_rate} is high. Consider using 3e-4 or lower for stability.")
     
     # Enable Mixed Precision Training for faster GPU computation (2-3x speedup)
-    use_amp = torch.cuda.is_available()
+    if use_amp is None:
+        use_amp = torch.cuda.is_available()
+    else:
+        use_amp = use_amp and torch.cuda.is_available()
+    
     scaler = torch.cuda.amp.GradScaler() if use_amp else None
     if use_amp:
         print("✅ Mixed Precision Training (AMP) ENABLED - will speed up training significantly")
     else:
-        print("⚠️  Mixed Precision Training (AMP) DISABLED - CUDA not available")
+        print("⚠️  Mixed Precision Training (AMP) DISABLED")
+    
+    print(f"✅ NaN action: {nan_action} (skip batch or abort epoch)")
+    print(f"✅ Gradient clipping max_norm: {grad_clip}")
     
     # Enable cuDNN benchmark for faster convolutions (only if input sizes are constant)
     if torch.cuda.is_available():
@@ -461,6 +497,8 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
     best_val_loss = float('inf')  # Keep for logging
     patience_counter = 0
     best_model_state = None
+    last_good_checkpoint = None
+    # checkpoint_dir is passed as parameter
     
     # Initialize progress logging
     if progress_log_file:
@@ -473,6 +511,10 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         train_loss = 0.0
         batch_losses = []
         nan_batches = 0  # Track batches with NaN/Inf loss
+        skipped_all_padding = 0  # Track batches skipped due to all -100 labels
+        skipped_invalid_labels = 0  # Track batches skipped due to invalid labels
+        skipped_nan = 0  # Track batches skipped due to NaN/Inf
+        grad_norms = []  # Track gradient norms for stability stats
         # Group predictions by meeting_id for proper DER calculation
         pred_by_rec = defaultdict(list)
         lab_by_rec = defaultdict(list)
@@ -504,13 +546,25 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
             
             # Check input tensors for NaN/Inf before forward pass
             if torch.isnan(features).any() or torch.isinf(features).any():
-                logger.warning(f"Batch {batch_idx}: NaN/Inf detected in features. Skipping batch.")
-                logger.warning(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}, has_nan={torch.isnan(features).any().item()}, has_inf={torch.isinf(features).any().item()}")
-                continue
+                logger.error(f"Batch {batch_idx}: NaN/Inf detected in features!")
+                logger.error(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}, has_nan={torch.isnan(features).any().item()}, has_inf={torch.isinf(features).any().item()}")
+                _dump_nan_batch(features, speaker_embeddings, labels, meeting_ids, None, None, epoch+1, batch_idx, device)
+                if nan_action == 'abort':
+                    logger.error(f"ABORTING epoch {epoch+1} due to NaN in features (nan_action=abort)")
+                    break
+                else:
+                    skipped_nan += 1
+                    continue
             if torch.isnan(speaker_embeddings).any() or torch.isinf(speaker_embeddings).any():
-                logger.warning(f"Batch {batch_idx}: NaN/Inf detected in speaker_embeddings. Skipping batch.")
-                logger.warning(f"  Speaker embeddings stats: min={speaker_embeddings.min().item():.4f}, max={speaker_embeddings.max().item():.4f}, mean={speaker_embeddings.mean().item():.4f}")
-                continue
+                logger.error(f"Batch {batch_idx}: NaN/Inf detected in speaker_embeddings!")
+                logger.error(f"  Speaker embeddings stats: min={speaker_embeddings.min().item():.4f}, max={speaker_embeddings.max().item():.4f}, mean={speaker_embeddings.mean().item():.4f}")
+                _dump_nan_batch(features, speaker_embeddings, labels, meeting_ids, None, None, epoch+1, batch_idx, device)
+                if nan_action == 'abort':
+                    logger.error(f"ABORTING epoch {epoch+1} due to NaN in speaker_embeddings (nan_action=abort)")
+                    break
+                else:
+                    skipped_nan += 1
+                    continue
             
             optimizer.zero_grad(set_to_none=True)
             did_step = False  # Track if scaler.step() was executed
@@ -525,45 +579,88 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                     outputs = outputs.reshape(-1, num_classes)
                     labels_flat = labels.reshape(-1)
                     
+                    # Check logits for NaN/Inf BEFORE computing loss
+                    if torch.isnan(outputs).any() or torch.isinf(outputs).any():
+                        logger.error(f"Batch {batch_idx}: NaN/Inf detected in logits/outputs!")
+                        logger.error(f"  Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
+                        _dump_nan_batch(features, speaker_embeddings, labels, meeting_ids, outputs, None, epoch+1, batch_idx, device)
+                        if nan_action == 'abort':
+                            logger.error(f"ABORTING epoch {epoch+1} due to NaN in outputs (nan_action=abort)")
+                            break
+                        else:
+                            skipped_nan += 1
+                            continue
+                    
                     # Check for valid frames: skip batch if all labels are padding (-100)
                     valid = (labels_flat != -100)
                     if valid.sum() == 0:
                         logger.warning(f"Batch {batch_idx}: All labels are -100 (padding). Skipping batch safely.")
+                        skipped_all_padding += 1
                         continue
                     
                     # Validate labels: ignore_index=-100, others in [0, num_classes-1]
-                    invalid_labels = (labels_flat >= num_classes) | ((labels_flat < 0) & (labels_flat != -100))
-                    if invalid_labels.any():
-                        invalid_count = invalid_labels.sum().item()
-                        invalid_values = labels_flat[invalid_labels].unique().cpu().numpy()
-                        logger.error(f"Batch {batch_idx}: Found {invalid_count} invalid labels! Invalid values: {invalid_values}, num_classes={num_classes}")
-                        logger.error(f"  Label stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()}")
-                        logger.warning(f"  Skipping batch {batch_idx} due to invalid labels")
-                        continue
+                    # Assert label range for valid labels
+                    valid_labels = labels_flat[valid]
+                    if len(valid_labels) > 0:
+                        try:
+                            assert valid_labels.min() >= 0, f"Invalid label: min={valid_labels.min().item()}"
+                            assert valid_labels.max() < num_classes, f"Invalid label: max={valid_labels.max().item()}, num_classes={num_classes}"
+                        except AssertionError as e:
+                            invalid_count = ((labels_flat >= num_classes) | ((labels_flat < 0) & (labels_flat != -100))).sum().item()
+                            invalid_values = labels_flat[(labels_flat >= num_classes) | ((labels_flat < 0) & (labels_flat != -100))].unique().cpu().numpy()
+                            logger.error(f"Batch {batch_idx}: Label assertion failed! {e}")
+                            logger.error(f"  Found {invalid_count} invalid labels! Invalid values: {invalid_values}, num_classes={num_classes}")
+                            logger.error(f"  Label stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()}")
+                            _dump_nan_batch(features, speaker_embeddings, labels, meeting_ids, outputs, None, epoch+1, batch_idx, device)
+                            if nan_action == 'abort':
+                                logger.error(f"ABORTING epoch {epoch+1} due to invalid labels (nan_action=abort)")
+                                break
+                            else:
+                                skipped_invalid_labels += 1
+                                continue
                     
                     loss = criterion(outputs, labels_flat)
                     
-                    # Check for NaN/Inf in loss or outputs (early detection)
+                    # Check for NaN/Inf in loss (early detection)
                     if not torch.isfinite(loss):
                         nan_batches += 1
-                        logger.warning(f"Batch {batch_idx}: NaN/Inf loss detected! Loss: {loss.item()}")
-                        logger.warning(f"  Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
-                        logger.warning(f"  Logits stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}")
-                        logger.warning(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}")
-                        logger.warning(f"  Labels stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()[:10]}")
+                        skipped_nan += 1
+                        logger.error(f"Batch {batch_idx}: NaN/Inf loss detected! Loss: {loss.item()}")
+                        logger.error(f"  Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
+                        logger.error(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}")
+                        logger.error(f"  Labels stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()[:10]}")
                         # Get label distribution for debugging
                         unique_labels_tensor, counts = torch.unique(labels_flat, return_counts=True)
                         label_dist = {int(l): int(c) for l, c in zip(unique_labels_tensor.cpu().numpy(), counts.cpu().numpy())}
-                        logger.warning(f"  Label distribution: {label_dist}")
+                        logger.error(f"  Label distribution: {label_dist}")
+                        _dump_nan_batch(features, speaker_embeddings, labels, meeting_ids, outputs, loss, epoch+1, batch_idx, device)
                         # Skip batch: no backward, no step, no update
-                        continue
+                        if nan_action == 'abort':
+                            logger.error(f"ABORTING epoch {epoch+1} due to NaN loss (nan_action=abort)")
+                            break
+                        else:
+                            continue
                 
                 # Backward pass
                 backward_start = time.time() if batch_idx < 2 else None
                 scaler.scale(loss).backward()
                 # Gradient clipping to prevent gradient explosion (fixes NaN loss issue)
                 scaler.unscale_(optimizer)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                
+                # Check gradients for NaN/Inf after unscale
+                grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=grad_clip)
+                if not torch.isfinite(torch.tensor(grad_norm)):
+                    logger.error(f"Batch {batch_idx}: NaN/Inf in gradients after unscale! Grad norm: {grad_norm}")
+                    _dump_nan_batch(features, speaker_embeddings, labels, meeting_ids, outputs, loss, epoch+1, batch_idx, device)
+                    optimizer.zero_grad(set_to_none=True)  # Clear gradients
+                    if nan_action == 'abort':
+                        logger.error(f"ABORTING epoch {epoch+1} due to NaN in gradients (nan_action=abort)")
+                        break
+                    else:
+                        skipped_nan += 1
+                        continue
+                
+                grad_norms.append(grad_norm)
                 scaler.step(optimizer)
                 did_step = True  # Mark that step was executed
                 scaler.update()  # Update scaler only after step was executed
@@ -574,55 +671,96 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                 outputs = outputs.reshape(-1, num_classes)
                 labels_flat = labels.reshape(-1)
                 
+                # Check logits for NaN/Inf BEFORE computing loss
+                if torch.isnan(outputs).any() or torch.isinf(outputs).any():
+                    logger.error(f"Batch {batch_idx}: NaN/Inf detected in logits/outputs!")
+                    logger.error(f"  Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
+                    _dump_nan_batch(features, speaker_embeddings, labels, meeting_ids, outputs, None, epoch+1, batch_idx, device)
+                    if nan_action == 'abort':
+                        logger.error(f"ABORTING epoch {epoch+1} due to NaN in outputs (nan_action=abort)")
+                        break
+                    else:
+                        skipped_nan += 1
+                        continue
+                
                 # Check for valid frames: skip batch if all labels are padding (-100)
                 valid = (labels_flat != -100)
                 if valid.sum() == 0:
                     logger.warning(f"Batch {batch_idx}: All labels are -100 (padding). Skipping batch safely.")
+                    skipped_all_padding += 1
                     continue
                 
                 # Validate labels: ignore_index=-100, others in [0, num_classes-1]
-                invalid_labels = (labels_flat >= num_classes) | ((labels_flat < 0) & (labels_flat != -100))
-                if invalid_labels.any():
-                    invalid_count = invalid_labels.sum().item()
-                    invalid_values = labels_flat[invalid_labels].unique().cpu().numpy()
-                    logger.error(f"Batch {batch_idx}: Found {invalid_count} invalid labels! Invalid values: {invalid_values}, num_classes={num_classes}")
-                    logger.error(f"  Label stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()}")
-                    logger.warning(f"  Skipping batch {batch_idx} due to invalid labels")
-                    continue
+                # Assert label range for valid labels
+                valid_labels = labels_flat[valid]
+                if len(valid_labels) > 0:
+                    try:
+                        assert valid_labels.min() >= 0, f"Invalid label: min={valid_labels.min().item()}"
+                        assert valid_labels.max() < num_classes, f"Invalid label: max={valid_labels.max().item()}, num_classes={num_classes}"
+                    except AssertionError as e:
+                        invalid_count = ((labels_flat >= num_classes) | ((labels_flat < 0) & (labels_flat != -100))).sum().item()
+                        invalid_values = labels_flat[(labels_flat >= num_classes) | ((labels_flat < 0) & (labels_flat != -100))].unique().cpu().numpy()
+                        logger.error(f"Batch {batch_idx}: Label assertion failed! {e}")
+                        logger.error(f"  Found {invalid_count} invalid labels! Invalid values: {invalid_values}, num_classes={num_classes}")
+                        logger.error(f"  Label stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()}")
+                        _dump_nan_batch(features, speaker_embeddings, labels, meeting_ids, outputs, None, epoch+1, batch_idx, device)
+                        if nan_action == 'abort':
+                            logger.error(f"ABORTING epoch {epoch+1} due to invalid labels (nan_action=abort)")
+                            break
+                        else:
+                            skipped_invalid_labels += 1
+                            continue
                 
                 loss = criterion(outputs, labels_flat)
                 
-                # Check for NaN/Inf in loss or outputs (early detection)
+                # Check for NaN/Inf in loss (early detection)
                 if not torch.isfinite(loss):
                     nan_batches += 1
-                    logger.warning(f"Batch {batch_idx}: NaN/Inf loss detected! Loss: {loss.item()}")
-                    logger.warning(f"  Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
-                    logger.warning(f"  Logits stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}")
-                    logger.warning(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}")
-                    logger.warning(f"  Labels stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()[:10]}")
+                    skipped_nan += 1
+                    logger.error(f"Batch {batch_idx}: NaN/Inf loss detected! Loss: {loss.item()}")
+                    logger.error(f"  Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
+                    logger.error(f"  Features stats: min={features.min().item():.4f}, max={features.max().item():.4f}, mean={features.mean().item():.4f}")
+                    logger.error(f"  Labels stats: min={labels_flat.min().item()}, max={labels_flat.max().item()}, unique={torch.unique(labels_flat).cpu().numpy()[:10]}")
                     # Get label distribution for debugging
                     unique_labels_tensor, counts = torch.unique(labels_flat, return_counts=True)
                     label_dist = {int(l): int(c) for l, c in zip(unique_labels_tensor.cpu().numpy(), counts.cpu().numpy())}
-                    logger.warning(f"  Label distribution: {label_dist}")
+                    logger.error(f"  Label distribution: {label_dist}")
+                    _dump_nan_batch(features, speaker_embeddings, labels, meeting_ids, outputs, loss, epoch+1, batch_idx, device)
                     # Skip batch: no backward, no step
-                    continue
+                    if nan_action == 'abort':
+                        logger.error(f"ABORTING epoch {epoch+1} due to NaN loss (nan_action=abort)")
+                        break
+                    else:
+                        continue
                 
                 # Backward pass
                 backward_start = time.time() if batch_idx < 2 else None
                 loss.backward()
                 # Gradient clipping to prevent gradient explosion (fixes NaN loss issue)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=grad_clip)
+                
+                # Check gradients for NaN/Inf
+                if not torch.isfinite(torch.tensor(grad_norm)):
+                    logger.error(f"Batch {batch_idx}: NaN/Inf in gradients! Grad norm: {grad_norm}")
+                    _dump_nan_batch(features, speaker_embeddings, labels, meeting_ids, outputs, loss, epoch+1, batch_idx, device)
+                    optimizer.zero_grad(set_to_none=True)  # Clear gradients
+                    if nan_action == 'abort':
+                        logger.error(f"ABORTING epoch {epoch+1} due to NaN in gradients (nan_action=abort)")
+                        break
+                    else:
+                        skipped_nan += 1
+                        continue
+                
+                grad_norms.append(grad_norm)
                 optimizer.step()
+                did_step = True
                 backward_time = (time.time() - backward_start) if backward_start else 0.0
             
             forward_time = (time.time() - forward_start) if forward_start else 0.0
             total_batch_time = (time.time() - batch_start_time) if batch_idx < 2 else 0.0
             
-            # Check loss value before adding (additional safety check)
+            # Loss is already validated above, safe to use here
             loss_value = loss.item()
-            if np.isnan(loss_value) or np.isinf(loss_value):
-                logger.warning(f"Batch {batch_idx}: NaN/Inf loss value detected after backward pass! Loss: {loss_value}. Skipping batch.")
-                continue
             
             # Log batch statistics (for first few batches and periodically)
             if batch_idx < 3 or batch_idx % 50 == 0:
@@ -710,7 +848,20 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         else:
             print(f" Skipping DER computation during training for speed (set compute_der_during_training=True to enable)")
         
-        # Log NaN/Inf batch statistics
+        # Log stability statistics
+        total_batches_processed = batch_idx + 1
+        pct_skipped_padding = (skipped_all_padding / total_batches_processed * 100) if total_batches_processed > 0 else 0.0
+        pct_skipped_invalid = (skipped_invalid_labels / total_batches_processed * 100) if total_batches_processed > 0 else 0.0
+        pct_nan = (skipped_nan / total_batches_processed * 100) if total_batches_processed > 0 else 0.0
+        mean_grad_norm = np.mean(grad_norms) if grad_norms else float('nan')
+        
+        logger.info(f"Epoch {epoch+1} stability stats:")
+        logger.info(f"  - Skipped all-padding batches: {skipped_all_padding} ({pct_skipped_padding:.2f}%)")
+        logger.info(f"  - Skipped invalid label batches: {skipped_invalid_labels} ({pct_skipped_invalid:.2f}%)")
+        logger.info(f"  - Skipped NaN/Inf batches: {skipped_nan} ({pct_nan:.2f}%)")
+        logger.info(f"  - Valid batches: {len(batch_losses)}")
+        logger.info(f"  - Mean gradient norm: {mean_grad_norm:.4f}" if not np.isnan(mean_grad_norm) else "  - Mean gradient norm: N/A")
+        
         if nan_batches > 0:
             logger.warning(f"Epoch {epoch+1}: {nan_batches} batches had NaN/Inf loss, {len(batch_losses)} valid batches remaining")
         
@@ -766,6 +917,8 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                     best_val_loss = val_loss
                     patience_counter = 0
                     best_model_state = model.state_dict().copy()
+                    # Save last good checkpoint
+                    last_good_checkpoint = model.state_dict().copy()
                     print(f" ✅ Validation improved (loss)! New best val_loss: {val_loss:.4f}")
                 else:
                     patience_counter += 1
@@ -778,6 +931,8 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                 best_val_loss = val_loss  # Also track best loss for logging
                 patience_counter = 0
                 best_model_state = model.state_dict().copy()
+                # Save last good checkpoint
+                last_good_checkpoint = model.state_dict().copy()
                 print(f" ✅ Validation improved (DER)! New best val_der: {val_der:.4f}, val_loss: {val_loss:.4f}")
             else:
                 patience_counter += 1
@@ -806,6 +961,33 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
             with open(progress_log_file, 'a') as f:
                 f.write(f"{epoch+1:<6} {loss_display:<12} {der_display:<10} {acc_display:<10} {val_loss_display:<12} {val_der_display:<10} {datetime.now().strftime('%H:%M:%S'):<10}\n")
         
+        # Save checkpoint at end of epoch if we have at least 1 valid batch
+        if len(batch_losses) > 0 and checkpoint_dir is not None:
+            try:
+                checkpoint_path = os.path.join(checkpoint_dir, f"checkpoint_epoch{epoch+1}.pt")
+                torch.save({
+                    'epoch': epoch + 1,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'val_loss': val_loss,
+                    'val_der': val_der,
+                    'train_loss': mean_loss,
+                }, checkpoint_path)
+                # Update last good checkpoint
+                last_good_checkpoint = model.state_dict().copy()
+                if last_good_checkpoint:
+                    last_good_path = os.path.join(checkpoint_dir, "last_good_checkpoint.pt")
+                    torch.save({
+                        'epoch': epoch + 1,
+                        'model_state_dict': last_good_checkpoint,
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'val_loss': val_loss,
+                        'val_der': val_der,
+                        'train_loss': mean_loss,
+                    }, last_good_path)
+            except Exception as e:
+                logger.warning(f"Failed to save checkpoint: {e}")
+        
         # Collect metrics for this epoch
         epoch_metrics.append({
             "train_loss": float(mean_loss),
@@ -825,6 +1007,15 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
     if best_model_state is not None:
         model.load_state_dict(best_model_state)
         print(f" ✅ Restored best model (val_der: {best_val_der:.4f}, val_loss: {best_val_loss:.4f})")
+    elif last_good_checkpoint is not None:
+        model.load_state_dict(last_good_checkpoint)
+        print(f" ✅ Restored last good checkpoint (best_model_state was None)")
+    
+    # Print checkpoint info
+    if checkpoint_dir is not None and last_good_checkpoint is not None:
+        last_good_path = os.path.join(checkpoint_dir, "last_good_checkpoint.pt")
+        if os.path.exists(last_good_path):
+            print(f" 📁 Last good checkpoint saved at: {last_good_path}")
     
     return epoch_metrics
 
@@ -850,12 +1041,30 @@ def evaluate_model(model, val_loader, device, power_set_encoder, compute_der=Fal
     # Use Mixed Precision for evaluation if available
     use_amp = torch.cuda.is_available()
 
+    first_nan_batch_dumped = False  # Only dump first NaN batch for debugging
+    
     with torch.no_grad():
         for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(val_loader):
             if batch_idx == 0:
                 print(f" First batch in evaluation")
             features, speaker_embeddings, labels = features.to(device, non_blocking=True), speaker_embeddings.to(device, non_blocking=True), labels.to(device, non_blocking=True)
             speaker_embeddings = speaker_embeddings.float()
+            
+            # Check inputs for NaN/Inf
+            if torch.isnan(features).any() or torch.isinf(features).any():
+                logger.error(f"Eval batch {batch_idx}: NaN/Inf in features! Skipping batch.")
+                nan_batches += 1
+                if not first_nan_batch_dumped:
+                    _dump_nan_batch(features, speaker_embeddings, labels, meeting_ids, None, None, 0, batch_idx, device)
+                    first_nan_batch_dumped = True
+                continue
+            if torch.isnan(speaker_embeddings).any() or torch.isinf(speaker_embeddings).any():
+                logger.error(f"Eval batch {batch_idx}: NaN/Inf in speaker_embeddings! Skipping batch.")
+                nan_batches += 1
+                if not first_nan_batch_dumped:
+                    _dump_nan_batch(features, speaker_embeddings, labels, meeting_ids, None, None, 0, batch_idx, device)
+                    first_nan_batch_dumped = True
+                continue
             
             # Use Mixed Precision if available
             if use_amp:
@@ -864,6 +1073,15 @@ def evaluate_model(model, val_loader, device, power_set_encoder, compute_der=Fal
                     batch_size, seq_len, num_classes = outputs.shape
                     outputs = outputs.reshape(-1, num_classes)
                     labels_flat = labels.reshape(-1)
+                    
+                    # Check logits for NaN/Inf
+                    if torch.isnan(outputs).any() or torch.isinf(outputs).any():
+                        logger.error(f"Eval batch {batch_idx}: NaN/Inf in outputs! Skipping batch.")
+                        nan_batches += 1
+                        if not first_nan_batch_dumped:
+                            _dump_nan_batch(features, speaker_embeddings, labels, meeting_ids, outputs, None, 0, batch_idx, device)
+                            first_nan_batch_dumped = True
+                        continue
                     
                     # Check for valid frames: skip batch if all labels are padding (-100)
                     valid = (labels_flat != -100)
@@ -878,6 +1096,15 @@ def evaluate_model(model, val_loader, device, power_set_encoder, compute_der=Fal
                 outputs = outputs.reshape(-1, num_classes)
                 labels_flat = labels.reshape(-1)
                 
+                # Check logits for NaN/Inf
+                if torch.isnan(outputs).any() or torch.isinf(outputs).any():
+                    logger.error(f"Eval batch {batch_idx}: NaN/Inf in outputs! Skipping batch.")
+                    nan_batches += 1
+                    if not first_nan_batch_dumped:
+                        _dump_nan_batch(features, speaker_embeddings, labels, meeting_ids, outputs, None, 0, batch_idx, device)
+                        first_nan_batch_dumped = True
+                    continue
+                
                 # Check for valid frames: skip batch if all labels are padding (-100)
                 valid = (labels_flat != -100)
                 if valid.sum() == 0:
@@ -890,8 +1117,11 @@ def evaluate_model(model, val_loader, device, power_set_encoder, compute_der=Fal
             if not torch.isfinite(loss):
                 nan_batches += 1
                 loss_value = loss.item()
-                logger.warning(f"Eval batch {batch_idx}: NaN/Inf loss detected! Loss: {loss_value}")
-                logger.warning(f"  Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
+                logger.error(f"Eval batch {batch_idx}: NaN/Inf loss detected! Loss: {loss_value}")
+                logger.error(f"  Outputs stats: min={outputs.min().item():.4f}, max={outputs.max().item():.4f}, mean={outputs.mean().item():.4f}, has_nan={torch.isnan(outputs).any().item()}, has_inf={torch.isinf(outputs).any().item()}")
+                if not first_nan_batch_dumped:
+                    _dump_nan_batch(features, speaker_embeddings, labels, meeting_ids, outputs, loss, 0, batch_idx, device)
+                    first_nan_batch_dumped = True
                 # Skip this batch but continue validation
                 continue
 
@@ -973,8 +1203,9 @@ def evaluate_model(model, val_loader, device, power_set_encoder, compute_der=Fal
             der = np.mean(list(ders.values())) if ders else float('nan')
             return float('nan'), der, pred_by_rec, lab_by_rec
     
-    # Print summary only if batch_losses is not empty
-    print(f" Eval summary: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={np.mean(batch_losses):.4f}")
+    # Print summary only if batch_losses is not empty (avoid calling min/max on empty list)
+    if batch_losses:
+        print(f" Eval summary: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={np.mean(batch_losses):.4f}")
     # Average DER across recordings (only if computed)
     der = np.mean(list(ders.values())) if ders else float('nan')
     mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
@@ -1004,6 +1235,9 @@ def main():
     parser.add_argument('--num_transformer_layers', type=int, default=4, help='Number of transformer layers in CD scorer (default: 4, use 2 for faster training)')
     parser.add_argument('--enable_persistent_workers', action='store_true', help='Enable persistent_workers for faster data loading (disabled by default to avoid semaphore leaks)')
     parser.add_argument('--lr', type=float, default=3e-4, help='Learning rate for optimizer (default: 3e-4, reduced from 1e-3 for stability)')
+    parser.add_argument('--nan_action', type=str, default='abort', choices=['skip', 'abort'], help='Action when NaN detected: skip (skip batch) or abort (abort epoch, default)')
+    parser.add_argument('--amp', type=int, default=None, help='Enable AMP: 0=disable, 1=enable, None=auto-detect (default: None)')
+    parser.add_argument('--grad_clip', type=float, default=1.0, help='Gradient clipping max_norm (default: 1.0)')
     args = parser.parse_args()
 
     # Assign arguments to variables
@@ -1023,6 +1257,10 @@ def main():
     num_transformer_layers = args.num_transformer_layers
     enable_persistent_workers = args.enable_persistent_workers
     learning_rate = args.lr
+    nan_action = args.nan_action
+    use_amp_arg = args.amp
+    use_amp = None if use_amp_arg is None else bool(use_amp_arg)
+    grad_clip = args.grad_clip
     
     # Determine if we're using all data or a subset
     use_all_data = test_size is None
@@ -1234,7 +1472,17 @@ def main():
         progress_log_file = os.path.join(artifact_logs_dir, "training_progress.txt")
         print(f"MAIN: Progress will be logged to: {progress_log_file}")
         
-        training_metrics = train_model(model, train_loader, val_loader, device, power_set_encoder, epochs, compute_der_during_training, progress_log_file, early_stopping_patience, early_stopping_min_delta, learning_rate=learning_rate)
+        # Set checkpoint directory for train_model
+        checkpoint_dir = os.path.join(artifact_logs_dir, "checkpoints")
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        
+        training_metrics = train_model(
+            model, train_loader, val_loader, device, power_set_encoder, epochs, 
+            compute_der_during_training, progress_log_file, early_stopping_patience, 
+            early_stopping_min_delta, learning_rate=learning_rate, 
+            nan_action=nan_action, use_amp=use_amp, grad_clip=grad_clip,
+            checkpoint_dir=checkpoint_dir
+        )
         
         # Evaluate on validation set
         print(f"MAIN: Evaluating on validation set...")

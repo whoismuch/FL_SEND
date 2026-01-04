@@ -735,9 +735,11 @@ class SENDClient(NumPyClient):
             
             # C2: Cleanup - delete DataLoader and call garbage collection
             del train_loader
+            # Force garbage collection and clear CUDA cache to free memory
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
+                torch.cuda.synchronize()  # Ensure all CUDA operations are complete
             
             # C3: Return only small metrics (no large objects)
             final_mean_loss = epoch_metrics[-1]["train_loss"] if epoch_metrics else float('nan')
@@ -843,9 +845,11 @@ class SENDClient(NumPyClient):
             
             # C2: Cleanup - delete DataLoader and call garbage collection
             del val_loader
+            # Force garbage collection and clear CUDA cache to free memory
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
+                torch.cuda.synchronize()  # Ensure all CUDA operations are complete
             
             # C3: Return only small metrics (no large objects)
             mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
@@ -1348,6 +1352,15 @@ def main():
         
         # Start simulation and get final parameters
         print("\n==================== STARTING FEDERATED LEARNING ====================\n")
+        
+        # Memory-optimized Ray configuration to prevent OOM
+        # Set object store memory limit (10GB) to prevent excessive memory usage
+        object_store_memory = 10_000_000_000  # 10GB
+        print(f"Ray memory configuration:")
+        print(f"  - Object store memory: {object_store_memory / 1e9:.1f} GB")
+        print(f"  - Memory usage threshold: {os.environ.get('RAY_memory_usage_threshold', '0.90')}")
+        print(f"  - Memory monitor refresh: {os.environ.get('RAY_memory_monitor_refresh_ms', '1000')} ms")
+        
         history = fl.simulation.start_simulation(
             client_fn=client_fn,
             num_clients=num_clients,
@@ -1358,6 +1371,9 @@ def main():
                 "num_gpus": num_gpus,
                 "include_dashboard": False,
                 "ignore_reinit_error": True,
+                # Memory optimizations to prevent OOM
+                # Note: object_store_memory is set via environment variable RAY_object_store_memory
+                # Setting it here may not work with all Ray versions, so we rely on env vars
             },
             client_resources={
                 "num_cpus": 1,

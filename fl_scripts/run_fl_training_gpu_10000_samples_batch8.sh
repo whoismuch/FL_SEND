@@ -16,6 +16,16 @@ set -x
 # Disable output buffering
 export PYTHONUNBUFFERED=1
 
+# Ray memory configuration to prevent OOM
+# Lower memory threshold from 0.95 to 0.90 to be more conservative
+export RAY_memory_usage_threshold=0.90
+# Check memory every second
+export RAY_memory_monitor_refresh_ms=1000
+# Set object store memory limit (10GB)
+export RAY_object_store_memory=10000000000
+# Enable object spilling to disk when memory is low
+export RAY_spill_objects_to_disk=1
+
 # Debug: Output to .out file immediately (stdout goes to .out file)
 echo "=== SLURM Script Started ==="
 echo "Script: $0"

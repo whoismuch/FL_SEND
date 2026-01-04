@@ -153,6 +153,11 @@ export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
 # Performance note: --compute_der_during_training significantly slows down training (30-50% slower)
 #   Consider removing this flag for faster training - DER is still computed on validation set
 # PYTHONUNBUFFERED=1 ensures all print/log statements appear immediately in logs
+# NaN stability improvements:
+#   --nan_action abort: Abort epoch when NaN detected (prevents weight corruption)
+#   --amp 0: Disable AMP for debugging stability (set to 1 to enable, or remove for auto-detect)
+#   --grad_clip 1.0: Gradient clipping max_norm (prevents gradient explosion)
+#   --lr 1e-4: Reduced learning rate for better stability (default was 3e-4)
 PYTHONUNBUFFERED=1 python src/SEND_PSE_AMI.py \
   --test_size 10000 \
   --epochs 50 \
@@ -163,6 +168,10 @@ PYTHONUNBUFFERED=1 python src/SEND_PSE_AMI.py \
   --batch_size 8 \
   --chunk_size 250 \
   --max_sequence_length 1000 \
+  --nan_action abort \
+  --amp 0 \
+  --grad_clip 1.0 \
+  --lr 1e-4 \
   > "$LOG_FILE" 2>&1
 
 TRAIN_EXIT_CODE=$?
