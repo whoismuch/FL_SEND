@@ -551,7 +551,7 @@ class SENDClient(NumPyClient):
         self.batch_size = batch_size
         self.client_id = client_id
         self.optimizer = optim.Adam(model.parameters())
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.CrossEntropyLoss(ignore_index=-100)  # Ignore padding labels (-100) - CRITICAL FIX
         print(f"SENDClient: Initialization complete for client {client_id}")
         print(f"[DEBUG] SENDClient: train_dataset size: {len(self.train_dataset) if self.train_dataset else 0}")
         print(f"[DEBUG] SENDClient: val_dataset size: {len(self.val_dataset) if self.val_dataset else 0}")
@@ -630,10 +630,20 @@ class SENDClient(NumPyClient):
                 logger.error(f"❌ CLIENT {self.client_id}: CRITICAL - model.train() did not set training mode!")
             print(f"✅ CLIENT {self.client_id}: Model training mode: {self.model.training}")
             
-            # DEBUG: Recreate optimizer AFTER loading global weights (critical for FL)
-            # The optimizer must be recreated to point to the updated parameters
-            self.optimizer = optim.Adam(self.model.parameters(), lr=config.get("lr", 1e-4))
-            print(f"✅ CLIENT {self.client_id}: Optimizer recreated after loading global weights")
+            # DEBUG: Update optimizer AFTER loading global weights (critical for FL)
+            # Update learning rate without recreating optimizer to preserve state (momentum, Adam running averages)
+            # Note: load_state_dict() updates parameter values but keeps the same parameter objects,
+            # so the optimizer (which holds references to these objects) still works correctly.
+            new_lr = config.get("lr", 1e-4)
+            if len(self.optimizer.param_groups) > 0:
+                for param_group in self.optimizer.param_groups:
+                    param_group['lr'] = new_lr
+                print(f"✅ CLIENT {self.client_id}: Optimizer learning rate updated to {new_lr} after loading global weights (state preserved)")
+            else:
+                # Fallback: recreate optimizer if param_groups is empty (shouldn't happen, but safety check)
+                logger.warning(f"⚠️ CLIENT {self.client_id}: Optimizer param_groups is empty, recreating optimizer")
+                self.optimizer = optim.Adam(self.model.parameters(), lr=new_lr)
+                print(f"✅ CLIENT {self.client_id}: Optimizer recreated with LR={new_lr}")
             
             epochs = config.get("epochs", 1)
             debug_mode = config.get("debug_mode", False)
@@ -1156,7 +1166,7 @@ def main():
     parser.add_argument('--enable_persistent_workers', action='store_true', help='Enable persistent_workers for faster data loading (disabled by default to avoid semaphore leaks)')
     parser.add_argument('--debug_mode', action='store_true', help='Enable debug mode: train on 200-500 batches and print detailed label distribution and loss stats')
     parser.add_argument('--debug_max_batches', type=int, default=200, help='Maximum number of batches to process in debug mode (default: 200)')
-    parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate for optimizer (default: 1e-4)')
+    parser.add_argument('--lr', type=float, default=3e-4, help='Learning rate for optimizer (default: 3e-4, matches centralized training)')
     args = parser.parse_args()
 
     # Assign arguments to variables

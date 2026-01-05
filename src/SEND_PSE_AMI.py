@@ -1492,6 +1492,9 @@ def main():
         checkpoint_dir = os.path.join(artifact_logs_dir, "checkpoints")
         os.makedirs(checkpoint_dir, exist_ok=True)
         
+        # Initialize epoch_metrics before training (defensive initialization)
+        epoch_metrics = []
+        
         training_metrics = train_model(
             model, train_loader, val_loader, device, power_set_encoder, epochs, 
             compute_der_during_training, progress_log_file, early_stopping_patience, 
@@ -1499,6 +1502,24 @@ def main():
             nan_action=nan_action, use_amp=use_amp, grad_clip=grad_clip,
             checkpoint_dir=checkpoint_dir
         )
+        
+        # Handle case where training_metrics might be None or invalid
+        if training_metrics is None:
+            logger.error("❌ ERROR: train_model returned None. Training may have failed early.")
+            logger.error("Skipping final evaluation and reporting.")
+            return
+        elif not isinstance(training_metrics, list):
+            logger.error(f"❌ ERROR: train_model returned unexpected type: {type(training_metrics)}")
+            logger.error("Skipping final evaluation and reporting.")
+            return
+        
+        # Store training metrics for plotting (after validation)
+        epoch_metrics = training_metrics
+        
+        # Check if any metrics were collected
+        if not epoch_metrics:
+            logger.warning("⚠️  WARNING: No training metrics were collected (epoch_metrics is empty).")
+            logger.warning("Training may have failed before completing any epochs.")
         
         # Evaluate on validation set (with DER computation enabled)
         print(f"MAIN: Evaluating on validation set...")
@@ -1513,6 +1534,8 @@ def main():
                 print(f"MAIN: Best validation DER from training: {best_val_der:.4f}")
             else:
                 print(f"MAIN: No valid val_der found in epoch_metrics")
+        else:
+            logger.warning("⚠️  WARNING: epoch_metrics is empty, cannot extract best_val_der")
         
         # Fallback to best_val_der if final val_der is NaN
         if np.isnan(val_der) or np.isinf(val_der):
@@ -1530,9 +1553,6 @@ def main():
         print(f"MAIN: Final validation DER: {val_der:.4f}")
         if best_val_der is not None and not np.isnan(best_val_der):
             print(f"MAIN: Best validation DER (from training): {best_val_der:.4f}")
-        
-        # Store training metrics for plotting
-        epoch_metrics = training_metrics
         
         # Final evaluation on test set with trained model
         print("\n==================== TESTING STARTED (TRAINED MODEL) ====================\n")
