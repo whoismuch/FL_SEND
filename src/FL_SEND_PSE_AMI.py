@@ -232,6 +232,67 @@ def state_dict_delta(a: dict, b: dict) -> float:
     return sum(deltas) / len(deltas) if deltas else 0.0
 
 
+def compute_l2_norm_diff(state_dict_a: dict, state_dict_b: dict) -> float:
+    """Compute L2 norm difference between two state dicts.
+    
+    Args:
+        state_dict_a: First state dictionary.
+        state_dict_b: Second state dictionary.
+    
+    Returns:
+        float: L2 norm of the difference (sqrt of sum of squared differences).
+    """
+    common_keys = set(state_dict_a.keys()) & set(state_dict_b.keys())
+    if not common_keys:
+        return float('inf')
+    
+    total_squared_diff = 0.0
+    for key in common_keys:
+        if torch.is_tensor(state_dict_a[key]) and torch.is_tensor(state_dict_b[key]):
+            diff = (state_dict_a[key] - state_dict_b[key]).flatten()
+            total_squared_diff += (diff ** 2).sum().item()
+    
+    return np.sqrt(total_squared_diff)
+
+
+def compute_grad_norm(model: nn.Module) -> float:
+    """Compute L2 norm of all gradients in the model.
+    
+    Args:
+        model: PyTorch model.
+    
+    Returns:
+        float: L2 norm of all gradients (0.0 if no gradients).
+    """
+    total_norm = 0.0
+    for param in model.parameters():
+        if param.grad is not None:
+            param_norm = param.grad.data.norm(2).item()
+            total_norm += param_norm ** 2
+    return np.sqrt(total_norm) if total_norm > 0 else 0.0
+
+
+def verify_state_dict_deep_copy(state_dict: dict) -> bool:
+    """Verify that state_dict values are deep copies (not shared references).
+    
+    Args:
+        state_dict: State dictionary to check.
+    
+    Returns:
+        bool: True if values appear to be deep copies (different memory locations).
+    """
+    # Check if values are tensors and have unique memory addresses
+    seen_addresses = set()
+    for key, value in state_dict.items():
+        if torch.is_tensor(value):
+            # Get memory address (id of underlying storage)
+            addr = id(value.storage()) if hasattr(value, 'storage') else id(value)
+            if addr in seen_addresses:
+                return False  # Shared reference found
+            seen_addresses.add(addr)
+    return True
+
+
 # Set random seeds for reproducibility
 def set_seed(seed: int = 42):
     torch.manual_seed(seed)
@@ -558,7 +619,22 @@ class SENDClient(NumPyClient):
             checksum_after_load = model_checksum(self.model)
             print(f"CLIENT {self.client_id} start checksum (after set_parameters): {checksum_after_load:.6f}")
             
+            # DEBUG: Store initial state dict for L2 norm comparison
+            initial_state_dict = {k: v.clone().detach() for k, v in self.model.state_dict().items()}
+            initial_l2_norm = sum(p.norm(2).item() ** 2 for p in self.model.parameters()) ** 0.5
+            print(f"🔍 CLIENT {self.client_id}: Initial L2 norm of parameters: {initial_l2_norm:.6f}")
+            
+            # DEBUG: Verify model is in training mode
             self.model.train()
+            if not self.model.training:
+                logger.error(f"❌ CLIENT {self.client_id}: CRITICAL - model.train() did not set training mode!")
+            print(f"✅ CLIENT {self.client_id}: Model training mode: {self.model.training}")
+            
+            # DEBUG: Recreate optimizer AFTER loading global weights (critical for FL)
+            # The optimizer must be recreated to point to the updated parameters
+            self.optimizer = optim.Adam(self.model.parameters(), lr=config.get("lr", 1e-4))
+            print(f"✅ CLIENT {self.client_id}: Optimizer recreated after loading global weights")
+            
             epochs = config.get("epochs", 1)
             debug_mode = config.get("debug_mode", False)
             debug_max_batches = config.get("debug_max_batches", 200)
@@ -620,13 +696,32 @@ class SENDClient(NumPyClient):
                     
                     self.optimizer.zero_grad()
                     
+                    # DEBUG: Verify model is still in training mode (no no_grad() context)
+                    if not self.model.training:
+                        logger.error(f"❌ CLIENT {self.client_id} Batch {batch_idx}: CRITICAL - Model not in training mode!")
+                    
                     # Forward pass with Mixed Precision if available
+                    # CRITICAL: No torch.no_grad() here - we need gradients!
                     if use_amp:
-                        with torch.cuda.amp.autocast():
+                        with torch.cuda.amp.autocast():  # autocast does NOT disable gradients
                             outputs = self.model(features, speaker_embeddings)
                             batch_size, seq_len, num_classes = outputs.shape
                             outputs = outputs.reshape(-1, num_classes)
                             labels_flat = labels.reshape(-1)
+                            
+                            # DEBUG: Log class distribution for first few batches
+                            if batch_idx < 3 or (batch_idx % 50 == 0):
+                                unique_labels, counts = torch.unique(labels_flat, return_counts=True)
+                                label_dist = {int(l): int(c) for l, c in zip(unique_labels.cpu().numpy(), counts.cpu().numpy())}
+                                # Check for class imbalance (empty set prediction)
+                                empty_set_class = 0  # Assuming class 0 is empty set
+                                empty_set_count = label_dist.get(empty_set_class, 0)
+                                total_count = sum(label_dist.values())
+                                empty_set_ratio = empty_set_count / total_count if total_count > 0 else 0.0
+                                print(f"🔍 CLIENT {self.client_id} Batch {batch_idx}: Label distribution: {label_dist}")
+                                print(f"🔍 CLIENT {self.client_id} Batch {batch_idx}: Empty set (class 0) ratio: {empty_set_ratio:.2%}")
+                                if empty_set_ratio > 0.9:
+                                    logger.warning(f"⚠️ CLIENT {self.client_id} Batch {batch_idx}: WARNING - >90% empty set labels! Model may predict only empty set.")
                             
                             # Check for valid frames: skip batch if all labels are padding (-100)
                             valid = (labels_flat != -100)
@@ -646,6 +741,10 @@ class SENDClient(NumPyClient):
                             
                             loss = self.criterion(outputs, labels_flat)
                             
+                            # DEBUG: Log per-batch loss
+                            if batch_idx < 5 or (batch_idx % 10 == 0):
+                                print(f"🔍 CLIENT {self.client_id} Batch {batch_idx}: Loss = {loss.item():.6f}")
+                            
                             # Check for NaN/Inf in loss or outputs (early detection)
                             if not torch.isfinite(loss):
                                 logger.warning(f"Batch {batch_idx}: NaN/Inf loss detected! Loss: {loss.item()}")
@@ -663,19 +762,40 @@ class SENDClient(NumPyClient):
                             continue
                         
                         # Backward pass
+                        # DEBUG: Verify backward() is called (no no_grad() context)
                         scaler.scale(loss).backward()
-                        # Gradient clipping to prevent gradient explosion (fixes NaN loss issue)
+                        
+                        # DEBUG: Compute and log gradient norm
                         scaler.unscale_(self.optimizer)
+                        grad_norm_before_clip = compute_grad_norm(self.model)
+                        
+                        # DEBUG: Log gradient norm for first few batches
+                        if batch_idx < 5 or (batch_idx % 10 == 0):
+                            print(f"🔍 CLIENT {self.client_id} Batch {batch_idx}: Gradient norm (before clip) = {grad_norm_before_clip:.6f}")
+                            if grad_norm_before_clip < 1e-8:
+                                logger.warning(f"⚠️ CLIENT {self.client_id} Batch {batch_idx}: WARNING - Gradient norm is near zero! Gradients may not be flowing.")
+                        
+                        # Gradient clipping to prevent gradient explosion (fixes NaN loss issue)
                         # B4: Check gradients for inf/NaN before stepping (AMP safety)
                         grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=float('inf'))
                         if torch.isfinite(grad_norm):
                             # Clip gradients to max_norm
                             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                            grad_norm_after_clip = compute_grad_norm(self.model)
+                            
+                            # DEBUG: Log gradient norm after clipping
+                            if batch_idx < 5 or (batch_idx % 10 == 0):
+                                print(f"🔍 CLIENT {self.client_id} Batch {batch_idx}: Gradient norm (after clip) = {grad_norm_after_clip:.6f}")
+                            
                             # B4: AMP safety - scaler.step() internally handles inf/NaN
                             # If scaler.step() skips due to inf/NaN, scaler.update() will handle it correctly
                             # But we already checked grad_norm, so step should succeed
                             scaler.step(self.optimizer)
                             scaler.update()
+                            
+                            # DEBUG: Verify optimizer step was called
+                            if batch_idx < 5:
+                                print(f"✅ CLIENT {self.client_id} Batch {batch_idx}: optimizer.step() called successfully")
                         else:
                             # Gradients contain inf/NaN, skip step and update
                             logger.warning(f"Batch {batch_idx}: Gradients contain inf/NaN (norm={grad_norm}), skipping optimizer step and scaler.update()")
@@ -720,10 +840,31 @@ class SENDClient(NumPyClient):
                         continue
                     
                     # Backward pass
+                    # DEBUG: Verify backward() is called (no no_grad() context)
                     loss.backward()
+                    
+                    # DEBUG: Compute and log gradient norm
+                    grad_norm_before_clip = compute_grad_norm(self.model)
+                    
+                    # DEBUG: Log gradient norm for first few batches
+                    if batch_idx < 5 or (batch_idx % 10 == 0):
+                        print(f"🔍 CLIENT {self.client_id} Batch {batch_idx}: Gradient norm (before clip) = {grad_norm_before_clip:.6f}")
+                        if grad_norm_before_clip < 1e-8:
+                            logger.warning(f"⚠️ CLIENT {self.client_id} Batch {batch_idx}: WARNING - Gradient norm is near zero! Gradients may not be flowing.")
+                    
                     # Gradient clipping to prevent gradient explosion (fixes NaN loss issue)
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                    grad_norm_after_clip = compute_grad_norm(self.model)
+                    
+                    # DEBUG: Log gradient norm after clipping
+                    if batch_idx < 5 or (batch_idx % 10 == 0):
+                        print(f"🔍 CLIENT {self.client_id} Batch {batch_idx}: Gradient norm (after clip) = {grad_norm_after_clip:.6f}")
+                    
                     self.optimizer.step()
+                    
+                    # DEBUG: Verify optimizer step was called
+                    if batch_idx < 5:
+                        print(f"✅ CLIENT {self.client_id} Batch {batch_idx}: optimizer.step() called successfully")
                 
                     # Check loss value before adding (additional safety check)
                     loss_value = loss.item()
@@ -807,6 +948,25 @@ class SENDClient(NumPyClient):
             elapsed = time.time() - start_time
             print(f"SENDClient: Finished fit for client {self.client_id}, total time: {elapsed:.2f} sec")
             
+            # DEBUG: Compute L2 norm difference to verify weights changed
+            final_state_dict = {k: v.clone().detach() for k, v in self.model.state_dict().items()}
+            final_l2_norm = sum(p.norm(2).item() ** 2 for p in self.model.parameters()) ** 0.5
+            l2_norm_diff = compute_l2_norm_diff(final_state_dict, initial_state_dict)
+            
+            print(f"🔍 CLIENT {self.client_id}: Final L2 norm of parameters: {final_l2_norm:.6f}")
+            print(f"🔍 CLIENT {self.client_id}: L2 norm difference (final - initial): {l2_norm_diff:.6f}")
+            
+            if l2_norm_diff < 1e-6:
+                logger.error(f"❌ CLIENT {self.client_id}: CRITICAL - L2 norm difference is near zero ({l2_norm_diff:.2e})!")
+                logger.error(f"   This means local training did NOT update model weights!")
+                logger.error(f"   Possible causes:")
+                logger.error(f"   1. Gradients are zero (check gradient norms above)")
+                logger.error(f"   2. optimizer.step() not being called")
+                logger.error(f"   3. Learning rate is zero")
+                logger.error(f"   4. Model parameters have requires_grad=False")
+            else:
+                print(f"✅ CLIENT {self.client_id}: L2 norm difference confirms weights changed during training")
+            
             # A3: Log checksum AFTER training and compute delta
             checksum_end = model_checksum(self.model)
             delta_vs_start = state_dict_delta(
@@ -818,6 +978,14 @@ class SENDClient(NumPyClient):
             # B3: Verify training actually updated weights
             if delta_vs_start < 1e-8:
                 logger.warning(f"CLIENT {self.client_id}: WARNING - delta_vs_start is ~0 ({delta_vs_start:.2e}), training may not have updated weights!")
+            
+            # DEBUG: Verify state_dict is a deep copy (not shared reference)
+            returned_state_dict = self.model.state_dict()
+            is_deep_copy = verify_state_dict_deep_copy(returned_state_dict)
+            if not is_deep_copy:
+                logger.warning(f"⚠️ CLIENT {self.client_id}: WARNING - state_dict may contain shared references!")
+            else:
+                print(f"✅ CLIENT {self.client_id}: state_dict verified as deep copy")
             
             print("=== CLIENT LOG: fit finished ===")
             
@@ -988,6 +1156,7 @@ def main():
     parser.add_argument('--enable_persistent_workers', action='store_true', help='Enable persistent_workers for faster data loading (disabled by default to avoid semaphore leaks)')
     parser.add_argument('--debug_mode', action='store_true', help='Enable debug mode: train on 200-500 batches and print detailed label distribution and loss stats')
     parser.add_argument('--debug_max_batches', type=int, default=200, help='Maximum number of batches to process in debug mode (default: 200)')
+    parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate for optimizer (default: 1e-4)')
     args = parser.parse_args()
 
     # Assign arguments to variables
@@ -1007,6 +1176,7 @@ def main():
     enable_persistent_workers = args.enable_persistent_workers
     debug_mode = args.debug_mode
     debug_max_batches = args.debug_max_batches
+    learning_rate = args.lr
     
     # Determine if we're using all data or a subset
     use_all_data = test_size is None
@@ -1373,14 +1543,25 @@ def main():
                 
                 # A4: Log each client's num_examples and checksum of returned params BEFORE aggregation
                 print(f"SERVER round {server_round}: Receiving results from {len(results)} clients")
+                client_params_list = []
+                client_num_examples_list = []
                 for cid, fit_res in results:
                     num_examples = fit_res.num_examples
                     # Convert Flower parameters to state dict for checksum
                     params_ndarrays = fl.common.parameters_to_ndarrays(fit_res.parameters)
+                    client_params_list.append(params_ndarrays)
+                    client_num_examples_list.append(num_examples)
                     # Create a temporary state dict for checksum calculation
                     temp_state_dict = {f"param_{i}": torch.tensor(p) for i, p in enumerate(params_ndarrays)}
                     checksum = state_dict_checksum(temp_state_dict)
                     print(f"SERVER round {server_round}: CLIENT {cid} num_examples={num_examples}, checksum={checksum:.6f}")
+                    
+                    # DEBUG: Verify state_dict is a deep copy
+                    is_deep_copy = verify_state_dict_deep_copy(temp_state_dict)
+                    if not is_deep_copy:
+                        logger.warning(f"⚠️ SERVER round {server_round}: CLIENT {cid} state_dict may contain shared references!")
+                    else:
+                        print(f"✅ SERVER round {server_round}: CLIENT {cid} state_dict verified as deep copy")
                 
                 # Check if total num_examples is zero (would cause ZeroDivisionError in FedAvg)
                 num_examples_total = sum(fit_res.num_examples for _, fit_res in results)
@@ -1402,6 +1583,17 @@ def main():
                         init_checksum = state_dict_checksum(init_state_dict)
                         print(f"SERVER round {server_round} global checksum (initial, before aggregation): {init_checksum:.6f}")
                 
+                # DEBUG: Verify FedAvg computes true weighted average
+                # Manually compute weighted average for first parameter to verify
+                if len(client_params_list) > 0 and len(client_params_list[0]) > 0:
+                    first_param_idx = 0
+                    manual_weighted_avg = np.zeros_like(client_params_list[0][first_param_idx])
+                    total_weight = sum(client_num_examples_list)
+                    for client_params, num_examples in zip(client_params_list, client_num_examples_list):
+                        weight = num_examples / total_weight if total_weight > 0 else 1.0 / len(client_params_list)
+                        manual_weighted_avg += client_params[first_param_idx] * weight
+                    print(f"🔍 SERVER round {server_round}: Manual FedAvg check - first param weighted avg (sample): {manual_weighted_avg.flatten()[:5]}")
+                
                 # Proceed with normal aggregation
                 aggregated, metrics = super().aggregate_fit(server_round, results, failures)
                 if aggregated is not None:
@@ -1410,18 +1602,38 @@ def main():
                     aggregated_state_dict = {f"param_{i}": torch.tensor(p) for i, p in enumerate(aggregated_params_ndarrays)}
                     aggregated_checksum = state_dict_checksum(aggregated_state_dict)
                     
+                    # DEBUG: Verify FedAvg result matches manual computation
+                    if len(client_params_list) > 0 and len(client_params_list[0]) > 0:
+                        fedavg_first_param = aggregated_params_ndarrays[0]
+                        diff = np.abs(manual_weighted_avg - fedavg_first_param).max()
+                        print(f"🔍 SERVER round {server_round}: FedAvg verification - max diff vs manual: {diff:.2e}")
+                        if diff > 1e-5:
+                            logger.warning(f"⚠️ SERVER round {server_round}: WARNING - FedAvg result differs from manual computation by {diff:.2e}!")
+                        else:
+                            print(f"✅ SERVER round {server_round}: FedAvg verified - matches manual weighted average")
+                    
                     # Compute delta vs previous
                     delta_vs_prev = 0.0
+                    l2_norm_diff_prev = 0.0
                     if hasattr(self, 'final_parameters') and self.final_parameters is not None:
                         prev_params_ndarrays = fl.common.parameters_to_ndarrays(self.final_parameters)
                         prev_state_dict = {f"param_{i}": torch.tensor(p) for i, p in enumerate(prev_params_ndarrays)}
                         delta_vs_prev = state_dict_delta(aggregated_state_dict, prev_state_dict)
+                        l2_norm_diff_prev = compute_l2_norm_diff(aggregated_state_dict, prev_state_dict)
                     elif hasattr(self, 'initial_parameters') and self.initial_parameters is not None:
                         init_params_ndarrays = fl.common.parameters_to_ndarrays(self.initial_parameters)
                         init_state_dict = {f"param_{i}": torch.tensor(p) for i, p in enumerate(init_params_ndarrays)}
                         delta_vs_prev = state_dict_delta(aggregated_state_dict, init_state_dict)
+                        l2_norm_diff_prev = compute_l2_norm_diff(aggregated_state_dict, init_state_dict)
                     
                     print(f"SERVER round {server_round} aggregated checksum: {aggregated_checksum:.6f}; delta vs previous: {delta_vs_prev:.6f}")
+                    print(f"🔍 SERVER round {server_round}: L2 norm difference (aggregated vs previous): {l2_norm_diff_prev:.6f}")
+                    
+                    if l2_norm_diff_prev < 1e-6:
+                        logger.error(f"❌ SERVER round {server_round}: CRITICAL - L2 norm difference is near zero ({l2_norm_diff_prev:.2e})!")
+                        logger.error(f"   This means FedAvg did NOT update global weights!")
+                    else:
+                        print(f"✅ SERVER round {server_round}: L2 norm difference confirms FedAvg updated global weights")
                     
                     # B5: Ensure aggregated parameters are actually applied
                     # Flower's FedAvg automatically updates self.parameters after aggregate_fit
@@ -1430,6 +1642,34 @@ def main():
                     # B5: Explicitly update strategy's parameters (FedAvg should do this, but ensure it)
                     if hasattr(self, 'parameters'):
                         self.parameters = aggregated
+                    
+                    # DEBUG: Load aggregated parameters into global model to verify
+                    if self.global_model is not None:
+                        try:
+                            model_keys = list(self.global_model.state_dict().keys())
+                            model_device = next(self.global_model.parameters()).device
+                            global_state_dict_before = {k: v.clone() for k, v in self.global_model.state_dict().items()}
+                            
+                            # Load aggregated parameters
+                            state_dict = {}
+                            for i, key in enumerate(model_keys):
+                                if i < len(aggregated_params_ndarrays):
+                                    state_dict[key] = torch.tensor(aggregated_params_ndarrays[i], 
+                                                                   dtype=self.global_model.state_dict()[key].dtype).to(model_device)
+                            self.global_model.load_state_dict(state_dict, strict=True)
+                            
+                            # Verify global model was updated
+                            global_state_dict_after = {k: v.clone() for k, v in self.global_model.state_dict().items()}
+                            global_l2_diff = compute_l2_norm_diff(global_state_dict_after, global_state_dict_before)
+                            print(f"🔍 SERVER round {server_round}: Global model L2 norm difference after load_state_dict: {global_l2_diff:.6f}")
+                            
+                            if global_l2_diff < 1e-6:
+                                logger.error(f"❌ SERVER round {server_round}: CRITICAL - Global model not updated by load_state_dict!")
+                            else:
+                                print(f"✅ SERVER round {server_round}: Global model successfully updated with aggregated parameters")
+                        except Exception as e:
+                            logger.warning(f"⚠️ SERVER round {server_round}: Failed to update global model: {e}")
+                    
                     print(f"✓ Round {server_round}: Parameters aggregated and saved")
                     
                     # B5: Verify parameters changed
@@ -1534,6 +1774,7 @@ def main():
                 "debug_mode": debug_mode, 
                 "debug_max_batches": debug_max_batches,
                 "server_round": server_round,
+                "lr": learning_rate,  # Pass learning rate to clients
                 "compute_der": False,  # E: DER disabled by default
                 "der_round_interval": 5  # E: Compute DER every 5 rounds
             },
