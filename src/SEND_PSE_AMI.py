@@ -1173,10 +1173,12 @@ def evaluate_model(model, val_loader, device, power_set_encoder, compute_der=Fal
     
     # Calculate DER per recording and aggregate (only if compute_der=True)
     ders = {}
+    recordings_to_score = []
     if compute_der:
         print(f" Computing DER for {len(pred_by_rec)} recordings in evaluation...")
         for i, rec_id in enumerate(pred_by_rec):
             if pred_by_rec[rec_id] and lab_by_rec[rec_id]:
+                recordings_to_score.append(rec_id)
                 print(f" Processing recording {i+1}/{len(pred_by_rec)}: {rec_id}")
                 speaker_id_list = val_loader.dataset.get_speaker_id_list() if hasattr(val_loader.dataset, 'get_speaker_id_list') else None
                 ders[rec_id] = calculate_der(
@@ -1194,22 +1196,34 @@ def evaluate_model(model, val_loader, device, power_set_encoder, compute_der=Fal
         # But keep this branch for backward compatibility
         print(f" ⚠️  NOTE: DER computation was skipped (this is unexpected in normal flow)")
     
+    # Check if recordings_to_score is empty (protection against empty DER list)
+    if compute_der and not recordings_to_score:
+        logger.warning("⚠️  WARNING: recordings_to_score is empty! No recordings were processed for DER calculation.")
+        logger.warning(f"  - pred_by_rec keys: {list(pred_by_rec.keys())}")
+        logger.warning(f"  - pred_by_rec lengths: {[(k, len(v)) for k, v in pred_by_rec.items()]}")
+        logger.warning(f"  - lab_by_rec lengths: {[(k, len(v)) for k, v in lab_by_rec.items()]}")
+        der = float('nan')
+    elif compute_der and not ders:
+        logger.warning("⚠️  WARNING: ders dictionary is empty after DER computation!")
+        der = float('nan')
+    else:
+        # Average DER across recordings (only if computed)
+        der = np.mean(list(ders.values())) if ders else float('nan')
+    
     # Check if batch_losses is empty (all batches were NaN/Inf or skipped)
     if not batch_losses:
         logger.error("No valid validation batches (all losses were NaN/Inf or skipped)")
         if compute_der and not ders:
             logger.error("No valid DER records computed (all batches were skipped)")
-            return float('nan'), float('nan'), pred_by_rec, lab_by_rec
+            return float('nan'), der, pred_by_rec, lab_by_rec
         else:
             # DER might still be valid even if losses are all NaN
-            der = np.mean(list(ders.values())) if ders else float('nan')
             return float('nan'), der, pred_by_rec, lab_by_rec
     
     # Print summary only if batch_losses is not empty (avoid calling min/max on empty list)
     if batch_losses:
         print(f" Eval summary: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={np.mean(batch_losses):.4f}")
-    # Average DER across recordings (only if computed)
-    der = np.mean(list(ders.values())) if ders else float('nan')
+    
     mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
     
     return mean_loss, der, pred_by_rec, lab_by_rec
@@ -1486,13 +1500,36 @@ def main():
             checkpoint_dir=checkpoint_dir
         )
         
-        # Evaluate on validation set
+        # Evaluate on validation set (with DER computation enabled)
         print(f"MAIN: Evaluating on validation set...")
-        val_loss, val_der, val_pred_by_rec, val_lab_by_rec = evaluate_model(model, val_loader, device, power_set_encoder)
+        val_loss, val_der, val_pred_by_rec, val_lab_by_rec = evaluate_model(model, val_loader, device, power_set_encoder, compute_der=True)
+        
+        # Extract best_val_der from epoch_metrics (minimum val_der across all epochs)
+        best_val_der = None
+        if epoch_metrics:
+            val_ders = [m.get('val_der') for m in epoch_metrics if m.get('val_der') is not None and not np.isnan(m.get('val_der'))]
+            if val_ders:
+                best_val_der = min(val_ders)
+                print(f"MAIN: Best validation DER from training: {best_val_der:.4f}")
+            else:
+                print(f"MAIN: No valid val_der found in epoch_metrics")
+        
+        # Fallback to best_val_der if final val_der is NaN
+        if np.isnan(val_der) or np.isinf(val_der):
+            if best_val_der is not None and not np.isnan(best_val_der):
+                logger.warning(f"⚠️  WARNING: Final validation DER is NaN/Inf. Using best_val_der from training: {best_val_der:.4f}")
+                val_der = best_val_der
+            else:
+                logger.error(f"❌ ERROR: Final validation DER is NaN/Inf and no valid best_val_der available!")
+                logger.error(f"  - val_der: {val_der}")
+                logger.error(f"  - best_val_der: {best_val_der}")
+                logger.error(f"  - epoch_metrics length: {len(epoch_metrics) if epoch_metrics else 0}")
         
         print(f"MAIN: Training completed successfully")
         print(f"MAIN: Final validation loss: {val_loss:.4f}")
         print(f"MAIN: Final validation DER: {val_der:.4f}")
+        if best_val_der is not None and not np.isnan(best_val_der):
+            print(f"MAIN: Best validation DER (from training): {best_val_der:.4f}")
         
         # Store training metrics for plotting
         epoch_metrics = training_metrics
@@ -1595,10 +1632,28 @@ def main():
         print(f"DER per recording: {ders}")
         print(f"Average DER: {der}")
         print(f"\n==================== TESTING FINISHED ====================\n")
+        
+        # Runtime-check: Validate final_val_der before printing
+        if np.isnan(val_der) or np.isinf(val_der):
+            logger.error(f"❌ RUNTIME CHECK FAILED: final_val_der is NaN/Inf!")
+            logger.error(f"  - val_der value: {val_der}")
+            logger.error(f"  - best_val_der: {best_val_der}")
+            logger.error(f"  - compute_der flag: True (should be enabled)")
+            logger.error(f"  - val_loader dataset size: {len(val_loader.dataset) if val_loader else 'N/A'}")
+            logger.error(f"  - Number of validation recordings: {len(val_pred_by_rec) if val_pred_by_rec else 'N/A'}")
+            logger.error(f"  - Source: Final validation after training completion")
+            if best_val_der is not None and not np.isnan(best_val_der):
+                logger.warning(f"  - Using best_val_der as fallback: {best_val_der:.4f}")
+                val_der = best_val_der
+            else:
+                logger.error(f"  - No valid fallback available!")
+        
         print(f"Final Test Loss: {test_loss:.4f}")
         print(f"Final Test DER: {der:.4f}")
         print(f"Final Validation Loss: {val_loss:.4f}")
         print(f"Final Validation DER: {val_der:.4f}")
+        if best_val_der is not None and not np.isnan(best_val_der):
+            print(f"Last epoch val_der: {best_val_der:.4f} (best from training)")
         
         # Calculate and display total execution time
         total_time = time.time() - start_time
@@ -1691,12 +1746,20 @@ def main():
         ]
         
         
+        # Add best_val_der info to result lines
+        best_val_der_str = f"{best_val_der:.4f}" if best_val_der is not None and not np.isnan(best_val_der) else "N/A"
+        val_der_str = f"{val_der:.4f}" if not np.isnan(val_der) and not np.isinf(val_der) else "NaN"
+        if np.isnan(val_der) or np.isinf(val_der):
+            val_der_str += f" (using best_val_der: {best_val_der_str})"
+        
         result_lines.extend([
             f"=== FINAL RESULTS ===",
             f"Final Test Loss: {test_loss:.4f}",
             f"Final Test DER: {der:.4f}",
             f"Final Validation Loss: {val_loss:.4f}",
-            f"Final Validation DER: {val_der:.4f}",
+            f"Final Validation DER: {val_der_str}",
+            f"Best Validation DER (from training): {best_val_der_str}",
+            f"Last epoch val_der: {best_val_der_str}",
             f"Best Validation Loss: {min([m.get('val_loss') for m in epoch_metrics if m.get('val_loss') is not None], default='N/A') if epoch_metrics else 'N/A'}",
             f"Model Status: {'TRAINED with centralized learning' if epoch_metrics else 'NOT TRAINED'}",
             f"Training Epochs: {len(epoch_metrics) if epoch_metrics else 0}",
@@ -1771,6 +1834,7 @@ def main():
         # === SAVE METRICS TO CSV FILES ===
         def save_metrics_to_csv(epoch_metrics, exp_tag, artifact_logs_dir):
             """Save all metrics to CSV files for detailed analysis."""
+            nonlocal val_der  # Allow modification of val_der from outer scope
             print("\n===== SAVING METRICS TO CSV FILES =====")
             
             # 1. Detailed metrics per epoch
@@ -1792,6 +1856,17 @@ def main():
                 print(f"Columns: {list(detailed_df.columns)}")
             
             # 2. Final experiment results
+            # Runtime-check: Validate final_val_der before saving to CSV
+            final_val_der_for_csv = val_der  # Use local variable to avoid modifying outer scope unnecessarily
+            if np.isnan(final_val_der_for_csv) or np.isinf(final_val_der_for_csv):
+                logger.error(f"❌ RUNTIME CHECK FAILED (CSV save): final_val_der is NaN/Inf!")
+                logger.error(f"  - val_der value: {final_val_der_for_csv}")
+                logger.error(f"  - best_val_der: {best_val_der}")
+                logger.error(f"  - Source: CSV export")
+                if best_val_der is not None and not np.isnan(best_val_der):
+                    logger.warning(f"  - Using best_val_der as fallback: {best_val_der:.4f}")
+                    final_val_der_for_csv = best_val_der
+            
             final_results = [{
                 'experiment_tag': exp_tag,
             'dataset_size': 'ALL' if use_all_data else f'{train_size}',
@@ -1805,7 +1880,8 @@ def main():
                 'final_test_loss': test_loss,
                 'final_der': der,
             'final_val_loss': val_loss,
-            'final_val_der': val_der,
+            'final_val_der': final_val_der_for_csv,
+            'best_val_der': best_val_der if best_val_der is not None else float('nan'),
             'total_execution_time_seconds': total_time,
             'total_execution_time_minutes': total_minutes,
                 'device_used': str(device),

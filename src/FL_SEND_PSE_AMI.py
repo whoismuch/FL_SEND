@@ -179,8 +179,57 @@ from dataset_statistics import (
 )
 import time
 import argparse
+import copy
 
 
+# ============================================================================
+# FL INSTRUMENTATION FUNCTIONS
+# ============================================================================
+
+def model_checksum(model: nn.Module) -> float:
+    """Compute checksum of model parameters (sum of absolute values).
+    
+    Returns:
+        float: Sum of absolute values of all parameters.
+    """
+    return sum(p.detach().float().abs().sum().item() for p in model.parameters())
+
+
+def state_dict_checksum(state_dict: dict) -> float:
+    """Compute checksum of state dict (sum of absolute values).
+    
+    Args:
+        state_dict: Model state dictionary.
+    
+    Returns:
+        float: Sum of absolute values of all tensor values.
+    """
+    return sum(v.detach().float().abs().sum().item() 
+               for v in state_dict.values() 
+               if torch.is_tensor(v))
+
+
+def state_dict_delta(a: dict, b: dict) -> float:
+    """Compute mean absolute difference between two state dicts.
+    
+    Args:
+        a: First state dictionary.
+        b: Second state dictionary.
+    
+    Returns:
+        float: Mean absolute difference across common keys.
+    """
+    common_keys = set(a.keys()) & set(b.keys())
+    if not common_keys:
+        return float('inf')
+    
+    deltas = []
+    for key in common_keys:
+        if torch.is_tensor(a[key]) and torch.is_tensor(b[key]):
+            delta = (a[key] - b[key]).abs().mean().item()
+            deltas.append(delta)
+    
+    return sum(deltas) / len(deltas) if deltas else 0.0
 
 
 # Set random seeds for reproducibility
@@ -450,9 +499,15 @@ class SENDClient(NumPyClient):
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
     
     def set_parameters(self, parameters):
+        """Set model parameters from Flower parameters.
+        
+        B2 Fix: Ensure device placement happens after load_state_dict.
+        """
         params_dict = zip(self.model.state_dict().keys(), parameters)
-        state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+        state_dict = OrderedDict({k: torch.tensor(v).to(self.device) for k, v in params_dict})
         self.model.load_state_dict(state_dict, strict=True)
+        # Ensure model is on correct device
+        self.model.to(self.device)
     
     def _create_train_loader(self):
         """Create train DataLoader with memory-optimized settings for Ray."""
@@ -492,7 +547,17 @@ class SENDClient(NumPyClient):
         try:
             print("=== CLIENT LOG: fit started ===")
             print(f"SENDClient: Starting fit for client {self.client_id}")
+            
+            # A2: Log checksum BEFORE loading parameters
+            checksum_before = model_checksum(self.model)
+            print(f"CLIENT {self.client_id} start checksum (before set_parameters): {checksum_before:.6f}")
+            
             self.set_parameters(parameters)
+            
+            # A2: Log checksum AFTER loading parameters
+            checksum_after_load = model_checksum(self.model)
+            print(f"CLIENT {self.client_id} start checksum (after set_parameters): {checksum_after_load:.6f}")
+            
             self.model.train()
             epochs = config.get("epochs", 1)
             debug_mode = config.get("debug_mode", False)
@@ -592,19 +657,29 @@ class SENDClient(NumPyClient):
                                 unique_labels_tensor, counts = torch.unique(labels_flat, return_counts=True)
                                 label_dist = {int(l): int(c) for l, c in zip(unique_labels_tensor.cpu().numpy(), counts.cpu().numpy())}
                                 logger.warning(f"  Label distribution: {label_dist}")
-                                # CRITICAL: Skip batch completely - do NOT call scaler.update() without scaler.step()
-                                # scaler.update() requires scaler.step() to be called first (records inf checks)
-                                self.optimizer.zero_grad()
-                                continue
+                            # B4: Skip batch completely - do NOT call scaler.update() without scaler.step()
+                            # scaler.update() requires scaler.step() to be called first (records inf checks)
+                            self.optimizer.zero_grad()
+                            continue
                         
                         # Backward pass
                         scaler.scale(loss).backward()
                         # Gradient clipping to prevent gradient explosion (fixes NaN loss issue)
                         scaler.unscale_(self.optimizer)
-                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-                        # CRITICAL: step and update must be called together
-                        scaler.step(self.optimizer)
-                        scaler.update()
+                        # B4: Check gradients for inf/NaN before stepping (AMP safety)
+                        grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=float('inf'))
+                        if torch.isfinite(grad_norm):
+                            # Clip gradients to max_norm
+                            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                            # B4: AMP safety - scaler.step() internally handles inf/NaN
+                            # If scaler.step() skips due to inf/NaN, scaler.update() will handle it correctly
+                            # But we already checked grad_norm, so step should succeed
+                            scaler.step(self.optimizer)
+                            scaler.update()
+                        else:
+                            # Gradients contain inf/NaN, skip step and update
+                            logger.warning(f"Batch {batch_idx}: Gradients contain inf/NaN (norm={grad_norm}), skipping optimizer step and scaler.update()")
+                            self.optimizer.zero_grad()
                 else:
                     outputs = self.model(features, speaker_embeddings)
                     batch_size, seq_len, num_classes = outputs.shape
@@ -731,6 +806,19 @@ class SENDClient(NumPyClient):
             
             elapsed = time.time() - start_time
             print(f"SENDClient: Finished fit for client {self.client_id}, total time: {elapsed:.2f} sec")
+            
+            # A3: Log checksum AFTER training and compute delta
+            checksum_end = model_checksum(self.model)
+            delta_vs_start = state_dict_delta(
+                {k: v.cpu() for k, v in self.model.state_dict().items()},
+                {k: torch.tensor(p).cpu() for k, p in zip(self.model.state_dict().keys(), parameters)}
+            ) if parameters else 0.0
+            print(f"CLIENT {self.client_id} end checksum: {checksum_end:.6f}; delta vs start: {delta_vs_start:.6f}")
+            
+            # B3: Verify training actually updated weights
+            if delta_vs_start < 1e-8:
+                logger.warning(f"CLIENT {self.client_id}: WARNING - delta_vs_start is ~0 ({delta_vs_start:.2e}), training may not have updated weights!")
+            
             print("=== CLIENT LOG: fit finished ===")
             
             # C2: Cleanup - delete DataLoader and call garbage collection
@@ -743,7 +831,8 @@ class SENDClient(NumPyClient):
             
             # C3: Return only small metrics (no large objects)
             final_mean_loss = epoch_metrics[-1]["train_loss"] if epoch_metrics else float('nan')
-            return self.get_parameters({}), num_examples, {"train_loss": final_mean_loss, "epoch_metrics": json.dumps(epoch_metrics)}
+            updated_params = self.get_parameters({})
+            return updated_params, num_examples, {"train_loss": final_mean_loss, "epoch_metrics": json.dumps(epoch_metrics)}
         
         except Exception as e:
             # F: Error handling - return previous parameters unchanged
@@ -1266,9 +1355,12 @@ def main():
 
         # Create a custom strategy that captures final parameters and ensures fit is executed
         class SaveFinalParams(fl.server.strategy.FedAvg):
-            def __init__(self, **kwargs):
+            def __init__(self, global_model=None, val_loader=None, **kwargs):
                 super().__init__(**kwargs)
                 self.final_parameters = None  # aggregated weights
+                self.global_model = global_model  # C: Store reference for prediction sanity check
+                self.val_loader = val_loader  # C: Store reference for prediction sanity check
+                self.round_predictions = {}  # C: Store predictions per round for sanity check
                 print(f"✓ SaveFinalParams strategy initialized")
             
             def aggregate_fit(self, server_round, results, failures):
@@ -1279,23 +1371,138 @@ def main():
                     logger.error(f"Round {server_round}: no fit results (all clients failed). Skipping aggregation.")
                     return None, {"skipped": 1, "reason": "no_results"}
                 
+                # A4: Log each client's num_examples and checksum of returned params BEFORE aggregation
+                print(f"SERVER round {server_round}: Receiving results from {len(results)} clients")
+                for cid, fit_res in results:
+                    num_examples = fit_res.num_examples
+                    # Convert Flower parameters to state dict for checksum
+                    params_ndarrays = fl.common.parameters_to_ndarrays(fit_res.parameters)
+                    # Create a temporary state dict for checksum calculation
+                    temp_state_dict = {f"param_{i}": torch.tensor(p) for i, p in enumerate(params_ndarrays)}
+                    checksum = state_dict_checksum(temp_state_dict)
+                    print(f"SERVER round {server_round}: CLIENT {cid} num_examples={num_examples}, checksum={checksum:.6f}")
+                
                 # Check if total num_examples is zero (would cause ZeroDivisionError in FedAvg)
                 num_examples_total = sum(fit_res.num_examples for _, fit_res in results)
                 if num_examples_total == 0:
                     logger.error(f"Round {server_round}: num_examples_total=0. Skipping aggregation to avoid division by zero.")
                     return None, {"skipped": 1, "reason": "zero_examples", "num_results": len(results)}
                 
+                # A1: Log checksum BEFORE aggregation (from previous round's parameters)
+                if hasattr(self, 'final_parameters') and self.final_parameters is not None:
+                    prev_params_ndarrays = fl.common.parameters_to_ndarrays(self.final_parameters)
+                    prev_state_dict = {f"param_{i}": torch.tensor(p) for i, p in enumerate(prev_params_ndarrays)}
+                    prev_checksum = state_dict_checksum(prev_state_dict)
+                    print(f"SERVER round {server_round} global checksum (before aggregation): {prev_checksum:.6f}")
+                else:
+                    # First round - use initial parameters
+                    if hasattr(self, 'initial_parameters') and self.initial_parameters is not None:
+                        init_params_ndarrays = fl.common.parameters_to_ndarrays(self.initial_parameters)
+                        init_state_dict = {f"param_{i}": torch.tensor(p) for i, p in enumerate(init_params_ndarrays)}
+                        init_checksum = state_dict_checksum(init_state_dict)
+                        print(f"SERVER round {server_round} global checksum (initial, before aggregation): {init_checksum:.6f}")
+                
                 # Proceed with normal aggregation
                 aggregated, metrics = super().aggregate_fit(server_round, results, failures)
                 if aggregated is not None:
+                    # A5: Log checksum AFTER aggregation and compute delta
+                    aggregated_params_ndarrays = fl.common.parameters_to_ndarrays(aggregated)
+                    aggregated_state_dict = {f"param_{i}": torch.tensor(p) for i, p in enumerate(aggregated_params_ndarrays)}
+                    aggregated_checksum = state_dict_checksum(aggregated_state_dict)
+                    
+                    # Compute delta vs previous
+                    delta_vs_prev = 0.0
+                    if hasattr(self, 'final_parameters') and self.final_parameters is not None:
+                        prev_params_ndarrays = fl.common.parameters_to_ndarrays(self.final_parameters)
+                        prev_state_dict = {f"param_{i}": torch.tensor(p) for i, p in enumerate(prev_params_ndarrays)}
+                        delta_vs_prev = state_dict_delta(aggregated_state_dict, prev_state_dict)
+                    elif hasattr(self, 'initial_parameters') and self.initial_parameters is not None:
+                        init_params_ndarrays = fl.common.parameters_to_ndarrays(self.initial_parameters)
+                        init_state_dict = {f"param_{i}": torch.tensor(p) for i, p in enumerate(init_params_ndarrays)}
+                        delta_vs_prev = state_dict_delta(aggregated_state_dict, init_state_dict)
+                    
+                    print(f"SERVER round {server_round} aggregated checksum: {aggregated_checksum:.6f}; delta vs previous: {delta_vs_prev:.6f}")
+                    
+                    # B5: Ensure aggregated parameters are actually applied
+                    # Flower's FedAvg automatically updates self.parameters after aggregate_fit
+                    # We also store in final_parameters for final model update
                     self.final_parameters = aggregated  # save on server
+                    # B5: Explicitly update strategy's parameters (FedAvg should do this, but ensure it)
+                    if hasattr(self, 'parameters'):
+                        self.parameters = aggregated
                     print(f"✓ Round {server_round}: Parameters aggregated and saved")
+                    
+                    # B5: Verify parameters changed
+                    if delta_vs_prev < 1e-8:
+                        logger.warning(f"SERVER round {server_round}: WARNING - delta_vs_prev is ~0 ({delta_vs_prev:.2e}), aggregation may not have updated weights!")
+                    
+                    # C: Prediction sanity check - compute predictions on fixed batch
+                    if self.global_model is not None and self.val_loader is not None and delta_vs_prev > 1e-8:
+                        try:
+                            # Get device from model's first parameter
+                            model_device = next(self.global_model.parameters()).device
+                            
+                            # Load aggregated parameters into global model
+                            aggregated_params_ndarrays = fl.common.parameters_to_ndarrays(aggregated)
+                            state_dict = {}
+                            model_keys = list(self.global_model.state_dict().keys())
+                            for i, key in enumerate(model_keys):
+                                if i < len(aggregated_params_ndarrays):
+                                    state_dict[key] = torch.tensor(aggregated_params_ndarrays[i], 
+                                                                   dtype=self.global_model.state_dict()[key].dtype).to(model_device)
+                            self.global_model.load_state_dict(state_dict, strict=True)
+                            self.global_model.eval()
+                            
+                            # Get first batch from validation set
+                            val_iter = iter(self.val_loader)
+                            features, speaker_embeddings, labels, meeting_ids = next(val_iter)
+                            features = features.to(model_device)
+                            speaker_embeddings = speaker_embeddings.to(model_device).float()
+                            
+                            with torch.no_grad():
+                                outputs = self.global_model(features, speaker_embeddings)
+                                outputs = outputs.reshape(-1, outputs.shape[-1])
+                                predictions = torch.argmax(outputs, dim=-1).cpu().numpy()
+                                logits_mean = outputs.mean().item()
+                                logits_std = outputs.std().item()
+                                unique_preds = np.unique(predictions)
+                            
+                            # Store predictions for this round
+                            self.round_predictions[server_round] = {
+                                'predictions': predictions,
+                                'unique_preds': unique_preds,
+                                'logits_mean': logits_mean,
+                                'logits_std': logits_std
+                            }
+                            
+                            # Compare with previous round
+                            if server_round > 1 and (server_round - 1) in self.round_predictions:
+                                prev_preds = self.round_predictions[server_round - 1]['predictions']
+                                preds_changed = not np.array_equal(predictions, prev_preds)
+                                unique_changed = not np.array_equal(unique_preds, self.round_predictions[server_round - 1]['unique_preds'])
+                                
+                                print(f"C: Round {server_round} prediction sanity check:")
+                                print(f"  Unique predictions: {unique_preds}")
+                                print(f"  Logits stats: mean={logits_mean:.4f}, std={logits_std:.4f}")
+                                print(f"  Predictions changed vs round {server_round-1}: {preds_changed}")
+                                print(f"  Unique predictions changed: {unique_changed}")
+                                
+                                if not preds_changed and delta_vs_prev > 1e-6:
+                                    logger.warning(f"C: Round {server_round}: WARNING - weights changed (delta={delta_vs_prev:.6f}) but predictions identical! Model output head might be frozen or labels mismatch.")
+                        except Exception as e:
+                            logger.warning(f"C: Round {server_round}: Prediction sanity check failed: {e}")
                 else:
                     print(f"⚠ Round {server_round}: No parameters aggregated")
                 return aggregated, metrics
             
             def configure_fit(self, server_round, parameters, client_manager):
                 print(f"✓ Round {server_round}: configure_fit called")
+                # A1: Log checksum BEFORE distributing parameters each round
+                if parameters is not None:
+                    params_ndarrays = fl.common.parameters_to_ndarrays(parameters)
+                    state_dict = {f"param_{i}": torch.tensor(p) for i, p in enumerate(params_ndarrays)}
+                    checksum = state_dict_checksum(state_dict)
+                    print(f"SERVER round {server_round} global checksum (before distributing): {checksum:.6f}")
                 return super().configure_fit(server_round, parameters, client_manager)
         
         # Use this aggregation function in strategy
@@ -1314,6 +1521,8 @@ def main():
         print(f"  - fraction_evaluate: {fraction_evaluate} (evaluate 1/{num_clients} clients per round)")
         
         strategy = SaveFinalParams(
+            global_model=model,  # C: Pass global model for prediction sanity check
+            val_loader=val_loader,  # C: Pass validation loader for prediction sanity check
             min_available_clients=num_clients,
             min_fit_clients=min_fit_clients,
             min_evaluate_clients=min_evaluate_clients,
