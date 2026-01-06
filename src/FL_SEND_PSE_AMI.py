@@ -661,12 +661,13 @@ class SENDClient(NumPyClient):
             print(f"[DEBUG] fit: number of batches: {len(train_loader)}")
             
             # Enable Mixed Precision Training for faster GPU computation (2-3x speedup)
-            use_amp = torch.cuda.is_available()
+            # MEMORY FIX: Only use AMP if device is CUDA (not CPU)
+            use_amp = self.device.type == 'cuda' and torch.cuda.is_available()
             scaler = torch.cuda.amp.GradScaler() if use_amp else None
             if use_amp:
-                print(f"SENDClient: Mixed Precision Training (AMP) ENABLED for client {self.client_id}")
+                print(f"SENDClient: Mixed Precision Training (AMP) ENABLED for client {self.client_id} (CUDA mode)")
             else:
-                print(f"SENDClient: Mixed Precision Training (AMP) DISABLED - CUDA not available for client {self.client_id}")
+                print(f"SENDClient: Mixed Precision Training (AMP) DISABLED - Using {self.device.type.upper()} mode for client {self.client_id}")
             
             start_time = time.time()
             epoch_metrics = []  # Collect metrics for each epoch
@@ -999,11 +1000,15 @@ class SENDClient(NumPyClient):
             
             print("=== CLIENT LOG: fit finished ===")
             
-            # C2: Cleanup - delete DataLoader and call garbage collection
-            del train_loader
-            # Force garbage collection and clear CUDA cache to free memory
+            # MEMORY FIX: Explicit cleanup after training
+            # Delete large tensors and force garbage collection
+            del train_loader, epoch_metrics
+            if 'pred_by_rec' in locals() and pred_by_rec is not None:
+                del pred_by_rec, lab_by_rec
             gc.collect()
-            if torch.cuda.is_available():
+            
+            # Only clear CUDA cache if using CUDA
+            if self.device.type == 'cuda' and torch.cuda.is_available():
                 torch.cuda.empty_cache()
                 torch.cuda.synchronize()  # Ensure all CUDA operations are complete
             
@@ -1063,8 +1068,8 @@ class SENDClient(NumPyClient):
                     outputs = self.model(features, speaker_embeddings)
                     batch_size, seq_len, num_classes = outputs.shape
                     outputs = outputs.reshape(-1, num_classes)
-                    labels = labels.reshape(-1)
-                    loss = self.criterion(outputs, labels)
+                    labels_flat = labels.reshape(-1)
+                    loss = self.criterion(outputs, labels_flat)
                     val_loss += loss.item()
                     batch_losses.append(loss.item())
                     
@@ -1072,10 +1077,19 @@ class SENDClient(NumPyClient):
                     if should_compute_der:
                         predictions = torch.argmax(outputs, dim=-1)
                         predictions_np = predictions.cpu().numpy()
-                        labels_np = labels.cpu().numpy()
-                        meeting_ids_flat = np.concatenate(meeting_ids, axis=0)
+                        labels_np = labels_flat.cpu().numpy()
+                        # MEMORY FIX: meeting_ids is now a 1D array (one per sample), not per-frame
+                        # Create per-frame meeting_id array by repeating for each frame in the sequence
+                        # batch_size and seq_len are from outputs.shape before reshape
+                        meeting_ids_flat = []
+                        for i in range(batch_size):
+                            meeting_id = meeting_ids[i] if isinstance(meeting_ids, (list, np.ndarray)) else meeting_ids
+                            # Repeat meeting_id for each frame in this sequence
+                            meeting_ids_flat.extend([meeting_id] * seq_len)
+                        meeting_ids_flat = np.array(meeting_ids_flat)
+                        
                         for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
-                            if meeting_id is not None:  # Skip padded frames
+                            if meeting_id is not None and label != -100:  # Skip padded frames
                                 pred_by_rec[meeting_id].append(pred)
                                 lab_by_rec[meeting_id].append(label)
                     
@@ -1110,11 +1124,15 @@ class SENDClient(NumPyClient):
             print(f"SENDClient: Finished evaluate for client {self.client_id}, total time: {elapsed:.2f} sec")
             print("=== CLIENT LOG: evaluate finished ===")
             
-            # C2: Cleanup - delete DataLoader and call garbage collection
-            del val_loader
-            # Force garbage collection and clear CUDA cache to free memory
+            # MEMORY FIX: Explicit cleanup after evaluation
+            # Delete large tensors and force garbage collection
+            del val_loader, batch_losses
+            if 'pred_by_rec' in locals() and pred_by_rec is not None:
+                del pred_by_rec, lab_by_rec
             gc.collect()
-            if torch.cuda.is_available():
+            
+            # Only clear CUDA cache if using CUDA
+            if self.device.type == 'cuda' and torch.cuda.is_available():
                 torch.cuda.empty_cache()
                 torch.cuda.synchronize()  # Ensure all CUDA operations are complete
             
@@ -1167,6 +1185,10 @@ def main():
     parser.add_argument('--debug_mode', action='store_true', help='Enable debug mode: train on 200-500 batches and print detailed label distribution and loss stats')
     parser.add_argument('--debug_max_batches', type=int, default=200, help='Maximum number of batches to process in debug mode (default: 200)')
     parser.add_argument('--lr', type=float, default=3e-4, help='Learning rate for optimizer (default: 3e-4, matches centralized training)')
+    # CPU-only parallel FL configuration
+    parser.add_argument('--device', type=str, default='auto', choices=['auto', 'cpu', 'cuda'], help='Device to use: auto (detect), cpu (force CPU), cuda (force GPU). For parallel FL on CPU, use --device cpu')
+    parser.add_argument('--clients_per_round', type=int, default=None, help='Number of clients to train per round (default: None = sequential/1 per round). For parallel FL, set to 2-4')
+    parser.add_argument('--num_cpus_per_client', type=int, default=1, help='Number of CPUs per client (default: 1). Increase for parallel CPU clients')
     args = parser.parse_args()
 
     # Assign arguments to variables
@@ -1187,6 +1209,9 @@ def main():
     debug_mode = args.debug_mode
     debug_max_batches = args.debug_max_batches
     learning_rate = args.lr
+    device_arg = args.device
+    clients_per_round = args.clients_per_round
+    num_cpus_per_client = args.num_cpus_per_client
     
     # Determine if we're using all data or a subset
     use_all_data = test_size is None
@@ -1194,8 +1219,21 @@ def main():
     print("MAIN STARTED")
     print(f"MAIN: Starting main()")
     try:
-        # Check GPU availability
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # Device selection: force CPU if requested, otherwise auto-detect
+        if device_arg == 'cpu':
+            device = torch.device("cpu")
+            # Disable CUDA initialization to prevent GPU memory allocation
+            os.environ['CUDA_VISIBLE_DEVICES'] = ''
+            print(f"MAIN: FORCING CPU mode (CUDA disabled)")
+        elif device_arg == 'cuda':
+            if not torch.cuda.is_available():
+                raise RuntimeError("CUDA requested but not available")
+            device = torch.device("cuda")
+            print(f"MAIN: FORCING CUDA mode")
+        else:  # auto
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            print(f"MAIN: Auto-detected device: {device}")
+        
         print(f"MAIN: Using device: {device}")
         
         # Initialize speaker encoder
@@ -1755,20 +1793,36 @@ def main():
                     print(f"SERVER round {server_round} global checksum (before distributing): {checksum:.6f}")
                 return super().configure_fit(server_round, parameters, client_manager)
         
-        # Use this aggregation function in strategy
-        # For memory stability: train 1 client per round (sequential) instead of all clients in parallel
-        # This reduces RAM usage significantly
-        fraction_fit = 1.0 / num_clients  # For 2 clients = 0.5 (train 1 client per round)
-        fraction_evaluate = 1.0 / num_clients
-        min_fit_clients = 1  # Only need 1 client per round
-        min_evaluate_clients = 1  # Only need 1 client per round
-        
-        print(f"FL Strategy Configuration (memory-optimized):")
-        print(f"  - min_available_clients: {num_clients} (all clients must be available)")
-        print(f"  - min_fit_clients: {min_fit_clients} (train 1 client per round)")
-        print(f"  - min_evaluate_clients: {min_evaluate_clients} (evaluate 1 client per round)")
-        print(f"  - fraction_fit: {fraction_fit} (train 1/{num_clients} clients per round)")
-        print(f"  - fraction_evaluate: {fraction_evaluate} (evaluate 1/{num_clients} clients per round)")
+        # FL Strategy Configuration: Support both sequential and parallel modes
+        # Parallel mode: multiple clients per round (requires memory optimizations)
+        # Sequential mode: 1 client per round (current default for memory safety)
+        if clients_per_round is not None and clients_per_round > 1:
+            # Parallel mode: train multiple clients concurrently
+            if clients_per_round > num_clients:
+                logger.warning(f"clients_per_round ({clients_per_round}) > num_clients ({num_clients}), using {num_clients}")
+                clients_per_round = num_clients
+            fraction_fit = clients_per_round / num_clients
+            fraction_evaluate = clients_per_round / num_clients
+            min_fit_clients = clients_per_round
+            min_evaluate_clients = clients_per_round
+            print(f"FL Strategy Configuration (PARALLEL MODE):")
+            print(f"  - min_available_clients: {num_clients} (all clients must be available)")
+            print(f"  - min_fit_clients: {min_fit_clients} (train {clients_per_round} clients per round in parallel)")
+            print(f"  - min_evaluate_clients: {min_evaluate_clients} (evaluate {clients_per_round} clients per round)")
+            print(f"  - fraction_fit: {fraction_fit:.2f} (train {clients_per_round}/{num_clients} clients per round)")
+            print(f"  - fraction_evaluate: {fraction_evaluate:.2f} (evaluate {clients_per_round}/{num_clients} clients per round)")
+        else:
+            # Sequential mode: 1 client per round (memory-safe default)
+            fraction_fit = 1.0 / num_clients  # For 2 clients = 0.5 (train 1 client per round)
+            fraction_evaluate = 1.0 / num_clients
+            min_fit_clients = 1  # Only need 1 client per round
+            min_evaluate_clients = 1  # Only need 1 client per round
+            print(f"FL Strategy Configuration (SEQUENTIAL MODE - memory-optimized):")
+            print(f"  - min_available_clients: {num_clients} (all clients must be available)")
+            print(f"  - min_fit_clients: {min_fit_clients} (train 1 client per round)")
+            print(f"  - min_evaluate_clients: {min_evaluate_clients} (evaluate 1 client per round)")
+            print(f"  - fraction_fit: {fraction_fit:.2f} (train 1/{num_clients} clients per round)")
+            print(f"  - fraction_evaluate: {fraction_evaluate:.2f} (evaluate 1/{num_clients} clients per round)")
         
         strategy = SaveFinalParams(
             global_model=model,  # C: Pass global model for prediction sanity check
@@ -1800,15 +1854,27 @@ def main():
             fit_metrics_aggregation_fn=fit_metrics_aggregation_fn,
         )
         
-        # Calculate GPU resources
-        # Since we train 1 client per round, each client can use full GPU
-        num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 0
-        if num_gpus > 0:
-            # Each client gets full GPU since only 1 client trains at a time
-            gpus_per_client = 1
-        else:
+        # Calculate GPU/CPU resources based on device mode
+        if device.type == 'cpu':
+            # CPU-only mode: no GPUs, allocate CPUs per client
+            num_gpus = 0
             gpus_per_client = 0
-        print(f"Available GPUs: {num_gpus}, GPUs per client: {gpus_per_client} (full GPU per client since sequential training)")
+            # For parallel CPU clients, ensure we have enough CPUs
+            total_cpus_needed = num_clients * num_cpus_per_client
+            print(f"CPU-only mode: {num_cpus_per_client} CPUs per client, {total_cpus_needed} total CPUs needed")
+        else:
+            # GPU mode: allocate GPUs
+            num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 0
+            if clients_per_round is not None and clients_per_round > 1:
+                # Parallel mode: share GPUs among clients
+                gpus_per_client = max(1, num_gpus // clients_per_round) if num_gpus > 0 else 0
+                print(f"Parallel GPU mode: {num_gpus} GPUs available, {gpus_per_client} GPUs per client")
+            else:
+                # Sequential mode: each client gets full GPU
+                gpus_per_client = 1 if num_gpus > 0 else 0
+                print(f"Sequential GPU mode: {num_gpus} GPUs available, {gpus_per_client} GPUs per client (full GPU per client)")
+        
+        print(f"Resource allocation: GPUs={num_gpus}, GPUs/client={gpus_per_client}, CPUs/client={num_cpus_per_client}")
         
         # Start simulation and get final parameters
         print("\n==================== STARTING FEDERATED LEARNING ====================\n")
@@ -1827,16 +1893,16 @@ def main():
             config=fl.server.ServerConfig(num_rounds=num_rounds),
             strategy=strategy,
             ray_init_args={
-                "num_cpus": num_clients,
+                "num_cpus": num_clients * num_cpus_per_client if device.type == 'cpu' else num_clients,
                 "num_gpus": num_gpus,
                 "include_dashboard": False,
                 "ignore_reinit_error": True,
                 # Memory optimizations to prevent OOM
-                # Note: object_store_memory is set via environment variable RAY_object_store_memory
-                # Setting it here may not work with all Ray versions, so we rely on env vars
+                # Set object store memory limit for CPU parallel mode
+                "object_store_memory": 5_000_000_000 if device.type == 'cpu' else None,  # 5GB for CPU mode
             },
             client_resources={
-                "num_cpus": 1,
+                "num_cpus": num_cpus_per_client,
                 "num_gpus": gpus_per_client
             }
         )

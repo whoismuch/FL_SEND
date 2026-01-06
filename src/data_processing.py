@@ -30,7 +30,10 @@ os.environ['PYTHONWARNINGS'] = 'ignore::UserWarning:multiprocessing.resource_tra
 logger = logging.getLogger(__name__)
 
 def extract_features(audio: np.ndarray, sr: int = 16000, n_mels: int = 80) -> np.ndarray:
-    """Extract log-mel spectrogram features from audio."""
+    """Extract log-mel spectrogram features from audio.
+    
+    Memory fix: Enforce float32 to prevent float64 from librosa (saves 50% memory).
+    """
     # Ensure minimum length for FFT
     min_length = 2048  # minimum length for FFT
     if len(audio) < min_length:
@@ -44,7 +47,9 @@ def extract_features(audio: np.ndarray, sr: int = 16000, n_mels: int = 80) -> np
         hop_length=int(0.01 * sr)
     )
     log_mel = librosa.power_to_db(mel_spec)
-    return log_mel.T
+    # MEMORY FIX: Convert to float32 immediately (librosa returns float64 by default)
+    # This saves 50% memory compared to float64
+    return log_mel.T.astype(np.float32)
 
 def simulate_overlapping_speech(
     audio_segments: List[np.ndarray],
@@ -503,59 +508,46 @@ def split_data_for_clients(grouped_data, grouped_validation, num_clients, speake
                 logger.info(f"Client {client_id} sample distribution:")
                 logger.info(f"  - Non-overlapping: {client_non_overlap}")
                 logger.info(f"  - Natural overlaps: {client_natural_overlap}")
-                # Initialize lists for storing features and labels
+                # MEMORY FIX: Store variable-length arrays (no client-level padding)
+                # Padding will be done per-batch in collate_fn to save memory
                 raw_features = []
                 raw_labels = []
                 speaker_ids = []
-                meeting_ids = []
+                meeting_ids = []  # MEMORY FIX: Store one meeting_id per sample (not per-frame)
                 for sample in samples:
                     feature = extract_features(sample["audio"]["array"])
                     if feature.shape[0] == 0:
                         logger.warning(f"Sample with empty feature sequence detected, skipping.")
                         continue
                     raw_features.append(feature)
-                    # frame-wise labels
+                    # frame-wise labels (variable length)
                     label = np.full(feature.shape[0], sample["speaker_id"], dtype=np.int64)
                     raw_labels.append(label)
                     speaker_ids.append(sample["speaker_id"])
-                    # frame-wise meeting_ids
-                    meeting_id = np.full(feature.shape[0], sample.get("meeting_id", f"client_{client_id}"), dtype=object)
-                    meeting_ids.append(meeting_id)
+                    # MEMORY FIX: Store one meeting_id per sample (string/int) instead of per-frame object array
+                    meeting_id_str = sample.get("meeting_id", f"client_{client_id}")
+                    meeting_ids.append(meeting_id_str)
+                
                 if not raw_features:
                     logger.error(f"No valid features for client {client_id}, skipping client.")
                     continue
-                max_len = max(f.shape[0] for f in raw_features)
-                features_padded = []
-                labels_padded = []
-                meeting_ids_padded = []
-                for feature, label, meeting_id in zip(raw_features, raw_labels, meeting_ids):
-                    if feature.shape[0] < max_len:
-                        pad_len = max_len - feature.shape[0]
-                        feature = np.pad(feature, ((0, pad_len), (0, 0)), mode='constant')
-                        label = np.pad(label, (0, pad_len), mode='constant', constant_values=-100)
-                        # Pad meeting_ids with None for padded frames
-                        meeting_id = np.pad(meeting_id, (0, pad_len), mode='constant', constant_values=None)
-                    features_padded.append(feature)
-                    labels_padded.append(label)
-                    meeting_ids_padded.append(meeting_id)
-                # Diagnostics: check that all sequence lengths are the same
-                lengths = [f.shape[0] for f in features_padded]
-                logger.info(f"All sequence lengths for client {client_id}: {set(lengths)}")
-                if len(set(lengths)) != 1:
-                    logger.error(f"Inhomogeneous sequence lengths for client {client_id}, skipping client.")
-                    continue
                 
-                # Convert to numpy arrays
-                features = np.array(features_padded)
-                labels = np.array(labels_padded)
-                meeting_ids_array = np.array(meeting_ids_padded)
+                # MEMORY FIX: Keep variable-length arrays (no padding at client level)
+                # Padding will be done per-batch in collate_fn_overlapping_speech
+                features = raw_features  # List of variable-length arrays
+                labels = raw_labels  # List of variable-length arrays
+                meeting_ids_array = np.array(meeting_ids, dtype=object)  # One ID per sample
+                
+                # Log sequence length statistics
+                lengths = [f.shape[0] for f in features]
+                logger.info(f"Client {client_id} variable-length sequences: min={min(lengths)}, max={max(lengths)}, mean={np.mean(lengths):.1f}, std={np.std(lengths):.1f}")
                 
                 # Process validation data for this client
                 logger.info(f"Processing validation data for client {client_id}...")
                 val_raw_features = []
                 val_raw_labels = []
                 val_speaker_ids = []
-                val_meeting_ids = []
+                val_meeting_ids = []  # MEMORY FIX: Store one meeting_id per sample
                 
                 if val_samples:
                     for sample in val_samples:
@@ -564,38 +556,29 @@ def split_data_for_clients(grouped_data, grouped_validation, num_clients, speake
                             logger.warning(f"Validation sample with empty feature sequence detected, skipping.")
                             continue
                         val_raw_features.append(feature)
-                        # frame-wise labels
+                        # frame-wise labels (variable length)
                         label = np.full(feature.shape[0], sample["speaker_id"], dtype=np.int64)
                         val_raw_labels.append(label)
                         val_speaker_ids.append(sample["speaker_id"])
-                        # frame-wise meeting_ids
-                        meeting_id = np.full(feature.shape[0], sample.get("meeting_id", f"val_client_{client_id}"), dtype=object)
-                        val_meeting_ids.append(meeting_id)
+                        # MEMORY FIX: Store one meeting_id per sample (string/int) instead of per-frame object array
+                        meeting_id_str = sample.get("meeting_id", f"val_client_{client_id}")
+                        val_meeting_ids.append(meeting_id_str)
                 
                 if not val_raw_features:
                     logger.warning(f"No valid validation features for client {client_id}, using empty validation set.")
-                    # Use training data shape as reference for empty validation arrays
-                    val_features = np.array([]).reshape(0, features.shape[1], features.shape[2])
-                    val_labels = np.array([]).reshape(0, labels.shape[1])
-                    val_meeting_ids_array = np.array([]).reshape(0, meeting_ids_array.shape[1])
+                    # MEMORY FIX: Empty lists for variable-length data
+                    val_features = []
+                    val_labels = []
+                    val_meeting_ids_array = np.array([], dtype=object)
                 else:
-                    val_max_len = max(f.shape[0] for f in val_raw_features)
-                    val_features_padded = []
-                    val_labels_padded = []
-                    val_meeting_ids_padded = []
-                    for feature, label, meeting_id in zip(val_raw_features, val_raw_labels, val_meeting_ids):
-                        if feature.shape[0] < val_max_len:
-                            pad_len = val_max_len - feature.shape[0]
-                            feature = np.pad(feature, ((0, pad_len), (0, 0)), mode='constant')
-                            label = np.pad(label, (0, pad_len), mode='constant', constant_values=-100)
-                            meeting_id = np.pad(meeting_id, (0, pad_len), mode='constant', constant_values=None)
-                        val_features_padded.append(feature)
-                        val_labels_padded.append(label)
-                        val_meeting_ids_padded.append(meeting_id)
+                    # MEMORY FIX: Keep variable-length arrays (no padding at client level)
+                    val_features = val_raw_features  # List of variable-length arrays
+                    val_labels = val_raw_labels  # List of variable-length arrays
+                    val_meeting_ids_array = np.array(val_meeting_ids, dtype=object)  # One ID per sample
                     
-                    val_features = np.array(val_features_padded)
-                    val_labels = np.array(val_labels_padded)
-                    val_meeting_ids_array = np.array(val_meeting_ids_padded)
+                    # Log validation sequence length statistics
+                    val_lengths = [f.shape[0] for f in val_features]
+                    logger.info(f"Client {client_id} validation variable-length sequences: min={min(val_lengths)}, max={max(val_lengths)}, mean={np.mean(val_lengths):.1f}")
                 
                 # Use all training samples for this client (no train/val split from training data)
                 train_features = features
@@ -1548,6 +1531,9 @@ def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, 
 def collate_fn_overlapping_speech(batch, enable_bucketing=True):
     """Collate function for overlapping speech dataset. Must be at module level for multiprocessing.
     
+    MEMORY FIX: Handles variable-length features and meeting_ids (one per sample, not per-frame).
+    Padding is done per-batch here to save memory compared to client-level padding.
+    
     Args:
         batch: List of tuples (feature, speaker_embeddings, label, meeting_id)
         enable_bucketing: If True, sort batch by sequence length to reduce padding ratio
@@ -1561,7 +1547,7 @@ def collate_fn_overlapping_speech(batch, enable_bucketing=True):
     features = []
     speaker_embeddings = []
     labels = []
-    meeting_ids = []
+    meeting_ids = []  # MEMORY FIX: Store one meeting_id per sample (not per-frame)
     total_original_length = 0
     total_padded_length = 0
     
@@ -1569,11 +1555,17 @@ def collate_fn_overlapping_speech(batch, enable_bucketing=True):
         original_len = feature.shape[0]
         total_original_length += original_len
         
+        # Convert to numpy if needed (from torch tensor)
+        if isinstance(feature, torch.Tensor):
+            feature = feature.cpu().numpy()
+        if isinstance(label, torch.Tensor):
+            label = label.cpu().numpy()
+        
+        # MEMORY FIX: Pad only per-batch (not client-level)
         if feature.shape[0] < max_len:
             pad_len = max_len - feature.shape[0]
             feature = np.pad(feature, ((0, pad_len), (0, 0)), mode='constant')
-            # Pad meeting_id array with None for padded frames
-            meeting_id = np.pad(meeting_id, (0, pad_len), mode='constant', constant_values=None)
+            label = np.pad(label, (0, pad_len), mode='constant', constant_values=-100)
             total_padded_length += pad_len
         else:
             total_padded_length += 0
@@ -1581,11 +1573,15 @@ def collate_fn_overlapping_speech(batch, enable_bucketing=True):
         features.append(feature)
         speaker_embeddings.append(all_embeddings)  # [num_speakers, 192]
         labels.append(label)
+        # MEMORY FIX: Store one meeting_id per sample (string/int), not per-frame array
         meeting_ids.append(meeting_id)
     
     features = torch.tensor(np.array(features), dtype=torch.float32)
     speaker_embeddings = torch.stack(speaker_embeddings).float()  # [batch, num_speakers, 192]
     labels = torch.tensor(np.array(labels), dtype=torch.long)
+    # MEMORY FIX: meeting_ids is a list of strings/ints (one per sample)
+    # Convert to numpy array for compatibility, but keep as 1D array
+    meeting_ids = np.array(meeting_ids, dtype=object)
     
     # Log padding ratio (only for first few batches to avoid spam)
     if not hasattr(collate_fn_overlapping_speech, '_batch_count'):
@@ -1791,8 +1787,13 @@ def compute_speaker_embeddings(grouped_data, speaker_encoder):
     return speaker_to_embedding
 
 class OverlappingSpeechDataset(Dataset):
-    """Dataset for overlapping speech diarization."""
-    def __init__(self, features: np.ndarray, labels: np.ndarray, meeting_ids: np.ndarray, speaker_ids: list, speaker_to_embedding: dict, max_speakers: int = 4):
+    """Dataset for overlapping speech diarization.
+    
+    MEMORY FIX: Supports both variable-length (list of arrays) and padded (numpy array) features.
+    Variable-length features save memory by avoiding client-level padding.
+    """
+    def __init__(self, features, labels, meeting_ids, speaker_ids: list, speaker_to_embedding: dict, max_speakers: int = 4):
+        # MEMORY FIX: Accept both list (variable-length) and numpy array (padded) for features/labels
         self.features = features
         self.labels = labels
         self.meeting_ids = meeting_ids
@@ -1800,7 +1801,7 @@ class OverlappingSpeechDataset(Dataset):
         self.speaker_to_embedding = speaker_to_embedding
         self.max_speakers = max_speakers
         
-        # Verify that all arrays have the same length
+        # Verify that all arrays/lists have the same length
         if len(features) != len(labels) or len(features) != len(meeting_ids) or len(features) != len(speaker_ids):
             raise ValueError(
                 f"Mismatch in dataset lengths: features={len(features)}, labels={len(labels)}, "
@@ -1832,8 +1833,24 @@ class OverlappingSpeechDataset(Dataset):
         return len(self.features)
     
     def __getitem__(self, idx: int) -> tuple:
-        feature = torch.tensor(self.features[idx], dtype=torch.float32)
-        label = torch.tensor(self.labels[idx], dtype=torch.long)
+        # MEMORY FIX: Handle both variable-length (list) and padded (numpy array) features
+        if isinstance(self.features, list):
+            # Variable-length: features[idx] is already a numpy array
+            feature = torch.tensor(self.features[idx], dtype=torch.float32)
+        else:
+            # Padded: features is a numpy array, slice it
+            feature = torch.tensor(self.features[idx], dtype=torch.float32)
+        
+        if isinstance(self.labels, list):
+            # Variable-length: labels[idx] is already a numpy array
+            label = torch.tensor(self.labels[idx], dtype=torch.long)
+        else:
+            # Padded: labels is a numpy array, slice it
+            label = torch.tensor(self.labels[idx], dtype=torch.long)
+        
+        # MEMORY FIX: meeting_ids is now a 1D array of strings/ints (one per sample)
+        # For backward compatibility with collate_fn, create a per-frame array if needed
+        # But for now, just pass the single meeting_id string/int
         meeting_id = self.meeting_ids[idx]
         
         # Check bounds for speaker_ids
