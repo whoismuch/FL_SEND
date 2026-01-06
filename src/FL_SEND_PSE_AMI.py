@@ -967,10 +967,11 @@ class SENDClient(NumPyClient):
                 mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
                 print(f"SENDClient: Epoch {epoch+1}/{epochs} summary for client {self.client_id}: min_loss={min(batch_losses) if batch_losses else 'nan'}, max_loss={max(batch_losses) if batch_losses else 'nan'}, mean_loss={mean_loss}, acc={acc if acc is not None else 'N/A'}, DER={der if der is not None else 'N/A'}")
                 # Collect metrics for this epoch (C3: only small values)
+                # ROBUSTNESS FIX: Use float('nan') instead of None for JSON serialization compatibility
                 epoch_metrics.append({
                     "train_loss": float(mean_loss),
-                    "acc": float(acc) if acc is not None and not np.isnan(acc) else None,
-                    "der": float(der) if der is not None and not np.isnan(der) else None,
+                    "acc": float(acc) if acc is not None and not np.isnan(acc) else float('nan'),
+                    "der": float(der) if der is not None and not np.isnan(der) else float('nan'),
                 })
             
             elapsed = time.time() - start_time
@@ -1084,7 +1085,8 @@ class SENDClient(NumPyClient):
                 logger.warning(f"⚠️ CLIENT {self.client_id}: Empty validation dataset! num_examples={num_examples}, num_batches={num_batches}")
                 logger.warning(f"   Returning safe defaults: loss=nan, num_examples=0")
                 # Return safe tuple: (loss, num_examples, metrics_dict)
-                return float('nan'), 0, {"val_loss": float('nan'), "der": None, "epoch_metrics": json.dumps([]), "empty_dataset": True}
+                # ROBUSTNESS FIX: Flower doesn't accept None in metrics - use float('nan') instead
+                return float('nan'), 0, {"val_loss": float('nan'), "der": float('nan'), "epoch_metrics": json.dumps([]), "empty_dataset": True}
             
             val_loss = 0.0
             batch_losses = []  # MUST be initialized before any return
@@ -1157,9 +1159,10 @@ class SENDClient(NumPyClient):
             # ROBUSTNESS FIX: Compute return values BEFORE deleting variables
             # C3: Return only small metrics (no large objects)
             mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
+            # ROBUSTNESS FIX: Use float('nan') instead of None for Flower compatibility
             epoch_metrics.append({
                 "val_loss": float(mean_loss),
-                "der": float(der) if der is not None and not np.isnan(der) else None,
+                "der": float(der) if der is not None and not np.isnan(der) else float('nan'),
             })
             epoch_metrics_json = json.dumps(epoch_metrics)  # Serialize before deletion
             
@@ -1188,10 +1191,21 @@ class SENDClient(NumPyClient):
                 torch.cuda.empty_cache()
                 torch.cuda.synchronize()  # Ensure all CUDA operations are complete
             
+            # ROBUSTNESS FIX: Flower doesn't accept None in metrics - use float('nan') as sentinel
+            metrics_dict = {
+                "val_loss": mean_loss,
+                "epoch_metrics": epoch_metrics_json
+            }
+            # Only add der if it's not None, otherwise use nan (Flower accepts float, not None)
+            if der is not None and not np.isnan(der):
+                metrics_dict["der"] = float(der)
+            else:
+                metrics_dict["der"] = float('nan')  # Use nan instead of None for Flower compatibility
+            
             return (
                 float(mean_loss),
                 num_examples,
-                {"val_loss": mean_loss, "der": der if der is not None else None, "epoch_metrics": epoch_metrics_json}
+                metrics_dict
             )
         
         except Exception as e:
@@ -1864,8 +1878,9 @@ def main():
                 if total_examples == 0:
                     logger.warning(f"⚠️ Round {server_round}: All clients returned 0 evaluation examples!")
                     logger.warning(f"   This may indicate empty validation datasets. Returning safe defaults.")
+                    # ROBUSTNESS FIX: Return safe aggregated result - Flower doesn't accept None, use nan
                     # Return safe aggregated result: (loss, num_examples, metrics)
-                    return float('nan'), 0, {"val_loss": float('nan'), "all_clients_empty": True}
+                    return float('nan'), 0, {"val_loss": float('nan'), "der": float('nan'), "all_clients_empty": True}
                 
                 # Use parent's aggregate_evaluate (which uses weighted_loss_avg)
                 # This is safe now because total_examples > 0
@@ -1967,11 +1982,18 @@ def main():
         # Start simulation and get final parameters
         print("\n==================== STARTING FEDERATED LEARNING ====================\n")
         
+        # ROBUSTNESS FIX: Mac has 2GB limit for object store, reduce for Mac compatibility
+        import platform
+        is_mac = platform.system() == "Darwin"
+        if device.type == 'cpu':
+            # Mac limit: 2GB, Linux: 5GB
+            object_store_memory = 2_000_000_000 if is_mac else 5_000_000_000
+        else:
+            object_store_memory = None
+        
         # Memory-optimized Ray configuration to prevent OOM
-        # Set object store memory limit (10GB) to prevent excessive memory usage
-        object_store_memory = 10_000_000_000  # 10GB
         print(f"Ray memory configuration:")
-        print(f"  - Object store memory: {object_store_memory / 1e9:.1f} GB")
+        print(f"  - Object store memory: {object_store_memory / 1e9:.1f} GB" if object_store_memory else "  - Object store memory: auto")
         print(f"  - Memory usage threshold: {os.environ.get('RAY_memory_usage_threshold', '0.90')}")
         print(f"  - Memory monitor refresh: {os.environ.get('RAY_memory_monitor_refresh_ms', '1000')} ms")
         
@@ -1986,8 +2008,8 @@ def main():
                 "include_dashboard": False,
                 "ignore_reinit_error": True,
                 # Memory optimizations to prevent OOM
-                # Set object store memory limit for CPU parallel mode
-                "object_store_memory": 5_000_000_000 if device.type == 'cpu' else None,  # 5GB for CPU mode
+                # Set object store memory limit (2GB for Mac, 5GB for Linux)
+                "object_store_memory": object_store_memory,
             },
             client_resources={
                 "num_cpus": num_cpus_per_client,
