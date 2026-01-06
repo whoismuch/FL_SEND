@@ -557,7 +557,15 @@ class SENDClient(NumPyClient):
         print(f"[DEBUG] SENDClient: val_dataset size: {len(self.val_dataset) if self.val_dataset else 0}")
     
     def get_parameters(self, config):
-        return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
+        # ROBUSTNESS FIX: Ensure deep copy of parameters (no shared references)
+        # Clone and detach to ensure no shared tensor storage
+        state_dict = self.model.state_dict()
+        params = []
+        for key, val in state_dict.items():
+            # Create a deep copy: clone() creates new tensor, detach() removes from computation graph
+            param_copy = val.clone().detach().cpu().numpy()
+            params.append(param_copy)
+        return params
     
     def set_parameters(self, parameters):
         """Set model parameters from Flower parameters.
@@ -657,8 +665,18 @@ class SENDClient(NumPyClient):
             
             # C2: Create DataLoader lazily inside fit()
             train_loader = self._create_train_loader()
-            print(f"[DEBUG] fit: train_loader size: {len(train_loader)}")
-            print(f"[DEBUG] fit: number of batches: {len(train_loader)}")
+            num_examples = len(train_loader.dataset)
+            num_batches = len(train_loader)
+            
+            # ROBUSTNESS FIX: Check for empty dataset/loader before training
+            print(f"[DEBUG] fit: train_dataset size: {len(self.train_dataset) if self.train_dataset else 0}")
+            print(f"[DEBUG] fit: train_loader size: {num_batches} batches")
+            print(f"[DEBUG] fit: num_examples: {num_examples}")
+            
+            if num_examples == 0 or num_batches == 0:
+                logger.warning(f"⚠️ CLIENT {self.client_id}: Empty training dataset! num_examples={num_examples}, num_batches={num_batches}")
+                logger.warning(f"   Returning safe defaults: loss=nan, num_examples=0")
+                return self.get_parameters({}), 0, {"train_loss": float('nan'), "epoch_metrics": json.dumps([]), "empty_dataset": True}
             
             # Enable Mixed Precision Training for faster GPU computation (2-3x speedup)
             # MEMORY FIX: Only use AMP if device is CUDA (not CPU)
@@ -670,8 +688,7 @@ class SENDClient(NumPyClient):
                 print(f"SENDClient: Mixed Precision Training (AMP) DISABLED - Using {self.device.type.upper()} mode for client {self.client_id}")
             
             start_time = time.time()
-            epoch_metrics = []  # Collect metrics for each epoch
-            num_examples = len(train_loader.dataset)
+            epoch_metrics = []  # Collect metrics for each epoch - MUST be initialized before any return
             
             for epoch in range(epochs):
                 train_loss = 0.0
@@ -1000,9 +1017,18 @@ class SENDClient(NumPyClient):
             
             print("=== CLIENT LOG: fit finished ===")
             
+            # ROBUSTNESS FIX: Compute return values BEFORE deleting variables
+            # C3: Return only small metrics (no large objects)
+            final_mean_loss = epoch_metrics[-1]["train_loss"] if epoch_metrics else float('nan')
+            epoch_metrics_json = json.dumps(epoch_metrics)  # Serialize before deletion
+            updated_params = self.get_parameters({})
+            
+            # Log return values for debugging
+            print(f"[DEBUG] CLIENT {self.client_id} fit() returning: num_examples={num_examples}, final_mean_loss={final_mean_loss:.6f}, epochs_trained={len(epoch_metrics)}")
+            
             # MEMORY FIX: Explicit cleanup after training
             # Delete large tensors and force garbage collection
-            del train_loader, epoch_metrics
+            del train_loader
             if 'pred_by_rec' in locals() and pred_by_rec is not None:
                 del pred_by_rec, lab_by_rec
             gc.collect()
@@ -1012,10 +1038,7 @@ class SENDClient(NumPyClient):
                 torch.cuda.empty_cache()
                 torch.cuda.synchronize()  # Ensure all CUDA operations are complete
             
-            # C3: Return only small metrics (no large objects)
-            final_mean_loss = epoch_metrics[-1]["train_loss"] if epoch_metrics else float('nan')
-            updated_params = self.get_parameters({})
-            return updated_params, num_examples, {"train_loss": final_mean_loss, "epoch_metrics": json.dumps(epoch_metrics)}
+            return updated_params, num_examples, {"train_loss": final_mean_loss, "epoch_metrics": epoch_metrics_json}
         
         except Exception as e:
             # F: Error handling - return previous parameters unchanged
@@ -1050,14 +1073,26 @@ class SENDClient(NumPyClient):
             # C2: Create DataLoader lazily inside evaluate()
             val_loader = self._create_val_loader()
             num_examples = len(val_loader.dataset)
+            num_batches = len(val_loader)
+            
+            # ROBUSTNESS FIX: Check for empty dataset/loader before evaluation
+            print(f"[DEBUG] evaluate: val_dataset size: {len(self.val_dataset) if self.val_dataset else 0}")
+            print(f"[DEBUG] evaluate: val_loader size: {num_batches} batches")
+            print(f"[DEBUG] evaluate: num_examples: {num_examples}")
+            
+            if num_examples == 0 or num_batches == 0:
+                logger.warning(f"⚠️ CLIENT {self.client_id}: Empty validation dataset! num_examples={num_examples}, num_batches={num_batches}")
+                logger.warning(f"   Returning safe defaults: loss=nan, num_examples=0")
+                # Return safe tuple: (loss, num_examples, metrics_dict)
+                return float('nan'), 0, {"val_loss": float('nan'), "der": None, "epoch_metrics": json.dumps([]), "empty_dataset": True}
             
             val_loss = 0.0
-            batch_losses = []
+            batch_losses = []  # MUST be initialized before any return
             # E: Only accumulate predictions if DER is needed (memory optimization)
             pred_by_rec = defaultdict(list) if should_compute_der else None
             lab_by_rec = defaultdict(list) if should_compute_der else None
             start_time = time.time()
-            epoch_metrics = []  # Collect metrics for each epoch (for compatibility)
+            epoch_metrics = []  # Collect metrics for each epoch (for compatibility) - MUST be initialized
             
             with torch.no_grad():
                 for batch_idx, (features, speaker_embeddings, labels, meeting_ids) in enumerate(val_loader):
@@ -1119,14 +1154,31 @@ class SENDClient(NumPyClient):
                 # C3: Don't accumulate predictions if DER not needed - save memory
                 pass
             
-            print(f"SENDClient: Eval summary for client {self.client_id}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={np.mean(batch_losses):.4f}, DER={der if der is not None else 'N/A'}")
+            # ROBUSTNESS FIX: Compute return values BEFORE deleting variables
+            # C3: Return only small metrics (no large objects)
+            mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
+            epoch_metrics.append({
+                "val_loss": float(mean_loss),
+                "der": float(der) if der is not None and not np.isnan(der) else None,
+            })
+            epoch_metrics_json = json.dumps(epoch_metrics)  # Serialize before deletion
+            
+            # Log return values for debugging
+            print(f"[DEBUG] CLIENT {self.client_id} evaluate() returning: num_examples={num_examples}, mean_loss={mean_loss:.6f}, batches_processed={len(batch_losses)}")
+            
+            # Safe print (batch_losses might be empty)
+            if batch_losses:
+                print(f"SENDClient: Eval summary for client {self.client_id}: min_loss={min(batch_losses):.4f}, max_loss={max(batch_losses):.4f}, mean_loss={mean_loss:.4f}, DER={der if der is not None else 'N/A'}")
+            else:
+                print(f"SENDClient: Eval summary for client {self.client_id}: No batches processed, mean_loss={mean_loss:.4f}, DER={der if der is not None else 'N/A'}")
+            
             elapsed = time.time() - start_time
             print(f"SENDClient: Finished evaluate for client {self.client_id}, total time: {elapsed:.2f} sec")
             print("=== CLIENT LOG: evaluate finished ===")
             
             # MEMORY FIX: Explicit cleanup after evaluation
             # Delete large tensors and force garbage collection
-            del val_loader, batch_losses
+            del val_loader
             if 'pred_by_rec' in locals() and pred_by_rec is not None:
                 del pred_by_rec, lab_by_rec
             gc.collect()
@@ -1136,16 +1188,10 @@ class SENDClient(NumPyClient):
                 torch.cuda.empty_cache()
                 torch.cuda.synchronize()  # Ensure all CUDA operations are complete
             
-            # C3: Return only small metrics (no large objects)
-            mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
-            epoch_metrics.append({
-                "val_loss": float(mean_loss),
-                "der": float(der) if der is not None and not np.isnan(der) else None,
-            })
             return (
                 float(mean_loss),
                 num_examples,
-                {"val_loss": mean_loss, "der": der if der is not None else None, "epoch_metrics": json.dumps(epoch_metrics)}
+                {"val_loss": mean_loss, "der": der if der is not None else None, "epoch_metrics": epoch_metrics_json}
             )
         
         except Exception as e:
@@ -1522,6 +1568,22 @@ def main():
                 # C1: Extract datasets from DataLoaders (don't store DataLoaders in client)
                 train_dataset = train_loader.dataset
                 val_dataset = val_loader.dataset
+                
+                # ROBUSTNESS FIX: Log dataset sizes at client initialization
+                train_size = len(train_dataset) if train_dataset else 0
+                val_size = len(val_dataset) if val_dataset else 0
+                train_batches = len(train_loader)
+                val_batches = len(val_loader)
+                
+                print(f"[client_fn] Client {cid} dataset sizes:")
+                print(f"  - Train dataset: {train_size} samples, {train_batches} batches")
+                print(f"  - Val dataset: {val_size} samples, {val_batches} batches")
+                
+                if train_size == 0:
+                    logger.warning(f"⚠️ CLIENT {cid}: Empty training dataset! This will cause fit() to return 0 examples.")
+                if val_size == 0:
+                    logger.warning(f"⚠️ CLIENT {cid}: Empty validation dataset! This will cause evaluate() to return 0 examples.")
+                
                 # Create new model instance for each client with configurable architecture
                 client_model = SENDModel(
                     num_classes=num_classes,
@@ -1782,6 +1844,32 @@ def main():
                 else:
                     print(f"⚠ Round {server_round}: No parameters aggregated")
                 return aggregated, metrics
+            
+            def aggregate_evaluate(self, server_round, results, failures):
+                """Override aggregate_evaluate to prevent ZeroDivisionError when all clients return 0 examples.
+                
+                ROBUSTNESS FIX: Handle case when num_total_evaluation_examples == 0.
+                """
+                print(f"✓ Round {server_round}: aggregate_evaluate called with {len(results)} results, {len(failures)} failures")
+                
+                # Protection against division by zero: check if we have valid results
+                if not results:
+                    logger.error(f"Round {server_round}: no evaluation results (all clients failed). Skipping aggregation.")
+                    return None, {"skipped": 1, "reason": "no_results"}
+                
+                # Check total evaluation examples
+                total_examples = sum(eval_res.num_examples for _, eval_res in results)
+                print(f"SERVER round {server_round}: Total evaluation examples: {total_examples}")
+                
+                if total_examples == 0:
+                    logger.warning(f"⚠️ Round {server_round}: All clients returned 0 evaluation examples!")
+                    logger.warning(f"   This may indicate empty validation datasets. Returning safe defaults.")
+                    # Return safe aggregated result: (loss, num_examples, metrics)
+                    return float('nan'), 0, {"val_loss": float('nan'), "all_clients_empty": True}
+                
+                # Use parent's aggregate_evaluate (which uses weighted_loss_avg)
+                # This is safe now because total_examples > 0
+                return super().aggregate_evaluate(server_round, results, failures)
             
             def configure_fit(self, server_round, parameters, client_manager):
                 print(f"✓ Round {server_round}: configure_fit called")
