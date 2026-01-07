@@ -1812,6 +1812,8 @@ def main():
             train_losses = [m.get('train_loss') for m in epoch_metrics]
             train_ders = [m.get('der') for m in epoch_metrics]
             train_accs = [m.get('acc') for m in epoch_metrics]
+            val_losses = [m.get('val_loss') for m in epoch_metrics]
+            val_ders = [m.get('val_der') for m in epoch_metrics]
             
             # Plot training loss per epoch
             plt.figure(figsize=(8, 5))
@@ -1824,27 +1826,120 @@ def main():
             plt.savefig(plot_path)
             plt.close()
             
-            # Plot training DER per epoch
-            plt.figure(figsize=(8, 5))
-            plt.plot(epochs, train_ders, marker='o', label='Training DER')
-            plt.xlabel('Epoch')
-            plt.ylabel('DER')
-            plt.title('Training DER per Epoch')
-            plt.tight_layout()
-            plot_path = os.path.join(artifact_plots_dir, "training_der_per_epoch.png")
-            plt.savefig(plot_path)
-            plt.close()
+            # Plot training DER per epoch (only if DER was computed during training)
+            valid_der_data = [(e, d) for e, d in zip(epochs, train_ders) if d is not None]
+            if valid_der_data:
+                der_epochs, der_values = zip(*valid_der_data)
+                plt.figure(figsize=(8, 5))
+                plt.plot(der_epochs, der_values, marker='o', label='Training DER')
+                plt.xlabel('Epoch')
+                plt.ylabel('DER')
+                plt.title('Training DER per Epoch')
+                plt.tight_layout()
+                plot_path = os.path.join(artifact_plots_dir, "training_der_per_epoch.png")
+                plt.savefig(plot_path)
+                plt.close()
+            else:
+                print("⚠️  Skipping training DER plot: DER computation was disabled during training (use --compute_der_during_training to enable)")
+                # Create empty plot with message
+                plt.figure(figsize=(8, 5))
+                plt.text(0.5, 0.5, 'No training DER data available.\nDER computation was disabled during training.\nUse --compute_der_during_training to enable.', 
+                        ha='center', va='center', transform=plt.gca().transAxes, fontsize=12)
+                plt.xlabel('Epoch')
+                plt.ylabel('DER')
+                plt.title('Training DER per Epoch')
+                plt.tight_layout()
+                plot_path = os.path.join(artifact_plots_dir, "training_der_per_epoch.png")
+                plt.savefig(plot_path)
+                plt.close()
             
-            # Plot training accuracy per epoch
-            plt.figure(figsize=(8, 5))
-            plt.plot(epochs, train_accs, marker='o', label='Training Accuracy')
-            plt.xlabel('Epoch')
-            plt.ylabel('Accuracy')
-            plt.title('Training Accuracy per Epoch')
-            plt.tight_layout()
-            plot_path = os.path.join(artifact_plots_dir, "training_accuracy_per_epoch.png")
-            plt.savefig(plot_path)
-            plt.close()
+            # Plot training accuracy per epoch (only if accuracy was computed)
+            valid_acc_data = [(e, a) for e, a in zip(epochs, train_accs) if a is not None]
+            if valid_acc_data:
+                acc_epochs, acc_values = zip(*valid_acc_data)
+                plt.figure(figsize=(8, 5))
+                plt.plot(acc_epochs, acc_values, marker='o', label='Training Accuracy')
+                plt.xlabel('Epoch')
+                plt.ylabel('Accuracy')
+                plt.title('Training Accuracy per Epoch')
+                plt.tight_layout()
+                plot_path = os.path.join(artifact_plots_dir, "training_accuracy_per_epoch.png")
+                plt.savefig(plot_path)
+                plt.close()
+            else:
+                print("⚠️  Skipping training accuracy plot: Accuracy computation requires DER computation (use --compute_der_during_training to enable)")
+                # Create empty plot with message
+                plt.figure(figsize=(8, 5))
+                plt.text(0.5, 0.5, 'No training accuracy data available.\nAccuracy computation requires DER computation.\nUse --compute_der_during_training to enable.', 
+                        ha='center', va='center', transform=plt.gca().transAxes, fontsize=12)
+                plt.xlabel('Epoch')
+                plt.ylabel('Accuracy')
+                plt.title('Training Accuracy per Epoch')
+                plt.tight_layout()
+                plot_path = os.path.join(artifact_plots_dir, "training_accuracy_per_epoch.png")
+                plt.savefig(plot_path)
+                plt.close()
+            
+            # Plot validation loss per epoch
+            valid_val_loss_data = [(e, v) for e, v in zip(epochs, val_losses) if v is not None]
+            if valid_val_loss_data:
+                val_loss_epochs, val_loss_values = zip(*valid_val_loss_data)
+                plt.figure(figsize=(8, 5))
+                plt.plot(val_loss_epochs, val_loss_values, marker='o', label='Validation Loss', color='orange')
+                plt.xlabel('Epoch')
+                plt.ylabel('Loss')
+                plt.title('Validation Loss per Epoch')
+                plt.legend()
+                plt.tight_layout()
+                plot_path = os.path.join(artifact_plots_dir, "validation_loss_per_epoch.png")
+                plt.savefig(plot_path)
+                plt.close()
+            
+            # Plot validation DER per epoch
+            valid_val_der_data = [(e, v) for e, v in zip(epochs, val_ders) if v is not None]
+            if valid_val_der_data:
+                val_der_epochs, val_der_values = zip(*valid_val_der_data)
+                plt.figure(figsize=(8, 5))
+                plt.plot(val_der_epochs, val_der_values, marker='o', label='Validation DER', color='red')
+                plt.xlabel('Epoch')
+                plt.ylabel('DER')
+                plt.title('Validation DER per Epoch')
+                plt.legend()
+                plt.tight_layout()
+                plot_path = os.path.join(artifact_plots_dir, "validation_der_per_epoch.png")
+                plt.savefig(plot_path)
+                plt.close()
+            
+            # Plot combined train/val loss comparison
+            if valid_val_loss_data:
+                val_loss_epochs, val_loss_values = zip(*valid_val_loss_data)
+                plt.figure(figsize=(8, 5))
+                plt.plot(epochs, train_losses, marker='o', label='Train Loss', color='blue')
+                plt.plot(val_loss_epochs, val_loss_values, marker='s', label='Validation Loss', color='orange')
+                plt.xlabel('Epoch')
+                plt.ylabel('Loss')
+                plt.title('Training vs Validation Loss')
+                plt.legend()
+                plt.tight_layout()
+                plot_path = os.path.join(artifact_plots_dir, "train_val_loss_comparison.png")
+                plt.savefig(plot_path)
+                plt.close()
+            
+            # Plot combined train/val DER comparison (if training DER is available)
+            if valid_der_data and valid_val_der_data:
+                der_epochs, der_values = zip(*valid_der_data)
+                val_der_epochs, val_der_values = zip(*valid_val_der_data)
+                plt.figure(figsize=(8, 5))
+                plt.plot(der_epochs, der_values, marker='o', label='Training DER', color='blue')
+                plt.plot(val_der_epochs, val_der_values, marker='s', label='Validation DER', color='red')
+                plt.xlabel('Epoch')
+                plt.ylabel('DER')
+                plt.title('Training vs Validation DER')
+                plt.legend()
+                plt.tight_layout()
+                plot_path = os.path.join(artifact_plots_dir, "train_val_der_comparison.png")
+                plt.savefig(plot_path)
+                plt.close()
             
             print(f"Training metrics plots saved to {artifact_plots_dir}")
 
