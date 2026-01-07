@@ -913,9 +913,28 @@ class SENDClient(NumPyClient):
                         predictions = torch.argmax(outputs, dim=-1)
                         predictions_np = predictions.cpu().numpy()
                         labels_np = labels_flat.cpu().numpy()
-                        meeting_ids_flat = np.concatenate(meeting_ids, axis=0)
+                        # FIX: Handle meeting_ids properly - it's a 1D array (one per sample), not per-frame
+                        # Create per-frame meeting_id array by repeating for each frame in the sequence
+                        # batch_size and seq_len are already extracted from outputs.shape at line 833
+                        meeting_ids_flat = []
+                        for i in range(batch_size):
+                            # Handle zero-dimensional arrays and scalars
+                            if isinstance(meeting_ids, np.ndarray):
+                                # Handle both regular arrays and object arrays
+                                if meeting_ids.dtype == object:
+                                    meeting_id = meeting_ids[i]
+                                else:
+                                    meeting_id = meeting_ids[i].item() if meeting_ids[i].ndim == 0 else meeting_ids[i]
+                            elif isinstance(meeting_ids, list):
+                                meeting_id = meeting_ids[i]
+                            else:
+                                meeting_id = meeting_ids
+                            # Repeat meeting_id for each frame in this sequence
+                            meeting_ids_flat.extend([meeting_id] * seq_len)
+                        meeting_ids_flat = np.array(meeting_ids_flat)
+                        
                         for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
-                            if meeting_id is not None:  # Skip padded frames
+                            if meeting_id is not None and label != -100:  # Skip padded frames
                                 pred_by_rec[meeting_id].append(pred)
                                 lab_by_rec[meeting_id].append(label)
                     
@@ -1869,7 +1888,8 @@ def main():
                 # Protection against division by zero: check if we have valid results
                 if not results:
                     logger.error(f"Round {server_round}: no evaluation results (all clients failed). Skipping aggregation.")
-                    return None, {"skipped": 1, "reason": "no_results"}
+                    # FIX: Return (loss, metrics) tuple - Flower expects 2 values, not None
+                    return float('nan'), {"skipped": 1, "reason": "no_results", "num_examples": 0}
                 
                 # Check total evaluation examples
                 total_examples = sum(eval_res.num_examples for _, eval_res in results)
@@ -1878,9 +1898,9 @@ def main():
                 if total_examples == 0:
                     logger.warning(f"⚠️ Round {server_round}: All clients returned 0 evaluation examples!")
                     logger.warning(f"   This may indicate empty validation datasets. Returning safe defaults.")
-                    # ROBUSTNESS FIX: Return safe aggregated result - Flower doesn't accept None, use nan
-                    # Return safe aggregated result: (loss, num_examples, metrics)
-                    return float('nan'), 0, {"val_loss": float('nan'), "der": float('nan'), "all_clients_empty": True}
+                    # ROBUSTNESS FIX: Return safe aggregated result - Flower expects (loss, metrics) tuple
+                    # Return safe aggregated result: (loss, metrics) - only 2 values, not 3
+                    return float('nan'), {"val_loss": float('nan'), "der": float('nan'), "all_clients_empty": True, "num_examples": 0}
                 
                 # Use parent's aggregate_evaluate (which uses weighted_loss_avg)
                 # This is safe now because total_examples > 0

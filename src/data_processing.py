@@ -1403,6 +1403,13 @@ def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, 
     # Use der_frame_shift for evaluation (can be larger than frame_shift for speed)
     if der_frame_shift is None:
         der_frame_shift = 0.05  # Default: 50ms for DER evaluation (5x larger than typical 10ms frame_shift)
+    else:
+        # FIX: Convert to float if it's a string (e.g., from config)
+        try:
+            der_frame_shift = float(der_frame_shift)
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid der_frame_shift value: {der_frame_shift}, using default 0.05")
+            der_frame_shift = 0.05
     
     # Calculate total duration
     total_duration = len(predictions) * frame_shift
