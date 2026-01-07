@@ -1279,6 +1279,9 @@ def main():
     parser.add_argument('--device', type=str, default='auto', choices=['auto', 'cpu', 'cuda'], help='Device to use: auto (detect), cpu (force CPU), cuda (force GPU). For parallel FL on CPU, use --device cpu')
     parser.add_argument('--clients_per_round', type=int, default=None, help='Number of clients to train per round (default: None = sequential/1 per round). For parallel FL, set to 2-4')
     parser.add_argument('--num_cpus_per_client', type=int, default=1, help='Number of CPUs per client (default: 1). Increase for parallel CPU clients')
+    # Early stopping parameters
+    parser.add_argument('--early_stopping_patience', type=int, default=None, help='Early stopping patience in rounds (default: None = disabled). If set, training stops if validation metric does not improve for this many rounds.')
+    parser.add_argument('--early_stopping_min_delta', type=float, default=0.001, help='Minimum change to qualify as an improvement for early stopping (default: 0.001)')
     args = parser.parse_args()
 
     # Assign arguments to variables
@@ -1302,6 +1305,8 @@ def main():
     device_arg = args.device
     clients_per_round = args.clients_per_round
     num_cpus_per_client = args.num_cpus_per_client
+    early_stopping_patience = args.early_stopping_patience
+    early_stopping_min_delta = args.early_stopping_min_delta
     
     # Determine if we're using all data or a subset
     use_all_data = test_size is None
@@ -1679,16 +1684,33 @@ def main():
 
         # Create a custom strategy that captures final parameters and ensures fit is executed
         class SaveFinalParams(fl.server.strategy.FedAvg):
-            def __init__(self, global_model=None, val_loader=None, **kwargs):
+            def __init__(self, global_model=None, val_loader=None, early_stopping_patience=None, early_stopping_min_delta=0.001, **kwargs):
                 super().__init__(**kwargs)
                 self.final_parameters = None  # aggregated weights
                 self.global_model = global_model  # C: Store reference for prediction sanity check
                 self.val_loader = val_loader  # C: Store reference for prediction sanity check
                 self.round_predictions = {}  # C: Store predictions per round for sanity check
-                print(f"✓ SaveFinalParams strategy initialized")
+                # Early stopping state
+                self.early_stopping_patience = early_stopping_patience
+                self.early_stopping_min_delta = early_stopping_min_delta
+                self.best_val_der = float('inf')  # DER: lower is better
+                self.best_val_loss = float('inf')  # Loss: lower is better
+                self.patience_counter = 0
+                self.best_round = 0
+                self.best_parameters = None  # Store best model parameters (will be initialized in first aggregate_fit)
+                self.should_stop = False  # Flag to signal early stopping
+                if early_stopping_patience is not None:
+                    print(f"✓ SaveFinalParams strategy initialized with early stopping (patience={early_stopping_patience}, min_delta={early_stopping_min_delta})")
+                else:
+                    print(f"✓ SaveFinalParams strategy initialized (early stopping disabled)")
             
             def aggregate_fit(self, server_round, results, failures):
                 print(f"✓ Round {server_round}: aggregate_fit called with {len(results)} results, {len(failures)} failures")
+                
+                # Check if early stopping was triggered in previous round
+                if self.should_stop:
+                    logger.warning(f"Round {server_round}: Early stopping was triggered in previous round. Skipping fit aggregation.")
+                    return None, {"skipped": 1, "reason": "early_stopping"}
                 
                 # Protection against division by zero: check if we have valid results
                 if not results:
@@ -1793,6 +1815,10 @@ def main():
                     # Flower's FedAvg automatically updates self.parameters after aggregate_fit
                     # We also store in final_parameters for final model update
                     self.final_parameters = aggregated  # save on server
+                    # For early stopping: initialize best_parameters on first round if not set
+                    if self.early_stopping_patience is not None and self.best_parameters is None:
+                        self.best_parameters = aggregated
+                        print(f"✓ Round {server_round}: Initialized best_parameters with first aggregated parameters")
                     # B5: Explicitly update strategy's parameters (FedAvg should do this, but ensure it)
                     if hasattr(self, 'parameters'):
                         self.parameters = aggregated
@@ -1893,6 +1919,7 @@ def main():
                 """Override aggregate_evaluate to prevent ZeroDivisionError when all clients return 0 examples.
                 
                 ROBUSTNESS FIX: Handle case when num_total_evaluation_examples == 0.
+                EARLY STOPPING: Check validation metrics and stop if no improvement.
                 """
                 print(f"✓ Round {server_round}: aggregate_evaluate called with {len(results)} results, {len(failures)} failures")
                 
@@ -1915,10 +1942,84 @@ def main():
                 
                 # Use parent's aggregate_evaluate (which uses weighted_loss_avg)
                 # This is safe now because total_examples > 0
-                return super().aggregate_evaluate(server_round, results, failures)
+                loss, metrics = super().aggregate_evaluate(server_round, results, failures)
+                
+                # Early stopping logic (only if enabled)
+                if self.early_stopping_patience is not None and not self.should_stop:
+                    # Extract validation metrics
+                    val_loss = loss if not (np.isnan(loss) or np.isinf(loss)) else float('nan')
+                    val_der = metrics.get('der', float('nan')) if isinstance(metrics, dict) else float('nan')
+                    
+                    # Early stopping based on DER (lower is better) - primary metric
+                    # Fallback to loss if DER is not available
+                    if not (np.isnan(val_der) or np.isinf(val_der)):
+                        # Primary: DER-based early stopping
+                        improvement = self.best_val_der - val_der
+                        if improvement > self.early_stopping_min_delta:
+                            # Improvement detected
+                            self.best_val_der = val_der
+                            self.best_val_loss = val_loss if not (np.isnan(val_loss) or np.isinf(val_loss)) else self.best_val_loss
+                            self.patience_counter = 0
+                            self.best_round = server_round
+                            # Save best parameters from current round's aggregation (final_parameters was updated in aggregate_fit)
+                            # Note: aggregate_fit is called before aggregate_evaluate, so final_parameters contains current round's aggregated params
+                            if hasattr(self, 'final_parameters') and self.final_parameters is not None:
+                                self.best_parameters = self.final_parameters
+                                print(f" ✅ Round {server_round}: Validation improved (DER)! New best val_der: {val_der:.4f}, val_loss: {val_loss:.4f}")
+                                print(f" ✅ Round {server_round}: Saved best parameters")
+                            else:
+                                print(f" ✅ Round {server_round}: Validation improved (DER)! New best val_der: {val_der:.4f}, val_loss: {val_loss:.4f}")
+                                print(f" ⚠️  Round {server_round}: Warning - final_parameters is None, cannot save best parameters")
+                        else:
+                            self.patience_counter += 1
+                            print(f" ⚠️  Round {server_round}: No improvement (DER) for {self.patience_counter}/{self.early_stopping_patience} rounds (best DER: {self.best_val_der:.4f}, current: {val_der:.4f})")
+                    elif not (np.isnan(val_loss) or np.isinf(val_loss)):
+                        # Fallback: Loss-based early stopping if DER is invalid
+                        improvement = self.best_val_loss - val_loss
+                        if improvement > self.early_stopping_min_delta:
+                            self.best_val_loss = val_loss
+                            self.patience_counter = 0
+                            self.best_round = server_round
+                            if hasattr(self, 'final_parameters') and self.final_parameters is not None:
+                                self.best_parameters = self.final_parameters
+                                print(f" ✅ Round {server_round}: Validation improved (loss)! New best val_loss: {val_loss:.4f}")
+                                print(f" ✅ Round {server_round}: Saved best parameters")
+                            else:
+                                print(f" ✅ Round {server_round}: Validation improved (loss)! New best val_loss: {val_loss:.4f}")
+                                print(f" ⚠️  Round {server_round}: Warning - final_parameters is None, cannot save best parameters")
+                        else:
+                            self.patience_counter += 1
+                            print(f" ⚠️  Round {server_round}: No improvement (loss) for {self.patience_counter}/{self.early_stopping_patience} rounds (best loss: {self.best_val_loss:.4f}, current: {val_loss:.4f})")
+                    else:
+                        # Both metrics are invalid - increment patience but don't stop
+                        self.patience_counter += 1
+                        logger.warning(f"Round {server_round}: Invalid validation metrics (NaN/Inf) - No improvement for {self.patience_counter}/{self.early_stopping_patience} rounds")
+                    
+                    # Check if early stopping should be triggered
+                    if self.patience_counter >= self.early_stopping_patience:
+                        self.should_stop = True
+                        print(f"\n{'='*80}")
+                        print(f" 🛑 Round {server_round}: Early stopping triggered! No improvement for {self.early_stopping_patience} rounds.")
+                        print(f" Best validation DER: {self.best_val_der:.4f}, Best validation loss: {self.best_val_loss:.4f} (at round {self.best_round})")
+                        print(f"{'='*80}\n")
+                        # Restore best parameters
+                        if self.best_parameters is not None:
+                            self.final_parameters = self.best_parameters
+                            print(f" ✅ Restored best model parameters from round {self.best_round}")
+                        else:
+                            logger.warning(f"⚠️  Warning: best_parameters is None, cannot restore best model")
+                
+                return loss, metrics
             
             def configure_fit(self, server_round, parameters, client_manager):
                 print(f"✓ Round {server_round}: configure_fit called")
+                
+                # Check if early stopping was triggered
+                if self.should_stop:
+                    logger.warning(f"Round {server_round}: Early stopping was triggered. Skipping fit configuration.")
+                    # Return empty configuration to prevent training
+                    return {}
+                
                 # A1: Log checksum BEFORE distributing parameters each round
                 if parameters is not None:
                     params_ndarrays = fl.common.parameters_to_ndarrays(parameters)
@@ -1926,6 +2027,13 @@ def main():
                     checksum = state_dict_checksum(state_dict)
                     print(f"SERVER round {server_round} global checksum (before distributing): {checksum:.6f}")
                 return super().configure_fit(server_round, parameters, client_manager)
+            
+            def configure_evaluate(self, server_round, parameters, client_manager):
+                """Override configure_evaluate to skip evaluation if early stopping was triggered."""
+                if self.should_stop:
+                    logger.warning(f"Round {server_round}: Early stopping was triggered. Skipping evaluation configuration.")
+                    return {}
+                return super().configure_evaluate(server_round, parameters, client_manager)
         
         # FL Strategy Configuration: Support both sequential and parallel modes
         # Parallel mode: multiple clients per round (requires memory optimizations)
@@ -1961,12 +2069,15 @@ def main():
         strategy = SaveFinalParams(
             global_model=model,  # C: Pass global model for prediction sanity check
             val_loader=val_loader,  # C: Pass validation loader for prediction sanity check
+            early_stopping_patience=early_stopping_patience,  # Early stopping patience
+            early_stopping_min_delta=early_stopping_min_delta,  # Early stopping min delta
             min_available_clients=num_clients,
             min_fit_clients=min_fit_clients,
             min_evaluate_clients=min_evaluate_clients,
             fraction_fit=fraction_fit,
             fraction_evaluate=fraction_evaluate,
             # E: Pass server_round and compute_der=False by default (DER only every 5 rounds)
+            # For early stopping, we need DER every round to check improvement
             on_fit_config_fn=lambda server_round: {
                 "epochs": epochs, 
                 "debug_mode": debug_mode, 
@@ -1979,8 +2090,9 @@ def main():
             on_evaluate_config_fn=lambda server_round: {
                 "epochs": 1,
                 "server_round": server_round,
-                "compute_der": False,  # E: DER disabled by default
-                "der_round_interval": 5  # E: Compute DER every 5 rounds
+                # Enable DER computation every round if early stopping is enabled
+                "compute_der": early_stopping_patience is not None,  # Enable DER if early stopping is enabled
+                "der_round_interval": 1 if early_stopping_patience is not None else 5  # Compute DER every round if early stopping enabled
             },
             initial_parameters=fl.common.ndarrays_to_parameters(
                 [val.cpu().numpy() for _, val in model.state_dict().items()]
@@ -2012,6 +2124,16 @@ def main():
         
         # Start simulation and get final parameters
         print("\n==================== STARTING FEDERATED LEARNING ====================\n")
+        if early_stopping_patience is not None:
+            print(f"Early stopping ENABLED:")
+            print(f"  - Patience: {early_stopping_patience} rounds")
+            print(f"  - Min delta: {early_stopping_min_delta}")
+            print(f"  - Metric: Validation DER (fallback to validation loss if DER unavailable)")
+            print(f"  - Training will stop if no improvement for {early_stopping_patience} consecutive rounds")
+            print("")
+        else:
+            print(f"Early stopping DISABLED - training will run for all {num_rounds} rounds")
+            print("")
         
         # ROBUSTNESS FIX: Mac has 2GB limit for object store, reduce for Mac compatibility
         import platform

@@ -164,6 +164,9 @@ export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
 #   --num_clients 2: Number of federated clients
 #   --num_rounds 10: Number of federated learning rounds
 #   --epochs 2: Number of local training epochs per round
+# Early stopping parameters:
+#   --early_stopping_patience 5: Stop training if no improvement for 5 rounds
+#   --early_stopping_min_delta 0.001: Minimum change to qualify as improvement
 # Model architecture parameters (for faster training):
 #   --hidden_dim 256: Reduced hidden dimension
 #   --num_speech_encoder_layers 4: Reduced number of layers
@@ -182,6 +185,8 @@ PYTHONUNBUFFERED=1 python src/FL_SEND_PSE_AMI.py \
   --batch_size 8 \
   --chunk_size 250 \
   --max_sequence_length 1000 \
+  --early_stopping_patience 10 \
+  --early_stopping_min_delta 0.001 \
   > "$LOG_FILE" 2>&1
 
 TRAIN_EXIT_CODE=$?

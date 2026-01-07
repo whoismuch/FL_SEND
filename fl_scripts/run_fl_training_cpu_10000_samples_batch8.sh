@@ -170,8 +170,11 @@ export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
 #     This prevents dangerous auto-calculation that produced 16361 frames (51GB memory!)
 # Federated Learning parameters:
 #   --num_clients 2: Number of federated clients
-#   --num_rounds 10: Number of federated learning rounds
-#   --epochs 2: Number of local training epochs per round
+#   --num_rounds 20: Number of federated learning rounds (increased for better convergence)
+#   --epochs 3: Number of local training epochs per round (3-5 is optimal, prevents overfitting on local data)
+# Early stopping parameters:
+#   --early_stopping_patience 10: Stop training if no improvement for 10 rounds (matches centralized training)
+#   --early_stopping_min_delta 0.001: Minimum change to qualify as improvement
 # Model architecture parameters (for faster training):
 #   --hidden_dim 256: Reduced hidden dimension
 #   --num_speech_encoder_layers 4: Reduced number of layers
@@ -182,7 +185,7 @@ PYTHONUNBUFFERED=1 python src/FL_SEND_PSE_AMI.py \
   --device cpu \
   --test_size 10000 \
   --epochs 5 \
-  --num_rounds 10 \
+  --num_rounds 25 \
   --num_clients 2 \
   --clients_per_round 2 \
   --num_cpus_per_client 4 \
@@ -193,6 +196,8 @@ PYTHONUNBUFFERED=1 python src/FL_SEND_PSE_AMI.py \
   --batch_size 4 \
   --chunk_size 250 \
   --max_sequence_length 1000 \
+  --early_stopping_patience 10 \
+  --early_stopping_min_delta 0.001 \
   > "$LOG_FILE" 2>&1
 
 TRAIN_EXIT_CODE=$?
