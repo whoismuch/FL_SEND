@@ -1,2 +1,0 @@
-experiment_tag,test_size,num_epochs,datetime,final_test_loss,final_der,final_val_loss,final_val_der,device_used,gpu_count
-exp_10size_2epochs_centralized_2025-10-23-18-21,10,2,2025-10-23 18:23:35,73.63687896728516,0.5949074074074074,91.42460632324219,0.4876190476190476,cpu,0

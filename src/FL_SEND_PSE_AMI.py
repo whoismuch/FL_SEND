@@ -1238,7 +1238,18 @@ class SENDClient(NumPyClient):
     def calculate_der(self, predictions: List[int], labels: List[int], speaker_id_list: list = None, debug: bool = True, frame_shift: float = 0.01, uri: str = None) -> float:
         """Calculate Diarization Error Rate using the common function from data_processing."""
         from data_processing import calculate_der as common_calculate_der
-        return common_calculate_der(predictions, labels, self.power_set_encoder, speaker_id_list, debug, frame_shift, uri)
+        # FIX: Pass parameters by name to avoid parameter order confusion
+        # der_frame_shift is not passed (will use default None -> 0.05)
+        return common_calculate_der(
+            predictions, 
+            labels, 
+            self.power_set_encoder, 
+            speaker_id_list=speaker_id_list, 
+            debug=debug, 
+            frame_shift=frame_shift, 
+            der_frame_shift=None,  # Use default
+            uri=uri
+        )
 
 
 def main():
@@ -2106,15 +2117,48 @@ def main():
                 # Convert Flower parameters back to numpy arrays
                 final_params_numpy = fl.common.parameters_to_ndarrays(final_parameters)
                 
-                for i, (key, _) in enumerate(model.state_dict().items()):
+                # Map parameter names to their indices
+                model_state_dict = model.state_dict()
+                param_keys = list(model_state_dict.keys())
+                
+                for i, key in enumerate(param_keys):
                     if i < len(final_params_numpy):
-                        final_state_dict[key] = torch.tensor(final_params_numpy[i], dtype=model.state_dict()[key].dtype)
+                        param_tensor = torch.tensor(final_params_numpy[i], dtype=model_state_dict[key].dtype)
+                        original_shape = model_state_dict[key].shape
+                        
+                        # FIX: Skip combine_adapter if sizes don't match (it's created dynamically)
+                        # combine_adapter dimensions depend on num_speakers + hidden_dim, which can vary
+                        if key == 'combine_adapter.weight' or key == 'combine_adapter.bias':
+                            if param_tensor.shape != original_shape:
+                                print(f"Warning: Skipping {key} due to size mismatch (checkpoint: {param_tensor.shape}, model: {original_shape}). "
+                                      f"This is normal - combine_adapter is created dynamically based on number of speakers.")
+                                # Don't add it to final_state_dict - let the model keep its current dynamically created value
+                                continue
+                            # If shapes match, we can still load it
+                            final_state_dict[key] = param_tensor
+                        else:
+                            final_state_dict[key] = param_tensor
                     else:
                         print(f"Warning: Parameter {key} not found in final parameters")
-                        final_state_dict[key] = model.state_dict()[key].clone()
+                        # Only add to final_state_dict if it's not combine_adapter (which is dynamic)
+                        if not (key == 'combine_adapter.weight' or key == 'combine_adapter.bias'):
+                            final_state_dict[key] = model_state_dict[key].clone()
                 
-                # Load final parameters into model
-                model.load_state_dict(final_state_dict)
+                # Filter out combine_adapter from final_state_dict if it has size mismatches
+                # This ensures we don't try to load incompatible combine_adapter parameters
+                filtered_state_dict = {}
+                for key, value in final_state_dict.items():
+                    if key.startswith('combine_adapter'):
+                        # Only include if it exists in model and shapes match
+                        if key in model_state_dict and value.shape == model_state_dict[key].shape:
+                            filtered_state_dict[key] = value
+                        else:
+                            print(f"Info: Excluding {key} from state_dict (dynamic parameter, will be recreated during forward pass)")
+                    else:
+                        filtered_state_dict[key] = value
+                
+                # Load final parameters into model with strict=False to allow skipping combine_adapter
+                model.load_state_dict(filtered_state_dict, strict=False)
                 print("Model updated with final federated learning parameters")
                 
                 # Verify that parameters actually changed

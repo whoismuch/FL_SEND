@@ -1,2 +1,0 @@
-round,mean_train_loss,std_train_loss,mean_val_loss,std_val_loss,mean_der,std_der,num_clients
-1,12806.655192057291,,,,0.19016677496209655,,1
