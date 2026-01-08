@@ -1731,6 +1731,7 @@ def main():
                     temp_state_dict = {f"param_{i}": torch.tensor(p) for i, p in enumerate(params_ndarrays)}
                     checksum = state_dict_checksum(temp_state_dict)
                     print(f"SERVER round {server_round}: CLIENT {cid} num_examples={num_examples}, checksum={checksum:.6f}")
+                    logger.info(f"Round {server_round}: Client {cid} returned {num_examples} examples in fit")
                     
                     # DEBUG: Verify state_dict is a deep copy
                     is_deep_copy = verify_state_dict_deep_copy(temp_state_dict)
@@ -1803,7 +1804,8 @@ def main():
                         l2_norm_diff_prev = compute_l2_norm_diff(aggregated_state_dict, init_state_dict)
                     
                     print(f"SERVER round {server_round} aggregated checksum: {aggregated_checksum:.6f}; delta vs previous: {delta_vs_prev:.6f}")
-                    print(f"🔍 SERVER round {server_round}: L2 norm difference (aggregated vs previous): {l2_norm_diff_prev:.6f}")
+                    print(f"📊 SERVER round {server_round}: L2 norm of parameter delta (aggregated vs previous): {l2_norm_diff_prev:.6f}")
+                    logger.info(f"Round {server_round}: L2 norm of parameter delta = {l2_norm_diff_prev:.6f}")
                     
                     if l2_norm_diff_prev < 1e-6:
                         logger.error(f"❌ SERVER round {server_round}: CRITICAL - L2 norm difference is near zero ({l2_norm_diff_prev:.2e})!")
@@ -1928,6 +1930,12 @@ def main():
                     logger.error(f"Round {server_round}: no evaluation results (all clients failed). Skipping aggregation.")
                     # FIX: Return (loss, metrics) tuple - Flower expects 2 values, not None
                     return float('nan'), {"skipped": 1, "reason": "no_results", "num_examples": 0}
+                
+                # Log each client's num_examples in evaluate
+                for cid, eval_res in results:
+                    num_examples = eval_res.num_examples
+                    print(f"SERVER round {server_round}: CLIENT {cid} num_examples={num_examples} (evaluate)")
+                    logger.info(f"Round {server_round}: Client {cid} returned {num_examples} examples in evaluate")
                 
                 # Check total evaluation examples
                 total_examples = sum(eval_res.num_examples for _, eval_res in results)
@@ -2229,8 +2237,8 @@ def main():
         # Update the model with final parameters from federated learning
         elif final_parameters is not None:
             print("\n==================== UPDATING MODEL WITH FINAL PARAMETERS ====================\n")
-            # Store original parameters for comparison
-            original_params = {key: val.clone() for key, val in model.state_dict().items()}
+            # Store original parameters for comparison - use deep copy with detach().cpu().clone()
+            original_params = {key: val.detach().cpu().clone() for key, val in model.state_dict().items()}
             
             # Convert final parameters back to model state dict
             final_state_dict = {}
@@ -2280,16 +2288,24 @@ def main():
                         filtered_state_dict[key] = value
                 
                 # Load final parameters into model with strict=False to allow skipping combine_adapter
-                model.load_state_dict(filtered_state_dict, strict=False)
-                print("Model updated with final federated learning parameters")
+                # Ensure parameters are on the correct device
+                device = next(model.parameters()).device
+                filtered_state_dict_device = {k: v.to(device) if isinstance(v, torch.Tensor) else torch.tensor(v).to(device) 
+                                             for k, v in filtered_state_dict.items()}
+                model.load_state_dict(filtered_state_dict_device, strict=False)
+                # Ensure model is on correct device (should already be, but double-check)
+                model.to(device)
+                print("Model updated with final federated learning parameters (explicitly applied via load_state_dict)")
                 
-                # Verify that parameters actually changed
+                # Verify that parameters actually changed - compare with deep copied original
                 param_changed = False
                 changed_count = 0
                 total_params = len(model.state_dict())
                 
                 for key in model.state_dict():
-                    if not torch.equal(original_params[key], model.state_dict()[key]):
+                    # Move current param to CPU for comparison with original (which is on CPU)
+                    current_param = model.state_dict()[key].detach().cpu()
+                    if not torch.equal(original_params[key], current_param):
                         param_changed = True
                         changed_count += 1
                 

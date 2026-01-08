@@ -7,6 +7,7 @@
 #SBATCH --mem=64G  # Maximum available memory (sequence length is fixed at 1000 frames)
 #SBATCH --gres=gpu:1
 #SBATCH --partition=pascal  # Using pascal partition (infinite timelimit, 6 idle nodes available)
+#SBATCH --exclude=pascal-node03.l3s.intra  # Exclude node with TaskProlog configuration issue
 #SBATCH --output=training_full_dataset_gpu_batch8_%j.out
 #SBATCH --error=training_full_dataset_gpu_batch8_%j.err
 

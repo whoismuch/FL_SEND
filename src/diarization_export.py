@@ -44,6 +44,11 @@ class DiarizationExporter:
         """
         segments = []
         
+        # Handle empty predictions
+        if not predictions:
+            logger.warning(f"Empty predictions list for {meeting_id}, returning empty segments")
+            return segments
+        
         if speaker_id_list is None:
             speaker_id_list = list(range(self.power_set_encoder.max_speakers))
         
@@ -81,7 +86,7 @@ class DiarizationExporter:
                 current_pred = pred
                 start_frame = frame_idx
         
-        # Process the last segment
+        # Process the last segment (always create segment for final prediction)
         if current_pred is not None:
             end_frame = len(predictions)
             duration = (end_frame - start_frame) * self.frame_shift
@@ -102,6 +107,10 @@ class DiarizationExporter:
                     'duration': duration,
                     'end_time': start_time + duration
                 })
+        
+        # Debug logging
+        unique_predictions = len(set(predictions))
+        logger.debug(f"predictions_to_segments for {meeting_id}: {len(predictions)} frames, {unique_predictions} unique predictions, {len(segments)} segments created")
         
         return segments
     
