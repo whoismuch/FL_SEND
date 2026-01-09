@@ -1793,6 +1793,175 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
 
     return train_loader, val_loader, test_loader
 
+def build_train_dataset_for_grouped_meetings(
+    grouped_train_subset: dict,
+    speaker_encoder,
+    power_set_encoder,
+    max_speakers: int,
+    chunk_size: int,
+    max_sequence_length: int,
+):
+    """Build train dataset for a subset of meetings (for one FL client).
+    
+    This function builds only the train dataset for a client's subset of meetings.
+    Use build_eval_dataset() to build shared val/test datasets once globally.
+    
+    Args:
+        grouped_train_subset: Dictionary of meeting_id to samples (subset for one client)
+        speaker_encoder: Speaker encoder model
+        power_set_encoder: PowerSetEncoder instance
+        max_speakers: Maximum number of speaker slots (N)
+        chunk_size: Number of samples to process at once
+        max_sequence_length: Maximum sequence length to truncate longer sequences
+        
+    Returns:
+        OverlappingSpeechDataset: Train dataset for the client
+    """
+    logger.info(f"Building train dataset for FL client...")
+    logger.info(f"  Train meetings: {len(grouped_train_subset)}")
+    logger.info(f"  Max speakers: {max_speakers}, chunk_size: {chunk_size}, max_sequence_length: {max_sequence_length}")
+    
+    # Create dataset using the same logic as prepare_data_loaders
+    train_features, train_labels, train_meeting_ids, train_speaker_ids, train_meeting_to_slot_speakers = create_dataset_from_grouped(
+        grouped_train_subset, speaker_encoder, power_set_encoder, max_speakers, 
+        chunk_size=chunk_size, max_sequence_length=max_sequence_length
+    )
+    
+    # Compute meeting-specific embeddings for train subset
+    logger.info(f"Computing meeting-specific speaker embeddings for {len(grouped_train_subset)} train meetings...")
+    train_meeting_to_speaker_embedding = compute_speaker_embeddings(grouped_train_subset, speaker_encoder)
+    
+    # Create train dataset with meeting-specific embeddings and slot mappings
+    train_dataset = OverlappingSpeechDataset(
+        features=train_features,
+        labels=train_labels,
+        meeting_ids=train_meeting_ids,
+        speaker_ids=train_speaker_ids,
+        meeting_to_speaker_embedding=train_meeting_to_speaker_embedding,
+        meeting_to_slot_speakers=train_meeting_to_slot_speakers,
+        max_speakers=max_speakers
+    )
+    
+    logger.info(f"✓ Built train dataset: {len(train_dataset)} samples")
+    
+    return train_dataset
+
+
+def build_eval_dataset(
+    grouped_eval: dict,
+    speaker_encoder,
+    power_set_encoder,
+    max_speakers: int,
+    chunk_size: int,
+    max_sequence_length: int,
+    dataset_name: str = "eval",
+):
+    """Build evaluation dataset (val or test) for shared use across all FL clients.
+    
+    This function builds a single eval dataset that can be safely shared across all clients.
+    OverlappingSpeechDataset is read-only in __getitem__, so it's safe for concurrent access.
+    
+    Args:
+        grouped_eval: Dictionary of meeting_id to samples (validation or test data)
+        speaker_encoder: Speaker encoder model
+        power_set_encoder: PowerSetEncoder instance
+        max_speakers: Maximum number of speaker slots (N)
+        chunk_size: Number of samples to process at once
+        max_sequence_length: Maximum sequence length to truncate longer sequences
+        dataset_name: Name for logging (e.g., "val" or "test")
+        
+    Returns:
+        OverlappingSpeechDataset: Evaluation dataset (safe to share across clients)
+    """
+    if not grouped_eval:
+        logger.warning(f"Empty {dataset_name} dataset provided, returning empty dataset")
+        # Return empty dataset structure
+        return OverlappingSpeechDataset(
+            features=[],
+            labels=[],
+            meeting_ids=[],
+            speaker_ids=[],
+            meeting_to_speaker_embedding={},
+            meeting_to_slot_speakers={},
+            max_speakers=max_speakers
+        )
+    
+    logger.info(f"Building {dataset_name} dataset (shared across all clients)...")
+    logger.info(f"  {dataset_name.capitalize()} meetings: {len(grouped_eval)}")
+    logger.info(f"  Max speakers: {max_speakers}, chunk_size: {chunk_size}, max_sequence_length: {max_sequence_length}")
+    
+    # Create dataset using the same logic as prepare_data_loaders
+    eval_features, eval_labels, eval_meeting_ids, eval_speaker_ids, eval_meeting_to_slot_speakers = create_dataset_from_grouped(
+        grouped_eval, speaker_encoder, power_set_encoder, max_speakers,
+        chunk_size=chunk_size, max_sequence_length=max_sequence_length
+    )
+    
+    # Compute meeting-specific embeddings for eval dataset
+    logger.info(f"Computing meeting-specific speaker embeddings for {len(grouped_eval)} {dataset_name} meetings...")
+    eval_meeting_to_speaker_embedding = compute_speaker_embeddings(grouped_eval, speaker_encoder)
+    
+    # Create eval dataset with meeting-specific embeddings and slot mappings
+    eval_dataset = OverlappingSpeechDataset(
+        features=eval_features,
+        labels=eval_labels,
+        meeting_ids=eval_meeting_ids,
+        speaker_ids=eval_speaker_ids,
+        meeting_to_speaker_embedding=eval_meeting_to_speaker_embedding,
+        meeting_to_slot_speakers=eval_meeting_to_slot_speakers,
+        max_speakers=max_speakers
+    )
+    
+    logger.info(f"✓ Built {dataset_name} dataset: {len(eval_dataset)} samples (safe to share across clients)")
+    
+    return eval_dataset
+
+
+def build_meeting_datasets(
+    grouped_train_subset: dict,
+    grouped_val: dict,
+    grouped_test: dict,
+    speaker_encoder,
+    power_set_encoder,
+    max_speakers: int,
+    chunk_size: int,
+    max_sequence_length: int,
+):
+    """Build datasets for a subset of meetings (for FL clients).
+    
+    DEPRECATED: This function is kept for backward compatibility but is inefficient.
+    Use build_train_dataset_for_grouped_meetings() and build_eval_dataset() instead
+    to avoid rebuilding val/test datasets for each client.
+    
+    Args:
+        grouped_train_subset: Dictionary of meeting_id to samples (subset for one client)
+        grouped_val: Dictionary of meeting_id to samples (validation, shared across clients)
+        grouped_test: Dictionary of meeting_id to samples (test, shared across clients)
+        speaker_encoder: Speaker encoder model
+        power_set_encoder: PowerSetEncoder instance
+        max_speakers: Maximum number of speaker slots (N)
+        chunk_size: Number of samples to process at once
+        max_sequence_length: Maximum sequence length to truncate longer sequences
+        
+    Returns:
+        tuple: (train_dataset, val_dataset, test_dataset) - OverlappingSpeechDataset objects
+    """
+    logger.warning("build_meeting_datasets is deprecated. Use build_train_dataset_for_grouped_meetings() and build_eval_dataset() instead.")
+    
+    train_dataset = build_train_dataset_for_grouped_meetings(
+        grouped_train_subset, speaker_encoder, power_set_encoder, max_speakers,
+        chunk_size, max_sequence_length
+    )
+    val_dataset = build_eval_dataset(
+        grouped_val, speaker_encoder, power_set_encoder, max_speakers,
+        chunk_size, max_sequence_length, dataset_name="val"
+    )
+    test_dataset = build_eval_dataset(
+        grouped_test, speaker_encoder, power_set_encoder, max_speakers,
+        chunk_size, max_sequence_length, dataset_name="test"
+    )
+    
+    return train_dataset, val_dataset, test_dataset
+
 def power_set_encoding(label):
     """Encodes speaker label into a single integer using power-set encoding.
     
@@ -1977,6 +2146,12 @@ class OverlappingSpeechDataset(Dataset):
     Variable-length features save memory by avoiding client-level padding.
     
     Now uses meeting-specific embeddings in slot order matching the labels.
+    
+    THREAD-SAFETY: This dataset is read-only and safe for concurrent access across multiple FL clients.
+    The __getitem__ method only reads data and creates new tensors, never modifies internal state.
+    The only mutable state (_missing_meetings, _missing_embeddings) is for logging only and doesn't
+    affect data access. Multiple clients can safely share the same OverlappingSpeechDataset instance
+    for evaluation (val/test datasets).
     """
     def __init__(self, features, labels, meeting_ids, speaker_ids: list, 
                  meeting_to_speaker_embedding: dict, meeting_to_slot_speakers: dict, 

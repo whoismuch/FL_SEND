@@ -152,9 +152,6 @@ import json
 from datetime import datetime
 import pandas as pd
 from data_processing import (
-    split_data_for_clients, 
-    process_training_data,
-    process_validation_data,
     extract_features, 
     simulate_overlapping_speech, 
     group_by_meeting,
@@ -162,7 +159,9 @@ from data_processing import (
     power_set_encoding,
     calculate_der,
     compute_speaker_embeddings,
-    OverlappingSpeechDataset
+    OverlappingSpeechDataset,
+    build_train_dataset_for_grouped_meetings,
+    build_eval_dataset
 )
 from dataset_statistics import (
     print_meeting_statistics,
@@ -1252,6 +1251,63 @@ class SENDClient(NumPyClient):
         )
 
 
+def partition_meetings_among_clients(grouped_train: dict, num_clients: int, seed: int = 42):
+    """Partition meetings among FL clients by meeting_id.
+    
+    Each meeting belongs to exactly one client. Meetings are randomly shuffled
+    and distributed approximately evenly among clients.
+    
+    Args:
+        grouped_train: Dictionary of meeting_id to samples {meeting_id: [samples...]}
+        num_clients: Number of clients to partition meetings among
+        seed: Random seed for reproducibility (default: 42)
+        
+    Returns:
+        list[dict]: List of grouped_train subsets, one per client
+                   Each element is a dict {meeting_id: [samples...]}
+    """
+    logger.info(f"Partitioning {len(grouped_train)} meetings among {num_clients} clients...")
+    
+    # Set random seed for reproducibility
+    np.random.seed(seed)
+    random.seed(seed)
+    
+    # Get list of meeting IDs and shuffle
+    meeting_ids = list(grouped_train.keys())
+    np.random.shuffle(meeting_ids)
+    
+    logger.info(f"Shuffled {len(meeting_ids)} meeting IDs with seed={seed}")
+    
+    # Distribute meetings among clients (approximately evenly)
+    meetings_per_client = len(meeting_ids) // num_clients
+    remainder = len(meeting_ids) % num_clients
+    
+    client_grouped_trains = []
+    start_idx = 0
+    
+    for client_idx in range(num_clients):
+        # First 'remainder' clients get one extra meeting
+        num_meetings = meetings_per_client + (1 if client_idx < remainder else 0)
+        end_idx = start_idx + num_meetings
+        
+        client_meeting_ids = meeting_ids[start_idx:end_idx]
+        
+        # Create subset of grouped_train for this client
+        client_grouped = {mid: grouped_train[mid] for mid in client_meeting_ids}
+        client_grouped_trains.append(client_grouped)
+        
+        # Count samples for this client
+        num_samples = sum(len(samples) for samples in client_grouped.values())
+        logger.info(f"  Client {client_idx}: {len(client_meeting_ids)} meetings, {num_samples} samples")
+        logger.info(f"    Meeting IDs: {client_meeting_ids[:5]}{'...' if len(client_meeting_ids) > 5 else ''}")
+        
+        start_idx = end_idx
+    
+    logger.info(f"✓ Partitioned {len(meeting_ids)} meetings among {num_clients} clients")
+    
+    return client_grouped_trains
+
+
 def main():
     # Start timing
     start_time = time.time()
@@ -1532,77 +1588,130 @@ def main():
         # Print SENDModel statistics
         print_send_model_statistics(model)
         
-        # Split data for federated learning with fewer clients
-        print(f"MAIN: Splitting data for federated learning...")
-        client_data = split_data_for_clients(
-            grouped_train, grouped_validation, num_clients, speaker_encoder, power_set_encoder,
-            batch_size=batch_size
+        # NEW FL PIPELINE: Partition meetings among clients by meeting_id
+        print(f"MAIN: Partitioning meetings among {num_clients} clients...")
+        client_grouped_trains = partition_meetings_among_clients(
+            grouped_train, num_clients, seed=42
         )
         
-        # Print detailed statistics about client data split
-        print_client_split_statistics(client_data, num_clients, grouped_train)
+        # Validate partition
+        if not client_grouped_trains or len(client_grouped_trains) < num_clients:
+            raise ValueError(f"Not enough meetings for {num_clients} clients. Only {len(client_grouped_trains) if client_grouped_trains else 0} clients can be created.")
         
-        # Validate client data
-        if not client_data or len(client_data) < num_clients:
-            raise ValueError(f"Not enough data for {num_clients} clients. Only {len(client_data) if client_data else 0} clients can be created.")
+        print(f"MAIN: Partitioned meetings among {len(client_grouped_trains)} clients")
         
-        print(f"MAIN: Split data among {len(client_data)} clients")
+        # OPTIMIZATION: Build val and test datasets once globally (shared across all clients)
+        print(f"MAIN: Building shared val and test datasets (once for all clients)...")
+        val_dataset = build_eval_dataset(
+            grouped_eval=grouped_validation,
+            speaker_encoder=speaker_encoder,
+            power_set_encoder=power_set_encoder,
+            max_speakers=N,
+            chunk_size=chunk_size,
+            max_sequence_length=max_sequence_length,
+            dataset_name="val"
+        )
+        test_dataset = build_eval_dataset(
+            grouped_eval=grouped_test,
+            speaker_encoder=speaker_encoder,
+            power_set_encoder=power_set_encoder,
+            max_speakers=N,
+            chunk_size=chunk_size,
+            max_sequence_length=max_sequence_length,
+            dataset_name="test"
+        )
+        print(f"MAIN: Built shared datasets: val={len(val_dataset)} samples, test={len(test_dataset)} samples")
+        print(f"MAIN: These datasets will be safely shared across all {num_clients} clients (OverlappingSpeechDataset is read-only)")
         
-        # Calculate and display actual training samples information
-        total_training_samples = 0
-        total_training_frames = 0
-        client_samples_info = []
+        # Build train datasets for each client (only train, val/test are shared)
+        print(f"MAIN: Building train datasets for each client...")
+        client_datasets = []
         
-        for client_idx, (train_loader, val_loader) in enumerate(client_data):
-            # Get actual number of samples and frames for this client
-            client_train_samples = len(train_loader.dataset)
-            client_val_samples = len(val_loader.dataset)
-            client_total_samples = client_train_samples + client_val_samples
+        for client_idx, client_grouped_train in enumerate(client_grouped_trains):
+            print(f"MAIN: Building train dataset for client {client_idx}...")
+            train_dataset = build_train_dataset_for_grouped_meetings(
+                grouped_train_subset=client_grouped_train,
+                speaker_encoder=speaker_encoder,
+                power_set_encoder=power_set_encoder,
+                max_speakers=N,
+                chunk_size=chunk_size,
+                max_sequence_length=max_sequence_length
+            )
+            # Each client gets its own train_dataset but shares val_dataset
+            client_datasets.append((train_dataset, val_dataset))
             
-            # Calculate actual frames from the dataset
-            client_frames = 0
-            if client_train_samples > 0:
-                # Get actual frame count from first sample
-                first_sample = train_loader.dataset[0]
-                if isinstance(first_sample, tuple) and len(first_sample) > 0:
-                    feature = first_sample[0]  # First element should be features
-                    if hasattr(feature, 'shape') and len(feature.shape) > 0:
-                        frames_per_sample = feature.shape[0]
-                        client_frames = client_total_samples * frames_per_sample
+            print(f"MAIN: Client {client_idx}: train={len(train_dataset)} samples, val={len(val_dataset)} samples (shared)")
+        
+        print(f"MAIN: Built train datasets for {len(client_datasets)} clients")
+        
+        # SANITY CHECKS: Verify dataset structure before starting FL
+        print(f"\n{'='*80}")
+        print(f"MAIN: Running sanity checks before FL training...")
+        print(f"{'='*80}")
+        
+        sanity_check_passed = True
+        
+        # Check 2-3 random samples from different clients
+        for check_idx in range(min(3, len(client_datasets))):
+            train_dataset, val_dataset = client_datasets[check_idx]
+            
+            if len(train_dataset) == 0:
+                print(f"❌ SANITY CHECK FAILED: Client {check_idx} has empty train dataset!")
+                sanity_check_passed = False
+                continue
+            
+            # Get a random sample
+            sample_idx = np.random.randint(0, len(train_dataset))
+            features, speaker_embeddings, labels, meeting_id = train_dataset[sample_idx]
+            
+            # Check shapes
+            if speaker_embeddings.shape != (N, speaker_embeddings.shape[1]):
+                print(f"❌ SANITY CHECK FAILED: Client {check_idx}, sample {sample_idx}")
+                print(f"   Expected speaker_embeddings.shape == ({N}, emb_dim), got {speaker_embeddings.shape}")
+                sanity_check_passed = False
+            
+            if labels.shape[0] != features.shape[0]:
+                print(f"❌ SANITY CHECK FAILED: Client {check_idx}, sample {sample_idx}")
+                print(f"   Expected labels.shape[0] == features.shape[0], got labels.shape={labels.shape}, features.shape={features.shape}")
+                sanity_check_passed = False
+            
+            # Check that embeddings are not all zeros (should have actual values)
+            if torch.allclose(speaker_embeddings, torch.zeros_like(speaker_embeddings)):
+                print(f"⚠️  SANITY CHECK WARNING: Client {check_idx}, sample {sample_idx}")
+                print(f"   All speaker embeddings are zeros - this may indicate missing embeddings")
+            
+            print(f"✓ Client {check_idx}, sample {sample_idx}: features.shape={features.shape}, "
+                  f"speaker_embeddings.shape={speaker_embeddings.shape}, labels.shape={labels.shape}, meeting_id={meeting_id}")
+        
+        # Check that different meetings have different embeddings
+        if len(client_datasets) >= 2:
+            train_dataset_0, _ = client_datasets[0]
+            train_dataset_1, _ = client_datasets[1]
+            
+            if len(train_dataset_0) > 0 and len(train_dataset_1) > 0:
+                sample_0 = train_dataset_0[0]
+                sample_1 = train_dataset_1[0]
+                
+                _, emb_0, _, meeting_id_0 = sample_0
+                _, emb_1, _, meeting_id_1 = sample_1
+                
+                if meeting_id_0 != meeting_id_1:
+                    emb_diff_norm = torch.norm(emb_0[0] - emb_1[0]).item()
+                    if emb_diff_norm == 0:
+                        print(f"❌ SANITY CHECK FAILED: Different meetings have identical embeddings!")
+                        print(f"   meeting_id_0={meeting_id_0}, meeting_id_1={meeting_id_1}, norm(emb_0[0] - emb_1[0])={emb_diff_norm}")
+                        sanity_check_passed = False
                     else:
-                        client_frames = client_total_samples * 100  # Fallback estimate
-                else:
-                    client_frames = client_total_samples * 100  # Fallback estimate
-            else:
-                client_frames = 0
-            
-            total_training_samples += client_total_samples
-            total_training_frames += client_frames
-            
-            client_samples_info.append({
-                'client_id': client_idx,
-                'train_samples': client_train_samples,
-                'val_samples': client_val_samples,
-                'total_samples': client_total_samples,
-                'actual_frames': client_frames
-            })
-            
-            print(f"MAIN: Client {client_idx}: {client_train_samples} train samples, {client_val_samples} val samples, {client_total_samples} total samples, {client_frames} frames")
+                        print(f"✓ Different meetings have different embeddings: norm(emb_0[0] - emb_1[0])={emb_diff_norm:.6f}")
         
-        print(f"MAIN: Total training samples across all clients: {total_training_samples}")
-        print(f"MAIN: Total training frames across all clients: {total_training_frames}")
+        if not sanity_check_passed:
+            print(f"\n❌ SANITY CHECKS FAILED! Cannot start FL training.")
+            print(f"   Please fix the issues above before proceeding.")
+            raise ValueError("Sanity checks failed - see logs above")
         
-        # Additional information about data distribution
-        if total_training_samples > 0:
-            avg_frames_per_sample = total_training_frames / total_training_samples
-            print(f"MAIN: Average frames per sample: {avg_frames_per_sample:.1f}")
-            print(f"MAIN: Note: test_size={test_size} refers to number of meeting recordings, not individual training samples")
-            print(f"MAIN: Each meeting recording contains multiple audio segments, each segment becomes multiple training samples")
-            print(f"MAIN: Each training sample contains multiple frames (time steps) for sequence learning")
-        
-        # Compute speaker embeddings for train set
-        print(f"MAIN: Computing speaker embeddings for train set...")
-        speaker_to_embedding = compute_speaker_embeddings(grouped_train, speaker_encoder)
+        print(f"{'='*80}")
+        print(f"✓ All sanity checks passed! Ready to start FL training.")
+        print(f"{'='*80}\n")
         
         # Define client function for simulation
         def client_fn(context: Context):
@@ -1611,22 +1720,17 @@ def main():
             print(f"MAIN: Creating client {cid}")
             try:
                 client_idx = int(cid)
-                if client_idx >= len(client_data):
-                    raise ValueError(f"Client ID {client_idx} is out of range. Only {len(client_data)} clients available.")
-                train_loader, val_loader = client_data[client_idx]
-                # C1: Extract datasets from DataLoaders (don't store DataLoaders in client)
-                train_dataset = train_loader.dataset
-                val_dataset = val_loader.dataset
+                if client_idx >= len(client_datasets):
+                    raise ValueError(f"Client ID {client_idx} is out of range. Only {len(client_datasets)} clients available.")
+                train_dataset, val_dataset = client_datasets[client_idx]
                 
                 # ROBUSTNESS FIX: Log dataset sizes at client initialization
                 train_size = len(train_dataset) if train_dataset else 0
                 val_size = len(val_dataset) if val_dataset else 0
-                train_batches = len(train_loader)
-                val_batches = len(val_loader)
                 
                 print(f"[client_fn] Client {cid} dataset sizes:")
-                print(f"  - Train dataset: {train_size} samples, {train_batches} batches")
-                print(f"  - Val dataset: {val_size} samples, {val_batches} batches")
+                print(f"  - Train dataset: {train_size} samples")
+                print(f"  - Val dataset: {val_size} samples")
                 
                 if train_size == 0:
                     logger.warning(f"⚠️ CLIENT {cid}: Empty training dataset! This will cause fit() to return 0 examples.")
@@ -1644,8 +1748,8 @@ def main():
                 print(f"MAIN: Client {cid} created and ready")
                 return SENDClient(
                     model=client_model,
-                    train_dataset=train_dataset,  # C1: Pass dataset, not DataLoader
-                    val_dataset=val_dataset,    # C1: Pass dataset, not DataLoader
+                    train_dataset=train_dataset,  # Pass dataset directly (not DataLoader)
+                    val_dataset=val_dataset,    # Pass dataset directly (not DataLoader)
                     device=device,
                     power_set_encoder=power_set_encoder,
                     speaker_encoder=speaker_encoder,
