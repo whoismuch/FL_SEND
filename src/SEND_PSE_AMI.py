@@ -647,12 +647,24 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                 # SANITY CHECK: Verify meeting-specific embeddings (first 2 batches only)
                 if batch_idx < 2 and epoch == 0:
                     logger.info(f"[SANITY CHECK] Batch {batch_idx}: Verifying meeting-specific embeddings...")
+                    # Convert meeting_ids to hashable types for comparison
+                    def normalize_meeting_id(mid):
+                        """Convert meeting_id to hashable type (string or int)."""
+                        if isinstance(mid, np.ndarray):
+                            return mid.item() if mid.size == 1 else str(mid)
+                        elif isinstance(mid, (list, tuple)):
+                            return str(mid[0]) if len(mid) > 0 else str(mid)
+                        else:
+                            return mid
+                    
+                    normalized_meeting_ids = [normalize_meeting_id(mid) for mid in meeting_ids]
+                    unique_meetings = list(set(normalized_meeting_ids))
+                    
                     # Check 1: Embeddings should differ for different meetings
-                    unique_meetings = list(set(meeting_ids))
                     if len(unique_meetings) >= 2:
                         mid1, mid2 = unique_meetings[0], unique_meetings[1]
-                        idx1 = [i for i, mid in enumerate(meeting_ids) if mid == mid1][0]
-                        idx2 = [i for i, mid in enumerate(meeting_ids) if mid == mid2][0]
+                        idx1 = [i for i, mid in enumerate(normalized_meeting_ids) if mid == mid1][0]
+                        idx2 = [i for i, mid in enumerate(normalized_meeting_ids) if mid == mid2][0]
                         emb1 = speaker_embeddings[idx1]  # [max_speakers, emb_dim]
                         emb2 = speaker_embeddings[idx2]
                         diff_norm = torch.norm(emb1 - emb2).item()
@@ -665,7 +677,7 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                     # Check 2: Embeddings should be same for same meeting
                     if len(unique_meetings) >= 1:
                         mid = unique_meetings[0]
-                        same_meeting_indices = [i for i, m in enumerate(meeting_ids) if m == mid]
+                        same_meeting_indices = [i for i, m in enumerate(normalized_meeting_ids) if m == mid]
                         if len(same_meeting_indices) >= 2:
                             idx1, idx2 = same_meeting_indices[0], same_meeting_indices[1]
                             emb1 = speaker_embeddings[idx1]
@@ -774,12 +786,24 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                 # SANITY CHECK: Verify meeting-specific embeddings (first 2 batches only)
                 if batch_idx < 2 and epoch == 0:
                     logger.info(f"[SANITY CHECK] Batch {batch_idx}: Verifying meeting-specific embeddings...")
+                    # Convert meeting_ids to hashable types for comparison
+                    def normalize_meeting_id(mid):
+                        """Convert meeting_id to hashable type (string or int)."""
+                        if isinstance(mid, np.ndarray):
+                            return mid.item() if mid.size == 1 else str(mid)
+                        elif isinstance(mid, (list, tuple)):
+                            return str(mid[0]) if len(mid) > 0 else str(mid)
+                        else:
+                            return mid
+                    
+                    normalized_meeting_ids = [normalize_meeting_id(mid) for mid in meeting_ids]
+                    unique_meetings = list(set(normalized_meeting_ids))
+                    
                     # Check 1: Embeddings should differ for different meetings
-                    unique_meetings = list(set(meeting_ids))
                     if len(unique_meetings) >= 2:
                         mid1, mid2 = unique_meetings[0], unique_meetings[1]
-                        idx1 = [i for i, mid in enumerate(meeting_ids) if mid == mid1][0]
-                        idx2 = [i for i, mid in enumerate(meeting_ids) if mid == mid2][0]
+                        idx1 = [i for i, mid in enumerate(normalized_meeting_ids) if mid == mid1][0]
+                        idx2 = [i for i, mid in enumerate(normalized_meeting_ids) if mid == mid2][0]
                         emb1 = speaker_embeddings[idx1]  # [max_speakers, emb_dim]
                         emb2 = speaker_embeddings[idx2]
                         diff_norm = torch.norm(emb1 - emb2).item()
@@ -792,7 +816,7 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                     # Check 2: Embeddings should be same for same meeting
                     if len(unique_meetings) >= 1:
                         mid = unique_meetings[0]
-                        same_meeting_indices = [i for i, m in enumerate(meeting_ids) if m == mid]
+                        same_meeting_indices = [i for i, m in enumerate(normalized_meeting_ids) if m == mid]
                         if len(same_meeting_indices) >= 2:
                             idx1, idx2 = same_meeting_indices[0], same_meeting_indices[1]
                             emb1 = speaker_embeddings[idx1]

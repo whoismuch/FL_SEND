@@ -1955,7 +1955,19 @@ class OverlappingSpeechDataset(Dataset):
             label = torch.tensor(self.labels[idx], dtype=torch.long)
         
         # MEMORY FIX: meeting_ids is now a 1D array of strings/ints (one per sample)
-        meeting_id = self.meeting_ids[idx]
+        meeting_id_raw = self.meeting_ids[idx]
+        
+        # Convert meeting_id to hashable type (string or int)
+        # Handle numpy arrays and other types
+        if isinstance(meeting_id_raw, np.ndarray):
+            # If it's a numpy array, extract the scalar value
+            meeting_id = meeting_id_raw.item() if meeting_id_raw.size == 1 else str(meeting_id_raw)
+        elif isinstance(meeting_id_raw, (list, tuple)):
+            # If it's a list/tuple, convert to string
+            meeting_id = str(meeting_id_raw[0]) if len(meeting_id_raw) > 0 else str(meeting_id_raw)
+        else:
+            # Already a string, int, or other hashable type
+            meeting_id = meeting_id_raw
         
         # Check bounds for speaker_ids
         if idx >= len(self.speaker_ids):
