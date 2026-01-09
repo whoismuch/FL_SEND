@@ -1594,9 +1594,8 @@ def main():
         print(f"MAIN: Logs directory: {artifact_logs_dir}")
         print(f"MAIN: Plots directory: {artifact_plots_dir}")
         
-        # Compute speaker embeddings for train set
-        print(f"MAIN: Computing speaker embeddings for train set...")
-        speaker_to_embedding = compute_speaker_embeddings(grouped_train, speaker_encoder)
+        # NOTE: Speaker embeddings will be computed inside prepare_data_loaders()
+        # No need to compute them here separately - it would be redundant and waste time
         
         # === CENTRALIZED TRAINING ===
         print("\n==================== STARTING CENTRALIZED TRAINING ====================\n")
