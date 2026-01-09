@@ -2424,8 +2424,25 @@ def main():
                 raise RuntimeError(f"Failed to update model with final parameters: {e}")
             # Note: If final_parameters is None, we already logged the error above and skip model update
         
-        # Final evaluation on test set with UPDATED model
-        print("\n==================== TESTING STARTED (UPDATED MODEL) ====================\n")
+        # Final evaluation on test set with UPDATED model (server-side evaluation)
+        print("\n==================== SERVER-SIDE TEST EVALUATION STARTED ====================\n")
+        
+        if len(test_dataset) == 0:
+            print("⚠️  WARNING: Test dataset is empty. Skipping test evaluation.")
+            test_loss = float('nan')
+            der = float('nan')
+        else:
+            # Create DataLoader for test dataset
+            from data_processing import collate_fn_overlapping_speech
+            test_loader = DataLoader(
+                test_dataset,
+                batch_size=batch_size,
+                shuffle=False,
+                collate_fn=collate_fn_overlapping_speech,
+                num_workers=0,  # Disable multiprocessing for server-side evaluation
+                pin_memory=False
+            )
+            
         model.eval()
         test_loss = 0.0
         # Group predictions by meeting_id for proper DER calculation
@@ -2438,8 +2455,8 @@ def main():
             print(f"[FINAL TEST DEBUG] Final parameters shape: {len(strategy.final_parameters.tensors)}")
         
         # Debug: Check test dataset
-        print(f"[FINAL TEST DEBUG] Test dataset size: {len(test_loader.dataset)}")
-        print(f"[FINAL TEST DEBUG] Test dataset speaker_id_list: {test_loader.dataset.get_speaker_id_list()}")
+            print(f"[FINAL TEST DEBUG] Test dataset size: {len(test_dataset)}")
+            print(f"[FINAL TEST DEBUG] Test dataset speaker_id_list: {test_dataset.get_speaker_id_list() if hasattr(test_dataset, 'get_speaker_id_list') else 'N/A'}")
         
         # Debug: Check model state before testing
         model_params_before = [p.clone() for p in model.parameters()]
@@ -2456,7 +2473,8 @@ def main():
                 outputs = model(features, speaker_embeddings)
                 outputs = outputs.reshape(-1, outputs.shape[-1])
                 labels = labels.reshape(-1)
-                loss = nn.CrossEntropyLoss()(outputs, labels)
+                # Use ignore_index=-100 to skip padded frames (same as in training)
+                loss = nn.CrossEntropyLoss(ignore_index=-100)(outputs, labels)
                 test_loss += loss.item()
                 predictions = torch.argmax(outputs, dim=-1)
                 
@@ -2475,34 +2493,41 @@ def main():
                 # Group predictions by meeting_id
                 predictions_np = predictions.cpu().numpy()
                 labels_np = labels.cpu().numpy()
-                # meeting_ids: List[np.ndarray] (each with length = max_len of batch)
-                meeting_ids_flat = np.concatenate(meeting_ids, axis=0)  # => shape: [batch_size*seq_len]
+                # meeting_ids is now a 1D array (one per sample), not per-frame
+                # Create per-frame meeting_id array by repeating for each frame in the sequence
+                batch_size, seq_len = labels.shape
+                meeting_ids_flat = []
+                for i in range(batch_size):
+                    meeting_id = meeting_ids[i] if isinstance(meeting_ids, (list, np.ndarray)) else meeting_ids
+                    # Repeat meeting_id for each frame in this sequence
+                    meeting_ids_flat.extend([meeting_id] * seq_len)
+                meeting_ids_flat = np.array(meeting_ids_flat)
                 
                 for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
-                    if meeting_id is not None:  # Skip padded frames
+                    if meeting_id is not None and label != -100:  # Skip padded frames
                         pred_by_rec[meeting_id].append(pred)
                         lab_by_rec[meeting_id].append(label)
         
-        # Calculate DER per recording and aggregate
-        ders = {}
-        # Get speaker_id_list from test dataset for consistency
-        test_speaker_id_list = test_loader.dataset.get_speaker_id_list() if hasattr(test_loader.dataset, 'get_speaker_id_list') else None
-        print(f"[FINAL TEST] Using speaker_id_list from test dataset: {test_speaker_id_list}")
+            # Calculate DER per recording and aggregate
+            ders = {}
+            # Get speaker_id_list from test dataset for consistency
+            test_speaker_id_list = test_dataset.get_speaker_id_list() if hasattr(test_dataset, 'get_speaker_id_list') else None
+            print(f"[FINAL TEST] Using speaker_id_list from test dataset: {test_speaker_id_list}")
+            
+            # Debug: Check predictions distribution
+            for rec_id in pred_by_rec:
+                if pred_by_rec[rec_id] and lab_by_rec[rec_id]:
+                    unique_preds = np.unique(pred_by_rec[rec_id])
+                    unique_labels = np.unique(lab_by_rec[rec_id])
+                    print(f"[FINAL TEST DEBUG] Recording {rec_id}:")
+                    print(f"  - Unique predictions: {unique_preds}")
+                    print(f"  - Unique labels: {unique_labels}")
+                    print(f"  - Prediction distribution: {np.bincount(pred_by_rec[rec_id])}")
+                    print(f"  - Label distribution: {np.bincount(lab_by_rec[rec_id])}")
         
-        # Debug: Check predictions distribution
-        for rec_id in pred_by_rec:
-            if pred_by_rec[rec_id] and lab_by_rec[rec_id]:
-                unique_preds = np.unique(pred_by_rec[rec_id])
-                unique_labels = np.unique(lab_by_rec[rec_id])
-                print(f"[FINAL TEST DEBUG] Recording {rec_id}:")
-                print(f"  - Unique predictions: {unique_preds}")
-                print(f"  - Unique labels: {unique_labels}")
-                print(f"  - Prediction distribution: {np.bincount(pred_by_rec[rec_id])}")
-                print(f"  - Label distribution: {np.bincount(lab_by_rec[rec_id])}")
-        
-        for rec_id in pred_by_rec:
-            if pred_by_rec[rec_id] and lab_by_rec[rec_id]:
-                ders[rec_id] = calculate_der(
+            for rec_id in pred_by_rec:
+                if pred_by_rec[rec_id] and lab_by_rec[rec_id]:
+                    ders[rec_id] = calculate_der(
                     pred_by_rec[rec_id],
                     lab_by_rec[rec_id],
                     power_set_encoder,
@@ -2512,18 +2537,16 @@ def main():
                     uri=rec_id
                 )
         
-        # Calculate final metrics
-        test_loss = test_loss / len(test_loader)
-        der = np.mean(list(ders.values())) if ders else float('nan')
-        
-        print(f"Test recordings processed: {len(ders)}")
-        print(f"DER per recording: {ders}")
-        print(f"Average DER: {der}")
-        print(f"\n==================== TESTING FINISHED ====================\n")
-        print(f"Final Test Loss: {test_loss:.4f}")
-        print(f"Final DER: {der:.4f}")
-        print(f"Final Test Loss: {test_loss:.4f}")
-        print(f"Final DER: {der:.4f}")
+            # Calculate final metrics
+            test_loss = test_loss / len(test_loader) if len(test_loader) > 0 else float('nan')
+            der = np.mean(list(ders.values())) if ders else float('nan')
+            
+            print(f"Test recordings processed: {len(ders)}")
+            print(f"DER per recording: {ders}")
+            print(f"Average DER: {der}")
+            print(f"\n==================== SERVER-SIDE TEST EVALUATION FINISHED ====================\n")
+            print(f"Final Test Loss: {test_loss:.4f}")
+            print(f"Final DER: {der:.4f}")
 
         # === EXPORT DIARIZATION RESULTS TO RTTM FORMAT ===
         print("\n===== EXPORTING DIARIZATION RESULTS =====")
@@ -2542,8 +2565,9 @@ def main():
             # Create dictionary with speaker_id_lists for each recording
             speaker_id_lists = {}
             for rec_id in pred_by_rec:
-                if rec_id in test_loader.dataset.speaker_id_list:
-                    speaker_id_lists[rec_id] = test_loader.dataset.speaker_id_list[rec_id]
+                # Use meeting-specific slot speakers from test_dataset if available
+                if hasattr(test_dataset, 'meeting_to_slot_speakers') and rec_id in test_dataset.meeting_to_slot_speakers:
+                    speaker_id_lists[rec_id] = test_dataset.meeting_to_slot_speakers[rec_id]
                 else:
                     # Use general speaker list
                     speaker_id_lists[rec_id] = test_speaker_id_list
