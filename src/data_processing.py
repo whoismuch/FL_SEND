@@ -1844,37 +1844,121 @@ def demonstrate_power_set_encoding():
         binary = format(encoded, f'0{max_speakers}b')
         print(f"Speakers {speakers}: {encoded} (binary: {binary})")
 
-def compute_speaker_embeddings(grouped_data, speaker_encoder):
+def compute_speaker_embeddings(grouped_data, speaker_encoder, target_sr=16000, min_duration=0.5, target_duration=2.0):
     """Computes speaker embedding for each unique (meeting_id, speaker_id) pair.
     
     Returns meeting-specific embeddings: dict[meeting_id, dict[speaker_id, torch.Tensor]]
-    Each embedding is computed from the first non-overlap segment of that speaker in that meeting.
+    Each embedding is computed from the longest non-overlap segment (or accumulated segments) of that speaker.
+    
+    Args:
+        grouped_data: Dictionary of meeting_id to samples
+        speaker_encoder: Speaker encoder model (expects 16kHz audio)
+        target_sr: Target sampling rate (default: 16000 Hz)
+        min_duration: Minimum segment duration in seconds (default: 0.5s)
+        target_duration: Target duration for accumulated segments in seconds (default: 2.0s)
     """
+    # librosa is already imported at module level
+    
     meeting_to_speaker_embedding = {}
+    
+    # Check sampling rates in first 20 samples
+    sample_rates = []
+    for meeting_id, samples in list(grouped_data.items())[:1]:  # Check first meeting
+        for sample in samples[:20]:  # First 20 samples
+            if "audio" in sample and "sampling_rate" in sample["audio"]:
+                sample_rates.append(sample["audio"]["sampling_rate"])
+            elif "audio" in sample and hasattr(sample["audio"], "get"):
+                sample_rates.append(sample["audio"].get("sampling_rate", None))
+    
+    if sample_rates:
+        unique_srs = list(set(sr for sr in sample_rates if sr is not None))
+        logger.info(f"Sample rates found in first 20 samples: {unique_srs}")
+        if len(unique_srs) > 0 and unique_srs[0] != target_sr:
+            logger.warning(f"⚠️  WARNING: Audio sampling rate is {unique_srs[0]} Hz, not {target_sr} Hz!")
+            logger.warning(f"   Will resample to {target_sr} Hz for speaker embeddings.")
     
     for meeting_id, samples in grouped_data.items():
         meeting_to_speaker_embedding[meeting_id] = {}
         
-        # Group samples by speaker_id for this meeting
-        speaker_to_audio = {}
+        # Group samples by speaker_id for this meeting with duration info
+        speaker_to_segments = {}
         for sample in samples:
             sid = sample["speaker_id"]
             # Skip if speaker_id is a list (overlap segment) - we only want non-overlap segments
             if isinstance(sid, list):
                 continue
-            if sid not in speaker_to_audio:
-                speaker_to_audio[sid] = []
-            speaker_to_audio[sid].append(sample["audio"]["array"])
+            
+            audio_array = sample["audio"]["array"]
+            sampling_rate = sample["audio"].get("sampling_rate", target_sr)
+            
+            # Calculate duration
+            duration = len(audio_array) / sampling_rate if sampling_rate > 0 else 0.0
+            
+            if sid not in speaker_to_segments:
+                speaker_to_segments[sid] = []
+            
+            speaker_to_segments[sid].append({
+                "audio": audio_array,
+                "sampling_rate": sampling_rate,
+                "duration": duration,
+                "begin_time": sample.get("begin_time", 0),
+                "end_time": sample.get("end_time", duration)
+            })
         
         # Compute embedding for each speaker in this meeting
-        for sid, audio_list in speaker_to_audio.items():
-            if len(audio_list) == 0:
+        for sid, segments in speaker_to_segments.items():
+            if len(segments) == 0:
                 logger.warning(f"Meeting {meeting_id}: No audio segments for speaker {sid}")
                 continue
             
-            # Use first available segment (preferably non-overlap)
-            audio = audio_list[0]
-            audio_tensor = torch.tensor(audio, dtype=torch.float32).unsqueeze(0)  # [1, time]
+            # Strategy 1: Find longest segment
+            longest_segment = max(segments, key=lambda s: s["duration"])
+            
+            # Strategy 2: If longest is too short, accumulate segments up to target_duration
+            if longest_segment["duration"] < min_duration:
+                logger.warning(f"Meeting {meeting_id}, speaker {sid}: Longest segment is only {longest_segment['duration']:.2f}s (< {min_duration}s). Using it anyway.")
+                selected_segment = longest_segment
+            elif longest_segment["duration"] < target_duration:
+                # Try to accumulate segments
+                sorted_segments = sorted(segments, key=lambda s: s["duration"], reverse=True)
+                accumulated_audio = []
+                accumulated_duration = 0.0
+                accumulated_sr = sorted_segments[0]["sampling_rate"]
+                
+                for seg in sorted_segments:
+                    if accumulated_duration >= target_duration:
+                        break
+                    accumulated_audio.append(seg["audio"])
+                    accumulated_duration += seg["duration"]
+                    accumulated_sr = seg["sampling_rate"]  # Assume same SR
+                
+                if len(accumulated_audio) > 1 and accumulated_duration >= min_duration:
+                    # Concatenate accumulated segments
+                    selected_audio = np.concatenate(accumulated_audio)
+                    selected_sr = accumulated_sr
+                    logger.info(f"Meeting {meeting_id}, speaker {sid}: Accumulated {len(accumulated_audio)} segments to {accumulated_duration:.2f}s")
+                else:
+                    # Use longest segment
+                    selected_audio = longest_segment["audio"]
+                    selected_sr = longest_segment["sampling_rate"]
+            else:
+                # Use longest segment (it's long enough)
+                selected_audio = longest_segment["audio"]
+                selected_sr = longest_segment["sampling_rate"]
+            
+            # Resample to target_sr if needed
+            if selected_sr != target_sr:
+                logger.info(f"Meeting {meeting_id}, speaker {sid}: Resampling from {selected_sr} Hz to {target_sr} Hz")
+                selected_audio = librosa.resample(selected_audio, orig_sr=selected_sr, target_sr=target_sr)
+            
+            # Ensure minimum length (at least 0.1s)
+            min_samples = int(target_sr * 0.1)
+            if len(selected_audio) < min_samples:
+                logger.warning(f"Meeting {meeting_id}, speaker {sid}: Audio too short ({len(selected_audio)} samples), padding to {min_samples}")
+                selected_audio = np.pad(selected_audio, (0, min_samples - len(selected_audio)), mode='constant')
+            
+            # Convert to tensor and compute embedding
+            audio_tensor = torch.tensor(selected_audio, dtype=torch.float32).unsqueeze(0)  # [1, time]
             with torch.no_grad():
                 emb = speaker_encoder.encode_batch(audio_tensor)
                 emb = emb.squeeze().cpu()
@@ -1938,6 +2022,19 @@ class OverlappingSpeechDataset(Dataset):
             slot_speakers = meeting_to_slot_speakers[mid]
             logger.info(f"[OverlappingSpeechDataset] Example meeting {mid}: slot_speakers={slot_speakers}")
         
+        # Initialize tracking for missing embeddings warnings
+        self._missing_meetings = set()
+        self._missing_embeddings = set()
+        self._missing_speaker_embeddings = []
+    
+    def get_missing_embeddings_summary(self):
+        """Get summary of missing embeddings warnings."""
+        return {
+            'missing_meetings_in_slot_mapping': len(self._missing_meetings),
+            'missing_meetings_in_embeddings': len(self._missing_embeddings),
+            'missing_speaker_embeddings': len(self._missing_speaker_embeddings)
+        }
+    
     def __len__(self) -> int:
         return len(self.features)
     
@@ -1981,22 +2078,39 @@ class OverlappingSpeechDataset(Dataset):
         # Get slot_speakers for this meeting (in slot order: slot 0, 1, 2, ...)
         slot_speakers = self.meeting_to_slot_speakers.get(meeting_id, [])
         if not slot_speakers:
-            logger.warning(f"Meeting {meeting_id} not found in meeting_to_slot_speakers. Using empty slot list.")
+            # Track missing meetings for summary
+            if not hasattr(self, '_missing_meetings'):
+                self._missing_meetings = set()
+            self._missing_meetings.add(meeting_id)
+            if len(self._missing_meetings) <= 10:  # Log first 10
+                logger.warning(f"Meeting {meeting_id} not found in meeting_to_slot_speakers. Using empty slot list.")
         
         # Get meeting-specific embeddings
         meeting_embeddings = self.meeting_to_speaker_embedding.get(meeting_id, {})
         if not meeting_embeddings:
-            logger.warning(f"Meeting {meeting_id} not found in meeting_to_speaker_embedding. Using zero embeddings.")
+            # Track missing embeddings for summary
+            if not hasattr(self, '_missing_embeddings'):
+                self._missing_embeddings = set()
+            self._missing_embeddings.add(meeting_id)
+            if len(self._missing_embeddings) <= 10:  # Log first 10
+                logger.warning(f"Meeting {meeting_id} not found in meeting_to_speaker_embedding. Using zero embeddings.")
         
         # Build speaker_embeddings tensor in slot order: [emb_slot0, emb_slot1, ..., emb_slotN-1]
         speaker_embeddings_list = []
+        missing_embedding_count = 0
         for slot_idx in range(self.max_speakers):
             if slot_idx < len(slot_speakers):
                 speaker_id = slot_speakers[slot_idx]
                 if speaker_id in meeting_embeddings:
                     speaker_embeddings_list.append(meeting_embeddings[speaker_id])
                 else:
-                    logger.warning(f"Missing embedding for meeting {meeting_id}, speaker {speaker_id} at slot {slot_idx}. Using zeros.")
+                    missing_embedding_count += 1
+                    # Track missing speaker embeddings for summary
+                    if not hasattr(self, '_missing_speaker_embeddings'):
+                        self._missing_speaker_embeddings = []
+                    self._missing_speaker_embeddings.append((meeting_id, speaker_id, slot_idx))
+                    if len(self._missing_speaker_embeddings) <= 20:  # Log first 20
+                        logger.warning(f"Missing embedding for meeting {meeting_id}, speaker {speaker_id} at slot {slot_idx}. Using zeros.")
                     speaker_embeddings_list.append(torch.zeros(self.emb_dim))
             else:
                 # Pad with zeros if fewer speakers than max_speakers

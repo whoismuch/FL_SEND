@@ -966,6 +966,22 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
         if nan_batches > 0:
             logger.warning(f"Epoch {epoch+1}: {nan_batches} batches had NaN/Inf loss, {len(batch_losses)} valid batches remaining")
         
+        # Check for missing embeddings warnings (first epoch only)
+        if epoch == 0 and hasattr(train_loader.dataset, 'get_missing_embeddings_summary'):
+            missing_summary = train_loader.dataset.get_missing_embeddings_summary()
+            logger.info(f"Epoch {epoch+1}: Missing embeddings summary:")
+            logger.info(f"  - Meetings missing in slot mapping: {missing_summary['missing_meetings_in_slot_mapping']}")
+            logger.info(f"  - Meetings missing in embeddings: {missing_summary['missing_meetings_in_embeddings']}")
+            logger.info(f"  - Missing speaker embeddings: {missing_summary['missing_speaker_embeddings']}")
+            
+            if missing_summary['missing_meetings_in_slot_mapping'] > 0:
+                logger.warning(f"⚠️  WARNING: {missing_summary['missing_meetings_in_slot_mapping']} meetings not found in slot mapping!")
+            if missing_summary['missing_meetings_in_embeddings'] > 0:
+                logger.warning(f"⚠️  WARNING: {missing_summary['missing_meetings_in_embeddings']} meetings not found in embeddings!")
+            if missing_summary['missing_speaker_embeddings'] > 10:
+                logger.warning(f"⚠️  WARNING: {missing_summary['missing_speaker_embeddings']} missing speaker embeddings detected!")
+                logger.warning(f"   This may indicate speaker_id format mismatch between slot mapping and embeddings.")
+        
         # Metrics per epoch
         mean_loss = np.mean(batch_losses) if batch_losses else float('nan')
         # Calculate accuracy across all frames (only if DER computation was enabled)
