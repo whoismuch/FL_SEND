@@ -585,16 +585,59 @@ def split_data_for_clients(grouped_data, grouped_validation, num_clients, speake
                 train_labels = labels
                 train_meeting_ids = meeting_ids_array
                 
-                # Create separate speaker embeddings for training and validation
-                train_speaker_to_embedding = compute_speaker_embeddings(grouped_data, speaker_encoder)
-                val_speaker_to_embedding = compute_speaker_embeddings(grouped_validation, speaker_encoder) if grouped_validation else {}
+                # Create meeting-specific embeddings and slot mappings
+                # For FL, we need to create meeting_to_slot_speakers from grouped_data
+                train_meeting_to_speaker_embedding = compute_speaker_embeddings(grouped_data, speaker_encoder)
+                val_meeting_to_speaker_embedding = compute_speaker_embeddings(grouped_validation, speaker_encoder) if grouped_validation else {}
+                
+                # Create meeting_to_slot_speakers for train and val
+                # Use same deterministic ordering as _process_meeting_with_overlaps
+                train_meeting_to_slot_speakers = {}
+                for meeting_id, samples in grouped_data.items():
+                    speaker_durations = {}
+                    speaker_first_appearance = {}
+                    for idx, sample in enumerate(samples):
+                        sid = sample["speaker_id"]
+                        if isinstance(sid, list):
+                            continue
+                        duration = sample.get("end_time", 0) - sample.get("begin_time", 0)
+                        if sid not in speaker_durations:
+                            speaker_durations[sid] = 0.0
+                            speaker_first_appearance[sid] = idx
+                        speaker_durations[sid] += duration
+                    meeting_speakers = sorted(
+                        speaker_durations.keys(),
+                        key=lambda sid: (-speaker_durations[sid], speaker_first_appearance[sid])
+                    )
+                    train_meeting_to_slot_speakers[meeting_id] = meeting_speakers[:len(speaker_to_idx)]
+                
+                val_meeting_to_slot_speakers = {}
+                if grouped_validation:
+                    for meeting_id, samples in grouped_validation.items():
+                        speaker_durations = {}
+                        speaker_first_appearance = {}
+                        for idx, sample in enumerate(samples):
+                            sid = sample["speaker_id"]
+                            if isinstance(sid, list):
+                                continue
+                            duration = sample.get("end_time", 0) - sample.get("begin_time", 0)
+                            if sid not in speaker_durations:
+                                speaker_durations[sid] = 0.0
+                                speaker_first_appearance[sid] = idx
+                            speaker_durations[sid] += duration
+                        meeting_speakers = sorted(
+                            speaker_durations.keys(),
+                            key=lambda sid: (-speaker_durations[sid], speaker_first_appearance[sid])
+                        )
+                        val_meeting_to_slot_speakers[meeting_id] = meeting_speakers[:len(val_speaker_to_idx)]
                 
                 train_dataset = OverlappingSpeechDataset(
                     features=train_features,
                     labels=train_labels,
                     meeting_ids=train_meeting_ids,
                     speaker_ids=speaker_ids,
-                    speaker_to_embedding=train_speaker_to_embedding,
+                    meeting_to_speaker_embedding=train_meeting_to_speaker_embedding,
+                    meeting_to_slot_speakers=train_meeting_to_slot_speakers,
                     max_speakers=len(speaker_to_idx)
                 )
                 val_dataset = OverlappingSpeechDataset(
@@ -602,7 +645,8 @@ def split_data_for_clients(grouped_data, grouped_validation, num_clients, speake
                     labels=val_labels,
                     meeting_ids=val_meeting_ids_array,
                     speaker_ids=val_speaker_ids,
-                    speaker_to_embedding=val_speaker_to_embedding,
+                    meeting_to_speaker_embedding=val_meeting_to_speaker_embedding,
+                    meeting_to_slot_speakers=val_meeting_to_slot_speakers,
                     max_speakers=len(val_speaker_to_idx)
                 )
                 # For FL clients: use num_workers=0, pin_memory=False, and persistent_workers=False to reduce RAM usage
@@ -785,16 +829,41 @@ def _process_meeting_with_overlaps(meeting_id, samples, N=4):
         N: Maximum number of speaker slots
         
     Returns:
-        tuple: (all_samples_info, meeting_original_count, meeting_overlaps_count)
+        tuple: (all_samples_info, meeting_original_count, meeting_overlaps_count, slot_speakers)
             where all_samples_info is a list of dicts with 'meeting_id', 'sample', 'speaker_to_slot', 'is_overlap'
+            and slot_speakers is a list of speaker_id in slot order [spk_id_slot0, spk_id_slot1, ...]
     """
-    # Create speaker-to-slot mapping for this recording (max N slots)
-    meeting_speakers = list(set(sample["speaker_id"] for sample in samples))
-    speaker_to_slot = {}
-    for i, speaker_id in enumerate(meeting_speakers[:N]):
-        speaker_to_slot[speaker_id] = i
+    # Create deterministic speaker-to-slot mapping based on total speech duration
+    # This ensures consistent ordering across all samples from the same meeting
+    speaker_durations = {}
+    speaker_first_appearance = {}
     
-    logger.info(f"Meeting {meeting_id}: {len(meeting_speakers)} speakers mapped to slots {list(speaker_to_slot.values())}")
+    for idx, sample in enumerate(samples):
+        sid = sample["speaker_id"]
+        # Skip if speaker_id is a list (overlap segment)
+        if isinstance(sid, list):
+            continue
+        
+        duration = sample.get("end_time", 0) - sample.get("begin_time", 0)
+        if sid not in speaker_durations:
+            speaker_durations[sid] = 0.0
+            speaker_first_appearance[sid] = idx
+        speaker_durations[sid] += duration
+    
+    # Sort speakers by: 1) total duration (descending), 2) first appearance (ascending)
+    # This creates a stable, deterministic ordering
+    meeting_speakers = sorted(
+        speaker_durations.keys(),
+        key=lambda sid: (-speaker_durations[sid], speaker_first_appearance[sid])
+    )
+    
+    # Take top N speakers and create slot mapping
+    slot_speakers = meeting_speakers[:N]  # List of speaker_id in slot order
+    speaker_to_slot = {sid: i for i, sid in enumerate(slot_speakers)}
+    
+    logger.info(f"Meeting {meeting_id}: {len(meeting_speakers)} speakers, selected top {len(slot_speakers)} for slots")
+    logger.info(f"  Slot order: {slot_speakers}")
+    logger.info(f"  Slot mapping: {speaker_to_slot}")
     
     # Sort samples by begin_time to detect overlaps
     sorted_samples = sorted(samples, key=lambda x: x["begin_time"])
@@ -872,7 +941,7 @@ def _process_meeting_with_overlaps(meeting_id, samples, N=4):
     if meeting_overlaps > 0:
         logger.info(f"    ✓ CONFIRMED: Found and processed {meeting_overlaps} overlapping segments for meeting {meeting_id}")
     
-    return all_samples_info, meeting_original, meeting_overlaps, same_speaker_overlaps
+    return all_samples_info, meeting_original, meeting_overlaps, same_speaker_overlaps, slot_speakers
 
 
 def _process_all_meetings_with_overlaps(grouped_data, N=4):
@@ -883,7 +952,8 @@ def _process_all_meetings_with_overlaps(grouped_data, N=4):
         N: Maximum number of speaker slots
         
     Returns:
-        tuple: (all_samples_info, total_original_segments, total_overlapping_segments, total_same_speaker_overlaps)
+        tuple: (all_samples_info, total_original_segments, total_overlapping_segments, total_same_speaker_overlaps, meeting_to_slot_speakers)
+            where meeting_to_slot_speakers is dict[meeting_id, list[speaker_id]] in slot order
     """
     logger.info("=" * 80)
     logger.info("OVERLAPPING SPEECH PROCESSING: ENABLED")
@@ -895,16 +965,18 @@ def _process_all_meetings_with_overlaps(grouped_data, N=4):
     total_overlapping_segments = 0
     total_same_speaker_overlaps = 0
     all_samples_info = []
+    meeting_to_slot_speakers = {}
     
     for meeting_id, samples in grouped_data.items():
         try:
-            meeting_samples_info, meeting_original, meeting_overlaps, same_speaker_overlaps = _process_meeting_with_overlaps(
+            meeting_samples_info, meeting_original, meeting_overlaps, same_speaker_overlaps, slot_speakers = _process_meeting_with_overlaps(
                 meeting_id, samples, N
             )
             all_samples_info.extend(meeting_samples_info)
             total_original_segments += meeting_original
             total_overlapping_segments += meeting_overlaps
             total_same_speaker_overlaps += same_speaker_overlaps
+            meeting_to_slot_speakers[meeting_id] = slot_speakers
         except Exception as e:
             logger.error(f"Error processing meeting {meeting_id} for overlaps: {str(e)}")
             continue
@@ -937,7 +1009,7 @@ def _process_all_meetings_with_overlaps(grouped_data, N=4):
         logger.warning("")
     logger.info("=" * 80)
     
-    return all_samples_info, total_original_segments, total_overlapping_segments, total_same_speaker_overlaps
+    return all_samples_info, total_original_segments, total_overlapping_segments, total_same_speaker_overlaps, meeting_to_slot_speakers
 
 
 def _find_max_sequence_length(all_samples_info, chunk_size=500):
@@ -1259,7 +1331,8 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder
         max_sequence_length: Optional maximum sequence length to truncate longer sequences (default: None = no limit)
         
     Returns:
-        Tuple of (features, labels, meeting_ids, speaker_ids): Dataset with padded features, meeting IDs, and speaker IDs
+        Tuple of (features, labels, meeting_ids, speaker_ids, meeting_to_slot_speakers): 
+            Dataset with padded features, meeting IDs, speaker IDs, and slot speaker mapping
     """
     # Log function start
     print_function_start("create_dataset_from_grouped", 
@@ -1267,7 +1340,7 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder
                         N=N)
     
     # Step 1: Process all meetings to detect and create overlapping segments
-    all_samples_info, total_original_segments, total_overlapping_segments, total_same_speaker_overlaps = _process_all_meetings_with_overlaps(
+    all_samples_info, total_original_segments, total_overlapping_segments, total_same_speaker_overlaps, meeting_to_slot_speakers = _process_all_meetings_with_overlaps(
         grouped_data, N
     )
     
@@ -1313,7 +1386,7 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder
     print_function_end("create_dataset_from_grouped", 
                       f"Created dataset with {features.shape[0]} samples, {features.shape[1]} max frames, {features.shape[2]} mel-bands")
     
-    return features, labels, meeting_ids, speaker_ids
+    return features, labels, meeting_ids, speaker_ids, meeting_to_slot_speakers
 
 def frames_to_annotation(active_speakers_per_frame, frame_shift, speaker_id_list, uri=None):
     """Convert frame-wise active speaker sets to pyannote Annotation by merging consecutive frames.
@@ -1622,38 +1695,31 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
     if max_sequence_length is not None:
         logger.info(f"Using max_sequence_length={max_sequence_length} to limit memory usage")
     
-    # Create datasets - now returns speaker_ids as well (includes overlapping segments)
-    train_features, train_labels, train_meeting_ids, train_speaker_ids = create_dataset_from_grouped(
+    # Create datasets - now returns speaker_ids and meeting_to_slot_speakers
+    train_features, train_labels, train_meeting_ids, train_speaker_ids, train_meeting_to_slot_speakers = create_dataset_from_grouped(
         grouped_train, speaker_encoder, power_set_encoder, N, chunk_size=chunk_size, max_sequence_length=max_sequence_length
     )
-    val_features, val_labels, val_meeting_ids, val_speaker_ids = create_dataset_from_grouped(
+    val_features, val_labels, val_meeting_ids, val_speaker_ids, val_meeting_to_slot_speakers = create_dataset_from_grouped(
         grouped_validation, speaker_encoder, power_set_encoder, N, chunk_size=chunk_size, max_sequence_length=max_sequence_length
     )
-    test_features, test_labels, test_meeting_ids, test_speaker_ids = create_dataset_from_grouped(
+    test_features, test_labels, test_meeting_ids, test_speaker_ids, test_meeting_to_slot_speakers = create_dataset_from_grouped(
         grouped_test, speaker_encoder, power_set_encoder, N, chunk_size=chunk_size, max_sequence_length=max_sequence_length
     )
     
-    # Create speaker ID to index mapping for speaker_ids list (from original samples only)
-    speaker_to_idx = {}
-    for meeting_id, samples in grouped_train.items():
-        for sample in samples:
-            speaker_id = sample["speaker_id"]
-            if isinstance(speaker_id, list):
-                # For overlapping segments, add all speakers
-                for spk_id in speaker_id:
-                    if spk_id not in speaker_to_idx:
-                        speaker_to_idx[spk_id] = len(speaker_to_idx)
-            else:
-                if speaker_id not in speaker_to_idx:
-                    speaker_to_idx[speaker_id] = len(speaker_to_idx)
-        
-    # Create datasets
+    # Compute meeting-specific embeddings for each dataset
+    logger.info("Computing meeting-specific speaker embeddings...")
+    train_meeting_to_speaker_embedding = compute_speaker_embeddings(grouped_train, speaker_encoder)
+    val_meeting_to_speaker_embedding = compute_speaker_embeddings(grouped_validation, speaker_encoder) if grouped_validation else {}
+    test_meeting_to_speaker_embedding = compute_speaker_embeddings(grouped_test, speaker_encoder) if grouped_test else {}
+    
+    # Create datasets with meeting-specific embeddings and slot mappings
     train_dataset = OverlappingSpeechDataset(
         features=train_features,
         labels=train_labels,
         meeting_ids=train_meeting_ids,
         speaker_ids=train_speaker_ids,
-        speaker_to_embedding=compute_speaker_embeddings(grouped_train, speaker_encoder),
+        meeting_to_speaker_embedding=train_meeting_to_speaker_embedding,
+        meeting_to_slot_speakers=train_meeting_to_slot_speakers,
         max_speakers=N
     )
     val_dataset = OverlappingSpeechDataset(
@@ -1661,7 +1727,8 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
         labels=val_labels,
         meeting_ids=val_meeting_ids,
         speaker_ids=val_speaker_ids,
-        speaker_to_embedding=compute_speaker_embeddings(grouped_validation, speaker_encoder),
+        meeting_to_speaker_embedding=val_meeting_to_speaker_embedding,
+        meeting_to_slot_speakers=val_meeting_to_slot_speakers,
         max_speakers=N
     )
     test_dataset = OverlappingSpeechDataset(
@@ -1669,7 +1736,8 @@ def prepare_data_loaders(grouped_train, grouped_validation, grouped_test, speake
         labels=test_labels,
         meeting_ids=test_meeting_ids,
         speaker_ids=test_speaker_ids,
-        speaker_to_embedding=compute_speaker_embeddings(grouped_test, speaker_encoder),
+        meeting_to_speaker_embedding=test_meeting_to_speaker_embedding,
+        meeting_to_slot_speakers=test_meeting_to_slot_speakers,
         max_speakers=N
     )
     
@@ -1774,38 +1842,65 @@ def demonstrate_power_set_encoding():
         print(f"Speakers {speakers}: {encoded} (binary: {binary})")
 
 def compute_speaker_embeddings(grouped_data, speaker_encoder):
-    """Computes speaker embedding for each unique speaker_id based on their first audio segment."""
-    speaker_to_audio = {}
+    """Computes speaker embedding for each unique (meeting_id, speaker_id) pair.
+    
+    Returns meeting-specific embeddings: dict[meeting_id, dict[speaker_id, torch.Tensor]]
+    Each embedding is computed from the first non-overlap segment of that speaker in that meeting.
+    """
+    meeting_to_speaker_embedding = {}
+    
     for meeting_id, samples in grouped_data.items():
+        meeting_to_speaker_embedding[meeting_id] = {}
+        
+        # Group samples by speaker_id for this meeting
+        speaker_to_audio = {}
         for sample in samples:
             sid = sample["speaker_id"]
+            # Skip if speaker_id is a list (overlap segment) - we only want non-overlap segments
+            if isinstance(sid, list):
+                continue
             if sid not in speaker_to_audio:
                 speaker_to_audio[sid] = []
             speaker_to_audio[sid].append(sample["audio"]["array"])
+        
+        # Compute embedding for each speaker in this meeting
+        for sid, audio_list in speaker_to_audio.items():
+            if len(audio_list) == 0:
+                logger.warning(f"Meeting {meeting_id}: No audio segments for speaker {sid}")
+                continue
             
-    speaker_to_embedding = {}
-    for sid, audio_list in speaker_to_audio.items():
-        audio = audio_list[0]
-        audio_tensor = torch.tensor(audio, dtype=torch.float32).unsqueeze(0)  # [1, time]
-        with torch.no_grad():
-            emb = speaker_encoder.encode_batch(audio_tensor)
-            emb = emb.squeeze().cpu()
-        speaker_to_embedding[sid] = emb
-    return speaker_to_embedding
+            # Use first available segment (preferably non-overlap)
+            audio = audio_list[0]
+            audio_tensor = torch.tensor(audio, dtype=torch.float32).unsqueeze(0)  # [1, time]
+            with torch.no_grad():
+                emb = speaker_encoder.encode_batch(audio_tensor)
+                emb = emb.squeeze().cpu()
+            meeting_to_speaker_embedding[meeting_id][sid] = emb
+    
+    logger.info(f"Computed embeddings for {len(meeting_to_speaker_embedding)} meetings")
+    total_speakers = sum(len(speakers) for speakers in meeting_to_speaker_embedding.values())
+    logger.info(f"Total (meeting, speaker) pairs: {total_speakers}")
+    
+    return meeting_to_speaker_embedding
 
 class OverlappingSpeechDataset(Dataset):
     """Dataset for overlapping speech diarization.
     
     MEMORY FIX: Supports both variable-length (list of arrays) and padded (numpy array) features.
     Variable-length features save memory by avoiding client-level padding.
+    
+    Now uses meeting-specific embeddings in slot order matching the labels.
     """
-    def __init__(self, features, labels, meeting_ids, speaker_ids: list, speaker_to_embedding: dict, max_speakers: int = 4):
+    def __init__(self, features, labels, meeting_ids, speaker_ids: list, 
+                 meeting_to_speaker_embedding: dict, meeting_to_slot_speakers: dict, 
+                 max_speakers: int = 4):
         # MEMORY FIX: Accept both list (variable-length) and numpy array (padded) for features/labels
         self.features = features
         self.labels = labels
         self.meeting_ids = meeting_ids
         self.speaker_ids = speaker_ids
-        self.speaker_to_embedding = speaker_to_embedding
+        self.meeting_to_speaker_embedding = meeting_to_speaker_embedding
+        self.meeting_to_slot_speakers = meeting_to_slot_speakers
         self.max_speakers = max_speakers
         
         # Verify that all arrays/lists have the same length
@@ -1815,26 +1910,30 @@ class OverlappingSpeechDataset(Dataset):
                 f"meeting_ids={len(meeting_ids)}, speaker_ids={len(speaker_ids)}"
             )
         
-        # Create stable mapping: slot -> speaker_id
-        # This ensures consistent ordering across all samples
-        ordered_spk_ids = sorted(self.speaker_to_embedding.keys())
-        self.speaker_id_list = ordered_spk_ids[:max_speakers]  # Limit to max_speakers
+        # Get embedding dimension from first available embedding
+        emb_dim = None
+        for meeting_id, speaker_embeddings in meeting_to_speaker_embedding.items():
+            if speaker_embeddings:
+                first_emb = next(iter(speaker_embeddings.values()))
+                emb_dim = first_emb.shape[0]
+                break
         
-        # Create embeddings matrix in the same order as speaker_id_list
-        self.all_embeddings = torch.stack([
-            self.speaker_to_embedding[sid] for sid in self.speaker_id_list
-        ]).float()
+        if emb_dim is None:
+            raise ValueError("No embeddings found in meeting_to_speaker_embedding")
         
-        # Assertions for consistency
-        assert len(self.speaker_id_list) <= max_speakers, \
-            f"speaker_id_list length ({len(self.speaker_id_list)}) > max_speakers ({max_speakers})"
-        assert self.all_embeddings.shape[0] == len(self.speaker_id_list), \
-            f"embeddings rows ({self.all_embeddings.shape[0]}) != speaker_id_list length ({len(self.speaker_id_list)})"
+        self.emb_dim = emb_dim
         
-        # Log the mapping for debugging
-        print(f"[OverlappingSpeechDataset] Slot->Speaker mapping: {dict(enumerate(self.speaker_id_list))}")
-        print(f"[OverlappingSpeechDataset] Embeddings shape: {self.all_embeddings.shape}")
-        print(f"[OverlappingSpeechDataset] Dataset size: {len(features)} samples")
+        # Log the structure for debugging
+        logger.info(f"[OverlappingSpeechDataset] Dataset size: {len(features)} samples")
+        logger.info(f"[OverlappingSpeechDataset] Max speakers: {max_speakers}, Embedding dim: {emb_dim}")
+        logger.info(f"[OverlappingSpeechDataset] Meetings with embeddings: {len(meeting_to_speaker_embedding)}")
+        logger.info(f"[OverlappingSpeechDataset] Meetings with slot mappings: {len(meeting_to_slot_speakers)}")
+        
+        # Log example slot mappings
+        example_meetings = list(meeting_to_slot_speakers.keys())[:3]
+        for mid in example_meetings:
+            slot_speakers = meeting_to_slot_speakers[mid]
+            logger.info(f"[OverlappingSpeechDataset] Example meeting {mid}: slot_speakers={slot_speakers}")
         
     def __len__(self) -> int:
         return len(self.features)
@@ -1856,8 +1955,6 @@ class OverlappingSpeechDataset(Dataset):
             label = torch.tensor(self.labels[idx], dtype=torch.long)
         
         # MEMORY FIX: meeting_ids is now a 1D array of strings/ints (one per sample)
-        # For backward compatibility with collate_fn, create a per-frame array if needed
-        # But for now, just pass the single meeting_id string/int
         meeting_id = self.meeting_ids[idx]
         
         # Check bounds for speaker_ids
@@ -1866,14 +1963,46 @@ class OverlappingSpeechDataset(Dataset):
             logger.error(f"Features length: {len(self.features)}, Labels length: {len(self.labels)}, Meeting IDs length: {len(self.meeting_ids)}")
             raise IndexError(f"speaker_ids index {idx} out of range (length: {len(self.speaker_ids)})")
         
-        sid = self.speaker_ids[idx]
+        # Get slot_speakers for this meeting (in slot order: slot 0, 1, 2, ...)
+        slot_speakers = self.meeting_to_slot_speakers.get(meeting_id, [])
+        if not slot_speakers:
+            logger.warning(f"Meeting {meeting_id} not found in meeting_to_slot_speakers. Using empty slot list.")
         
-        # Return the pre-computed embeddings matrix
-        return feature, self.all_embeddings, label, meeting_id
+        # Get meeting-specific embeddings
+        meeting_embeddings = self.meeting_to_speaker_embedding.get(meeting_id, {})
+        if not meeting_embeddings:
+            logger.warning(f"Meeting {meeting_id} not found in meeting_to_speaker_embedding. Using zero embeddings.")
+        
+        # Build speaker_embeddings tensor in slot order: [emb_slot0, emb_slot1, ..., emb_slotN-1]
+        speaker_embeddings_list = []
+        for slot_idx in range(self.max_speakers):
+            if slot_idx < len(slot_speakers):
+                speaker_id = slot_speakers[slot_idx]
+                if speaker_id in meeting_embeddings:
+                    speaker_embeddings_list.append(meeting_embeddings[speaker_id])
+                else:
+                    logger.warning(f"Missing embedding for meeting {meeting_id}, speaker {speaker_id} at slot {slot_idx}. Using zeros.")
+                    speaker_embeddings_list.append(torch.zeros(self.emb_dim))
+            else:
+                # Pad with zeros if fewer speakers than max_speakers
+                speaker_embeddings_list.append(torch.zeros(self.emb_dim))
+        
+        # Stack to create [max_speakers, emb_dim] tensor
+        speaker_embeddings = torch.stack(speaker_embeddings_list).float()
+        
+        return feature, speaker_embeddings, label, meeting_id
     
     def get_speaker_id_list(self):
-        """Get the stable speaker ID list for DER calculation."""
-        return self.speaker_id_list 
+        """Get the stable speaker ID list for DER calculation.
+        
+        Returns a list of speaker IDs for backward compatibility.
+        Note: This is now meeting-specific, so this method may not be accurate.
+        """
+        # For backward compatibility, return first meeting's slot speakers
+        if self.meeting_to_slot_speakers:
+            first_meeting = next(iter(self.meeting_to_slot_speakers.keys()))
+            return self.meeting_to_slot_speakers[first_meeting]
+        return [] 
     
 
 

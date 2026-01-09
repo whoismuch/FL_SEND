@@ -643,6 +643,40 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                 
                 # Backward pass
                 backward_start = time.time() if batch_idx < 2 else None
+                
+                # SANITY CHECK: Verify meeting-specific embeddings (first 2 batches only)
+                if batch_idx < 2 and epoch == 0:
+                    logger.info(f"[SANITY CHECK] Batch {batch_idx}: Verifying meeting-specific embeddings...")
+                    # Check 1: Embeddings should differ for different meetings
+                    unique_meetings = list(set(meeting_ids))
+                    if len(unique_meetings) >= 2:
+                        mid1, mid2 = unique_meetings[0], unique_meetings[1]
+                        idx1 = [i for i, mid in enumerate(meeting_ids) if mid == mid1][0]
+                        idx2 = [i for i, mid in enumerate(meeting_ids) if mid == mid2][0]
+                        emb1 = speaker_embeddings[idx1]  # [max_speakers, emb_dim]
+                        emb2 = speaker_embeddings[idx2]
+                        diff_norm = torch.norm(emb1 - emb2).item()
+                        logger.info(f"  Meeting {mid1} vs {mid2}: embedding difference norm = {diff_norm:.4f}")
+                        if diff_norm < 1e-6:
+                            logger.warning(f"  ⚠️  WARNING: Embeddings for different meetings are too similar (norm={diff_norm:.6f})!")
+                        else:
+                            logger.info(f"  ✓ Embeddings differ for different meetings (norm={diff_norm:.4f})")
+                    
+                    # Check 2: Embeddings should be same for same meeting
+                    if len(unique_meetings) >= 1:
+                        mid = unique_meetings[0]
+                        same_meeting_indices = [i for i, m in enumerate(meeting_ids) if m == mid]
+                        if len(same_meeting_indices) >= 2:
+                            idx1, idx2 = same_meeting_indices[0], same_meeting_indices[1]
+                            emb1 = speaker_embeddings[idx1]
+                            emb2 = speaker_embeddings[idx2]
+                            diff_norm = torch.norm(emb1 - emb2).item()
+                            logger.info(f"  Same meeting {mid} (samples {idx1} vs {idx2}): embedding difference norm = {diff_norm:.4f}")
+                            if diff_norm > 1e-3:
+                                logger.warning(f"  ⚠️  WARNING: Embeddings for same meeting differ (norm={diff_norm:.6f})! Should be ~0.")
+                            else:
+                                logger.info(f"  ✓ Embeddings match for same meeting (norm={diff_norm:.4f})")
+                
                 scaler.scale(loss).backward()
                 # Gradient clipping to prevent gradient explosion (fixes NaN loss issue)
                 scaler.unscale_(optimizer)
@@ -736,6 +770,40 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                 
                 # Backward pass
                 backward_start = time.time() if batch_idx < 2 else None
+                
+                # SANITY CHECK: Verify meeting-specific embeddings (first 2 batches only)
+                if batch_idx < 2 and epoch == 0:
+                    logger.info(f"[SANITY CHECK] Batch {batch_idx}: Verifying meeting-specific embeddings...")
+                    # Check 1: Embeddings should differ for different meetings
+                    unique_meetings = list(set(meeting_ids))
+                    if len(unique_meetings) >= 2:
+                        mid1, mid2 = unique_meetings[0], unique_meetings[1]
+                        idx1 = [i for i, mid in enumerate(meeting_ids) if mid == mid1][0]
+                        idx2 = [i for i, mid in enumerate(meeting_ids) if mid == mid2][0]
+                        emb1 = speaker_embeddings[idx1]  # [max_speakers, emb_dim]
+                        emb2 = speaker_embeddings[idx2]
+                        diff_norm = torch.norm(emb1 - emb2).item()
+                        logger.info(f"  Meeting {mid1} vs {mid2}: embedding difference norm = {diff_norm:.4f}")
+                        if diff_norm < 1e-6:
+                            logger.warning(f"  ⚠️  WARNING: Embeddings for different meetings are too similar (norm={diff_norm:.6f})!")
+                        else:
+                            logger.info(f"  ✓ Embeddings differ for different meetings (norm={diff_norm:.4f})")
+                    
+                    # Check 2: Embeddings should be same for same meeting
+                    if len(unique_meetings) >= 1:
+                        mid = unique_meetings[0]
+                        same_meeting_indices = [i for i, m in enumerate(meeting_ids) if m == mid]
+                        if len(same_meeting_indices) >= 2:
+                            idx1, idx2 = same_meeting_indices[0], same_meeting_indices[1]
+                            emb1 = speaker_embeddings[idx1]
+                            emb2 = speaker_embeddings[idx2]
+                            diff_norm = torch.norm(emb1 - emb2).item()
+                            logger.info(f"  Same meeting {mid} (samples {idx1} vs {idx2}): embedding difference norm = {diff_norm:.4f}")
+                            if diff_norm > 1e-3:
+                                logger.warning(f"  ⚠️  WARNING: Embeddings for same meeting differ (norm={diff_norm:.6f})! Should be ~0.")
+                            else:
+                                logger.info(f"  ✓ Embeddings match for same meeting (norm={diff_norm:.4f})")
+                
                 loss.backward()
                 # Gradient clipping to prevent gradient explosion (fixes NaN loss issue)
                 grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=grad_clip)
