@@ -432,8 +432,14 @@ def print_data_loaders_info(train_dataset, val_dataset, test_dataset, train_load
     print(f"STATS: Speaker embeddings shape: {all_embeddings.shape}, dtype: {all_embeddings.dtype}")
     print(f"STATS: Label shape: {label.shape}, dtype: {label.dtype}")
     print(f"STATS: Label (first 10 frames): {label[:10]}")
-    print(f"STATS: Meeting ID shape: {meeting_id.shape}, dtype: {meeting_id.dtype}")
-    print(f"STATS: Meeting ID (first 10 frames): {meeting_id[:10]}")
+    # Meeting ID is now a single value per sample (string or int), not per-frame array
+    if isinstance(meeting_id, (str, int)):
+        print(f"STATS: Meeting ID: {meeting_id} (type: {type(meeting_id).__name__})")
+    elif hasattr(meeting_id, 'shape'):
+        print(f"STATS: Meeting ID shape: {meeting_id.shape}, dtype: {meeting_id.dtype}")
+        print(f"STATS: Meeting ID (first 10 frames): {meeting_id[:10]}")
+    else:
+        print(f"STATS: Meeting ID: {meeting_id} (type: {type(meeting_id).__name__})")
     print(f"STATS: Sample = audio segment (feature matrix), batch = group of samples, frame = row in the feature matrix (one time step)")
     print(f"STATS: Frames are NOT independent: the model takes their sequence/context into account")
     

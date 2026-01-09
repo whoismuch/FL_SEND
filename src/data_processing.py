@@ -1064,13 +1064,14 @@ def _allocate_arrays(total_samples, max_len, feature_dim):
     # Calculate estimated memory requirements
     features_memory_gb = (total_samples * max_len * feature_dim * 4) / (1024**3)  # float32 = 4 bytes
     labels_memory_gb = (total_samples * max_len * 8) / (1024**3)  # int64 = 8 bytes
-    meeting_ids_memory_gb = (total_samples * max_len * 8) / (1024**3)  # object pointer ~8 bytes
+    # MEMORY FIX: meeting_ids is now 1D array (one per sample), not 2D (samples x max_len)
+    meeting_ids_memory_gb = (total_samples * 8) / (1024**3)  # object pointer ~8 bytes per sample
     total_memory_gb = features_memory_gb + labels_memory_gb + meeting_ids_memory_gb
     
     logger.info(f"Estimated memory requirements:")
     logger.info(f"  Features array: {features_memory_gb:.2f} GB")
     logger.info(f"  Labels array: {labels_memory_gb:.2f} GB")
-    logger.info(f"  Meeting IDs array: {meeting_ids_memory_gb:.2f} GB")
+    logger.info(f"  Meeting IDs array: {meeting_ids_memory_gb:.2f} GB (1D: one per sample)")
     logger.info(f"  Total: {total_memory_gb:.2f} GB")
     
     # Warn if memory requirements are very high
@@ -1084,7 +1085,8 @@ def _allocate_arrays(total_samples, max_len, feature_dim):
     try:
         features = np.zeros((total_samples, max_len, feature_dim), dtype=np.float32)
         labels = np.full((total_samples, max_len), -100, dtype=np.int64)
-        meeting_ids = np.empty((total_samples, max_len), dtype=object)
+        # MEMORY FIX: meeting_ids is now 1D array (one per sample), not 2D (samples x max_len)
+        meeting_ids = np.empty(total_samples, dtype=object)
     except MemoryError as e:
         logger.error(f"Memory allocation failed! Required: {total_memory_gb:.2f} GB")
         logger.error(f"Try: 1) Reducing chunk_size, 2) Using smaller dataset, 3) Requesting more memory")
@@ -1239,7 +1241,8 @@ def _extract_features_and_labels(all_samples_info, features, labels, meeting_ids
             seq_len = feature.shape[0]
             features[global_idx, :seq_len, :] = feature
             labels[global_idx, :seq_len] = label
-            meeting_ids[global_idx, :seq_len] = meeting_id
+            # MEMORY FIX: Store one meeting_id per sample (not per-frame)
+            meeting_ids[global_idx] = meeting_id
             
             # Free feature memory immediately
             del feature

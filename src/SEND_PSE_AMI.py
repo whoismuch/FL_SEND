@@ -876,7 +876,14 @@ def train_model(model, train_loader, val_loader, device, power_set_encoder, epoc
                 # NOTE: CPU copies only happen if DER is explicitly enabled
                 predictions_np = predictions.cpu().numpy()
                 labels_np = labels_flat.cpu().numpy()
-                meeting_ids_flat = np.concatenate(meeting_ids, axis=0)
+                # meeting_ids is now a list of strings/ints (one per sample), not per-frame
+                # Create per-frame meeting_ids by repeating each meeting_id for each frame
+                batch_size, seq_len = labels.shape
+                meeting_ids_flat = []
+                for i, meeting_id in enumerate(meeting_ids):
+                    # Repeat meeting_id for each frame in this sample
+                    meeting_ids_flat.extend([meeting_id] * seq_len)
+                meeting_ids_flat = np.array(meeting_ids_flat, dtype=object)
                 for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
                     if meeting_id is not None:
                         pred_by_rec[meeting_id].append(pred)
@@ -1229,7 +1236,14 @@ def evaluate_model(model, val_loader, device, power_set_encoder, compute_der=Fal
                 # CPU copies only when DER is needed
                 predictions_np = predictions.cpu().numpy()
                 labels_np = labels_flat.cpu().numpy()
-                meeting_ids_flat = np.concatenate(meeting_ids, axis=0)
+                # meeting_ids is now a list of strings/ints (one per sample), not per-frame
+                # Create per-frame meeting_ids by repeating each meeting_id for each frame
+                batch_size, seq_len = labels.shape
+                meeting_ids_flat = []
+                for i, meeting_id in enumerate(meeting_ids):
+                    # Repeat meeting_id for each frame in this sample
+                    meeting_ids_flat.extend([meeting_id] * seq_len)
+                meeting_ids_flat = np.array(meeting_ids_flat, dtype=object)
                 for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
                     if meeting_id is not None:
                         pred_by_rec[meeting_id].append(pred)
@@ -1670,6 +1684,9 @@ def main():
                     speaker_embeddings.to(device),
                     labels.to(device)
                 )
+                # Save original shape before reshape
+                batch_size, seq_len = labels.shape
+                
                 outputs = model(features, speaker_embeddings)
                 outputs = outputs.reshape(-1, outputs.shape[-1])
                 labels = labels.reshape(-1)
@@ -1699,8 +1716,14 @@ def main():
                 # Group predictions by meeting_id
                 predictions_np = predictions.cpu().numpy()
                 labels_np = labels.cpu().numpy()
-                # meeting_ids: List[np.ndarray] (each with length = max_len of batch)
-                meeting_ids_flat = np.concatenate(meeting_ids, axis=0)  # => shape: [batch_size*seq_len]
+                # meeting_ids is now a list of strings/ints (one per sample), not per-frame
+                # Create per-frame meeting_ids by repeating each meeting_id for each frame
+                # Use batch_size and seq_len saved before reshape
+                meeting_ids_flat = []
+                for i, meeting_id in enumerate(meeting_ids):
+                    # Repeat meeting_id for each frame in this sample
+                    meeting_ids_flat.extend([meeting_id] * seq_len)
+                meeting_ids_flat = np.array(meeting_ids_flat, dtype=object)
                 
                 for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
                     if meeting_id is not None:  # Skip padded frames
@@ -1721,8 +1744,17 @@ def main():
                 print(f"[FINAL TEST DEBUG] Recording {rec_id}:")
                 print(f"  - Unique predictions: {unique_preds}")
                 print(f"  - Unique labels: {unique_labels}")
-                print(f"  - Prediction distribution: {np.bincount(pred_by_rec[rec_id])}")
-                print(f"  - Label distribution: {np.bincount(lab_by_rec[rec_id])}")
+                # Filter out negative values (padding) before bincount
+                preds_filtered = [p for p in pred_by_rec[rec_id] if p >= 0]
+                labels_filtered = [l for l in lab_by_rec[rec_id] if l >= 0]
+                if preds_filtered:
+                    print(f"  - Prediction distribution: {np.bincount(preds_filtered)}")
+                else:
+                    print(f"  - Prediction distribution: (empty after filtering)")
+                if labels_filtered:
+                    print(f"  - Label distribution: {np.bincount(labels_filtered)}")
+                else:
+                    print(f"  - Label distribution: (empty after filtering)")
         
         for rec_id in pred_by_rec:
             if pred_by_rec[rec_id] and lab_by_rec[rec_id]:
