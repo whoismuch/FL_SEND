@@ -1120,22 +1120,54 @@ class SENDClient(NumPyClient):
                         print(f"SENDClient: First batch in evaluate for client {self.client_id}")
                     features, speaker_embeddings, labels = features.to(self.device), speaker_embeddings.to(self.device), labels.to(self.device)
                     speaker_embeddings = speaker_embeddings.float()
+                    
+                    # Save original shape before processing (labels can be 1D or 2D)
+                    labels_original_shape = labels.shape
+                    labels_original_ndim = labels.ndim
+                    
                     outputs = self.model(features, speaker_embeddings)
-                    batch_size, seq_len, num_classes = outputs.shape
-                    outputs = outputs.reshape(-1, num_classes)
-                    labels_flat = labels.reshape(-1)
+                    
+                    # Handle both 1D and 2D labels (aligned with centralized version)
+                    if outputs.ndim == 3:
+                        # Standard case: outputs are (batch_size, seq_len, num_classes)
+                        batch_size, seq_len, num_classes = outputs.shape
+                        outputs = outputs.reshape(-1, num_classes)
+                    elif outputs.ndim == 2:
+                        # Outputs already flattened or (batch_size*seq_len, num_classes)
+                        num_classes = outputs.shape[-1]
+                        # Try to infer batch_size from features
+                        batch_size = features.shape[0] if features.ndim >= 2 else 1
+                        seq_len = outputs.shape[0] // batch_size if batch_size > 0 else outputs.shape[0]
+                    else:
+                        raise ValueError(f"Unexpected outputs ndim={outputs.ndim}, shape={outputs.shape}")
+                    
+                    # Handle labels: can be 1D or 2D
+                    if labels.ndim == 2:
+                        labels_flat = labels.reshape(-1)
+                    elif labels.ndim == 1:
+                        labels_flat = labels
+                    else:
+                        raise ValueError(f"Unexpected labels ndim={labels.ndim}, shape={labels.shape}")
+                    
+                    # Check for valid frames: skip batch if all labels are padding (-100)
+                    valid = (labels_flat != -100)
+                    if valid.sum() == 0:
+                        logger.warning(f"Eval batch {batch_idx}: All labels are -100 (padding). Skipping batch safely.")
+                        continue
+                    
                     loss = self.criterion(outputs, labels_flat)
                     val_loss += loss.item()
                     batch_losses.append(loss.item())
                     
+                    # Compute predictions for sanity-check and DER
+                    predictions_flat = torch.argmax(outputs, dim=-1)
+                    
                     # E: Only accumulate predictions if DER is needed (memory optimization)
                     if should_compute_der:
-                        predictions = torch.argmax(outputs, dim=-1)
-                        predictions_np = predictions.cpu().numpy()
+                        predictions_np = predictions_flat.cpu().numpy()
                         labels_np = labels_flat.cpu().numpy()
                         # MEMORY FIX: meeting_ids is now a 1D array (one per sample), not per-frame
                         # Create per-frame meeting_id array by repeating for each frame in the sequence
-                        # batch_size and seq_len are from outputs.shape before reshape
                         meeting_ids_flat = []
                         for i in range(batch_size):
                             meeting_id = meeting_ids[i] if isinstance(meeting_ids, (list, np.ndarray)) else meeting_ids
@@ -1143,13 +1175,33 @@ class SENDClient(NumPyClient):
                             meeting_ids_flat.extend([meeting_id] * seq_len)
                         meeting_ids_flat = np.array(meeting_ids_flat)
                         
+                        # Ensure meeting_ids_flat matches the length of predictions_np and labels_np
+                        if len(meeting_ids_flat) != len(predictions_np):
+                            min_len = min(len(meeting_ids_flat), len(predictions_np))
+                            meeting_ids_flat = meeting_ids_flat[:min_len]
+                            predictions_np = predictions_np[:min_len]
+                            labels_np = labels_np[:min_len]
+                        
                         for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
                             if meeting_id is not None and label != -100:  # Skip padded frames
                                 pred_by_rec[meeting_id].append(pred)
                                 lab_by_rec[meeting_id].append(label)
                     
+                    # Sanity-check (only for first 2 batches to avoid spam)
+                    if batch_idx < 2:
+                        valid_ratio = valid.float().mean().item() if valid.numel() > 0 else 0.0
+                        uniq_labels = torch.unique(labels_flat[valid]).detach().cpu().tolist() if valid.any() else []
+                        uniq_preds = torch.unique(predictions_flat[valid]).detach().cpu().tolist() if valid.any() else []
+                        logger.info(
+                            f"[EVAL DEBUG] Client {self.client_id}, Batch {batch_idx}: labels.ndim={labels_original_ndim}, "
+                            f"labels.shape={tuple(labels_original_shape)}, "
+                            f"outputs.shape={tuple(outputs.shape)}, "
+                            f"valid_ratio={valid_ratio:.3f}, "
+                            f"unique_labels={uniq_labels}, unique_preds={uniq_preds}"
+                        )
+                    
                     if batch_idx == 0:
-                        print(f"Eval batch {batch_idx}, labels shape: {labels.shape}, unique labels: {np.unique(labels.cpu().numpy())}")
+                        print(f"Eval batch {batch_idx}, labels shape: {labels_original_shape}, unique labels: {np.unique(labels_flat[valid].cpu().numpy()) if valid.any() else []}")
                         print(f"Eval batch {batch_idx}, outputs shape: {outputs.shape}")
             
             # E: Calculate DER only if needed (memory optimization)
@@ -1268,15 +1320,48 @@ def partition_meetings_among_clients(grouped_train: dict, num_clients: int, seed
     """
     logger.info(f"Partitioning {len(grouped_train)} meetings among {num_clients} clients...")
     
+    # Validate input
+    if not grouped_train:
+        raise ValueError(f"grouped_train is empty! Cannot partition meetings among {num_clients} clients.")
+    
+    # Filter out empty meetings and log warnings
+    non_empty_meetings = {}
+    empty_meetings = []
+    for meeting_id, samples in grouped_train.items():
+        if samples and len(samples) > 0:
+            non_empty_meetings[meeting_id] = samples
+        else:
+            empty_meetings.append(meeting_id)
+    
+    if empty_meetings:
+        logger.warning(f"Found {len(empty_meetings)} empty meetings that will be excluded: {empty_meetings[:10]}{'...' if len(empty_meetings) > 10 else ''}")
+    
+    if not non_empty_meetings:
+        raise ValueError(
+            f"All meetings in grouped_train are empty! Cannot partition.\n"
+            f"  - Total meetings: {len(grouped_train)}\n"
+            f"  - Empty meetings: {len(empty_meetings)}\n"
+            f"Please check your data and ensure meetings contain valid samples."
+        )
+    
+    if len(non_empty_meetings) < num_clients:
+        raise ValueError(
+            f"Not enough non-empty meetings ({len(non_empty_meetings)}) for {num_clients} clients!\n"
+            f"  - Total meetings: {len(grouped_train)}\n"
+            f"  - Non-empty meetings: {len(non_empty_meetings)}\n"
+            f"  - Required clients: {num_clients}\n"
+            f"Please reduce num_clients or ensure you have more meetings with valid samples."
+        )
+    
     # Set random seed for reproducibility
     np.random.seed(seed)
     random.seed(seed)
     
-    # Get list of meeting IDs and shuffle
-    meeting_ids = list(grouped_train.keys())
+    # Get list of meeting IDs (only non-empty) and shuffle
+    meeting_ids = list(non_empty_meetings.keys())
     np.random.shuffle(meeting_ids)
     
-    logger.info(f"Shuffled {len(meeting_ids)} meeting IDs with seed={seed}")
+    logger.info(f"Shuffled {len(meeting_ids)} non-empty meeting IDs with seed={seed}")
     
     # Distribute meetings among clients (approximately evenly)
     meetings_per_client = len(meeting_ids) // num_clients
@@ -1292,18 +1377,24 @@ def partition_meetings_among_clients(grouped_train: dict, num_clients: int, seed
         
         client_meeting_ids = meeting_ids[start_idx:end_idx]
         
-        # Create subset of grouped_train for this client
-        client_grouped = {mid: grouped_train[mid] for mid in client_meeting_ids}
+        # Create subset of grouped_train for this client (only non-empty meetings)
+        client_grouped = {mid: non_empty_meetings[mid] for mid in client_meeting_ids}
         client_grouped_trains.append(client_grouped)
         
         # Count samples for this client
         num_samples = sum(len(samples) for samples in client_grouped.values())
+        meeting_sample_counts = {mid: len(samples) for mid, samples in client_grouped.items()}
         logger.info(f"  Client {client_idx}: {len(client_meeting_ids)} meetings, {num_samples} samples")
         logger.info(f"    Meeting IDs: {client_meeting_ids[:5]}{'...' if len(client_meeting_ids) > 5 else ''}")
+        logger.info(f"    Sample counts: {dict(list(meeting_sample_counts.items())[:3])}{'...' if len(meeting_sample_counts) > 3 else ''}")
+        
+        # Validate that client has samples
+        if num_samples == 0:
+            logger.error(f"  ⚠️  WARNING: Client {client_idx} has 0 samples! This will cause dataset creation to fail.")
         
         start_idx = end_idx
     
-    logger.info(f"✓ Partitioned {len(meeting_ids)} meetings among {num_clients} clients")
+    logger.info(f"✓ Partitioned {len(meeting_ids)} non-empty meetings among {num_clients} clients")
     
     return client_grouped_trains
 
@@ -1643,6 +1734,42 @@ def main():
             print(f"MAIN: Client {client_idx}: train={len(train_dataset)} samples, val={len(val_dataset)} samples (shared)")
         
         print(f"MAIN: Built train datasets for {len(client_datasets)} clients")
+        
+        # Calculate training samples statistics for logging
+        total_training_samples = sum(len(train_dataset) for train_dataset, _ in client_datasets)
+        total_val_samples = len(val_dataset) if val_dataset else 0
+        total_test_samples = len(test_dataset) if test_dataset else 0
+        
+        # Estimate total training frames (approximate, using average sequence length)
+        total_training_frames = 0
+        client_samples_info = []
+        for client_idx, (train_dataset, _) in enumerate(client_datasets):
+            client_train_samples = len(train_dataset)
+            client_val_samples = total_val_samples  # Shared across all clients
+            client_total_samples = client_train_samples + client_val_samples
+            
+            # Estimate frames (approximate - actual frames vary per sample)
+            # Use a rough estimate: average sequence length * number of samples
+            # This is just for logging, not critical
+            avg_seq_len_estimate = max_sequence_length if max_sequence_length else 1000
+            client_frames_estimate = client_total_samples * avg_seq_len_estimate
+            
+            total_training_frames += client_frames_estimate
+            
+            client_samples_info.append({
+                'client_id': client_idx,
+                'train_samples': client_train_samples,
+                'val_samples': client_val_samples,
+                'total_samples': client_total_samples,
+                'actual_frames': client_frames_estimate
+            })
+            
+            print(f"MAIN: Client {client_idx}: {client_train_samples} train samples, {client_val_samples} val samples (shared), {client_total_samples} total samples")
+        
+        print(f"MAIN: Total training samples across all clients: {total_training_samples}")
+        print(f"MAIN: Total training frames (estimated): {total_training_frames}")
+        print(f"MAIN: Shared validation samples: {total_val_samples}")
+        print(f"MAIN: Shared test samples: {total_test_samples}")
         
         # SANITY CHECKS: Verify dataset structure before starting FL
         print(f"\n{'='*80}")
@@ -2470,38 +2597,89 @@ def main():
                     speaker_embeddings.to(device),
                     labels.to(device)
                 )
+                
+                # Save original shape before reshape (labels can be 1D or 2D)
+                labels_original_shape = labels.shape
+                labels_original_ndim = labels.ndim
+                
+                # Get outputs from model
                 outputs = model(features, speaker_embeddings)
-                outputs = outputs.reshape(-1, outputs.shape[-1])
-                labels = labels.reshape(-1)
+                
+                # Handle both 1D and 2D labels (aligned with centralized version)
+                if labels.ndim == 2:
+                    # Labels are (batch_size, seq_len) - standard case
+                    batch_size, seq_len = labels.shape
+                    outputs = outputs.reshape(-1, outputs.shape[-1])
+                    labels_flat = labels.reshape(-1)
+                elif labels.ndim == 1:
+                    # Labels are already flattened (T,) - from collate/processing
+                    # Infer batch_size from features, seq_len from labels length
+                    batch_size = features.shape[0] if features.ndim >= 2 else 1
+                    seq_len = labels.shape[0] // batch_size if batch_size > 0 else labels.shape[0]
+                    # Ensure outputs are flattened to match labels
+                    if outputs.ndim == 3:
+                        outputs = outputs.reshape(-1, outputs.shape[-1])
+                    elif outputs.ndim == 2:
+                        # Already (T, num_classes) or (batch_size*seq_len, num_classes)
+                        pass
+                    labels_flat = labels
+                else:
+                    raise ValueError(f"Unexpected labels ndim={labels.ndim}, shape={labels.shape}")
+                
+                # Check for valid frames: skip batch if all labels are padding (-100)
+                valid = (labels_flat != -100)
+                if valid.sum() == 0:
+                    logger.warning(f"Test batch {batch_idx}: All labels are -100 (padding). Skipping batch safely.")
+                    continue
+                
                 # Use ignore_index=-100 to skip padded frames (same as in training)
-                loss = nn.CrossEntropyLoss(ignore_index=-100)(outputs, labels)
+                loss = nn.CrossEntropyLoss(ignore_index=-100)(outputs, labels_flat)
                 test_loss += loss.item()
-                predictions = torch.argmax(outputs, dim=-1)
+                predictions_flat = torch.argmax(outputs, dim=-1)
                 
-                # Debug: Check predictions
-                unique_preds = torch.unique(predictions).cpu().numpy()
-                unique_labels = torch.unique(labels).cpu().numpy()
-                print(f"[FINAL TEST DEBUG] Batch {batch_idx}: unique predictions: {unique_preds}")
-                print(f"[FINAL TEST DEBUG] Batch {batch_idx}: unique labels: {unique_labels}")
-                print(f"[FINAL TEST DEBUG] Batch {batch_idx}: loss: {loss.item():.4f}")
+                # Sanity-check (only for first 2 batches to avoid spam)
+                if batch_idx < 2:
+                    valid_ratio = valid.float().mean().item() if valid.numel() > 0 else 0.0
+                    uniq_labels = torch.unique(labels_flat[valid]).detach().cpu().tolist() if valid.any() else []
+                    uniq_preds = torch.unique(predictions_flat[valid]).detach().cpu().tolist() if valid.any() else []
+                    logger.info(
+                        f"[FINAL TEST DEBUG] Batch {batch_idx}: labels.ndim={labels_original_ndim}, "
+                        f"labels.shape={tuple(labels_original_shape)}, "
+                        f"outputs.shape={tuple(outputs.shape)}, predictions_flat.shape={tuple(predictions_flat.shape)}, "
+                        f"valid_ratio={valid_ratio:.3f}, "
+                        f"unique_labels={uniq_labels}, unique_preds={uniq_preds}"
+                    )
                 
-                # Debug: Check if predictions are deterministic
+                # Debug: Check predictions (only for first batch)
                 if batch_idx == 0:
-                    first_pred = predictions[0].item()
+                    unique_preds = torch.unique(predictions_flat).cpu().numpy()
+                    unique_labels = torch.unique(labels_flat).cpu().numpy()
+                    print(f"[FINAL TEST DEBUG] Batch {batch_idx}: unique predictions: {unique_preds}")
+                    print(f"[FINAL TEST DEBUG] Batch {batch_idx}: unique labels: {unique_labels}")
+                    print(f"[FINAL TEST DEBUG] Batch {batch_idx}: loss: {loss.item():.4f}")
+                    first_pred = predictions_flat[valid][0].item() if valid.any() else predictions_flat[0].item()
                     print(f"[FINAL TEST DEBUG] First prediction: {first_pred}")
                 
                 # Group predictions by meeting_id
-                predictions_np = predictions.cpu().numpy()
-                labels_np = labels.cpu().numpy()
-                # meeting_ids is now a 1D array (one per sample), not per-frame
+                predictions_np = predictions_flat.cpu().numpy()
+                labels_np = labels_flat.cpu().numpy()
+                
                 # Create per-frame meeting_id array by repeating for each frame in the sequence
-                batch_size, seq_len = labels.shape
+                # meeting_ids is a 1D array (one per sample), not per-frame
                 meeting_ids_flat = []
                 for i in range(batch_size):
                     meeting_id = meeting_ids[i] if isinstance(meeting_ids, (list, np.ndarray)) else meeting_ids
                     # Repeat meeting_id for each frame in this sequence
                     meeting_ids_flat.extend([meeting_id] * seq_len)
                 meeting_ids_flat = np.array(meeting_ids_flat)
+                
+                # Ensure meeting_ids_flat matches the length of predictions_np and labels_np
+                if len(meeting_ids_flat) != len(predictions_np):
+                    # Adjust if lengths don't match (can happen with variable-length sequences)
+                    min_len = min(len(meeting_ids_flat), len(predictions_np))
+                    meeting_ids_flat = meeting_ids_flat[:min_len]
+                    predictions_np = predictions_np[:min_len]
+                    labels_np = labels_np[:min_len]
                 
                 for pred, label, meeting_id in zip(predictions_np, labels_np, meeting_ids_flat):
                     if meeting_id is not None and label != -100:  # Skip padded frames

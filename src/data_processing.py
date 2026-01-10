@@ -1027,26 +1027,99 @@ def _find_max_sequence_length(all_samples_info, chunk_size=500):
     feature_dim = None
     total_samples = len(all_samples_info)
     
+    if total_samples == 0:
+        logger.error("all_samples_info is empty! Cannot determine feature dimensions.")
+        raise ValueError("all_samples_info is empty. No samples to process.")
+    
+    processed_count = 0
+    error_count = 0
+    
     for chunk_start in range(0, total_samples, chunk_size):
         chunk_end = min(chunk_start + chunk_size, total_samples)
         chunk_info = all_samples_info[chunk_start:chunk_end]
         
-        for item in chunk_info:
-            feature = extract_features(item['sample']["audio"]["array"])
-            if feature_dim is None:
-                feature_dim = feature.shape[1]
-            max_len = max(max_len, feature.shape[0])
-            del feature
+        for item_idx, item in enumerate(chunk_info):
+            try:
+                # Check if sample has audio array
+                if 'sample' not in item:
+                    logger.warning(f"Item {chunk_start + item_idx} missing 'sample' key. Skipping.")
+                    error_count += 1
+                    continue
+                
+                sample = item['sample']
+                if 'audio' not in sample:
+                    logger.warning(f"Item {chunk_start + item_idx} missing 'audio' key. Skipping.")
+                    error_count += 1
+                    continue
+                
+                audio_data = sample.get("audio", {})
+                if isinstance(audio_data, dict):
+                    audio_array = audio_data.get("array")
+                else:
+                    audio_array = audio_data
+                
+                if audio_array is None:
+                    logger.warning(f"Item {chunk_start + item_idx} has None audio array. Skipping.")
+                    error_count += 1
+                    continue
+                
+                if len(audio_array) == 0:
+                    logger.warning(f"Item {chunk_start + item_idx} has empty audio array. Skipping.")
+                    error_count += 1
+                    continue
+                
+                feature = extract_features(audio_array)
+                
+                if feature is None or len(feature.shape) < 2:
+                    logger.warning(f"Item {chunk_start + item_idx} produced invalid feature shape: {feature.shape if feature is not None else 'None'}. Skipping.")
+                    error_count += 1
+                    continue
+                
+                if feature_dim is None:
+                    feature_dim = feature.shape[1]
+                    logger.info(f"Determined feature_dim={feature_dim} from first valid sample")
+                
+                max_len = max(max_len, feature.shape[0])
+                processed_count += 1
+                del feature
+                
+            except Exception as e:
+                logger.warning(f"Error processing item {chunk_start + item_idx}: {str(e)}. Skipping.")
+                error_count += 1
+                continue
         
         # Progress update
         if chunk_start % (chunk_size * 10) == 0 or chunk_start == total_samples - chunk_size:
-            logger.info(f"Dimension discovery progress: {chunk_start + len(chunk_info)}/{total_samples} samples checked, current max_len: {max_len}")
+            logger.info(f"Dimension discovery progress: {chunk_start + len(chunk_info)}/{total_samples} samples checked, "
+                       f"processed={processed_count}, errors={error_count}, current max_len: {max_len}, feature_dim: {feature_dim}")
         
         # Force garbage collection periodically
         if chunk_start % (chunk_size * 20) == 0:
             gc.collect()
     
     gc.collect()
+    
+    if feature_dim is None:
+        logger.error(f"Failed to determine feature_dim. Processed {processed_count}/{total_samples} samples, {error_count} errors.")
+        raise ValueError(
+            f"Could not determine feature_dim. This usually means:\n"
+            f"  1. No valid audio samples were found (processed={processed_count}, errors={error_count}, total={total_samples})\n"
+            f"  2. extract_features() failed for all samples\n"
+            f"  3. Audio arrays are empty or invalid\n"
+            f"Please check your data and ensure samples contain valid audio arrays."
+        )
+    
+    if max_len == 0:
+        logger.error(f"Failed to determine max_len. Processed {processed_count}/{total_samples} samples, {error_count} errors.")
+        raise ValueError(
+            f"Could not determine max_len. This usually means:\n"
+            f"  1. No valid features were extracted (processed={processed_count}, errors={error_count}, total={total_samples})\n"
+            f"  2. All features have zero length\n"
+            f"Please check your data and ensure samples contain valid audio arrays."
+        )
+    
+    logger.info(f"Successfully determined dimensions: max_len={max_len}, feature_dim={feature_dim} (processed {processed_count}/{total_samples} samples, {error_count} errors)")
+    
     return max_len, feature_dim
 
 
@@ -1061,6 +1134,14 @@ def _allocate_arrays(total_samples, max_len, feature_dim):
     Returns:
         tuple: (features, labels, meeting_ids, total_memory_gb)
     """
+    # Validate inputs
+    if feature_dim is None:
+        raise ValueError(f"feature_dim cannot be None. Got feature_dim={feature_dim}, max_len={max_len}, total_samples={total_samples}")
+    if max_len is None or max_len == 0:
+        raise ValueError(f"max_len must be > 0. Got max_len={max_len}, feature_dim={feature_dim}, total_samples={total_samples}")
+    if total_samples is None or total_samples == 0:
+        raise ValueError(f"total_samples must be > 0. Got total_samples={total_samples}, max_len={max_len}, feature_dim={feature_dim}")
+    
     # Calculate estimated memory requirements
     features_memory_gb = (total_samples * max_len * feature_dim * 4) / (1024**3)  # float32 = 4 bytes
     labels_memory_gb = (total_samples * max_len * 8) / (1024**3)  # int64 = 8 bytes
@@ -1342,6 +1423,14 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder
                         grouped_data_len=len(grouped_data), 
                         N=N)
     
+    # Validate grouped_data is not empty
+    if not grouped_data:
+        raise ValueError(
+            f"grouped_data is empty! Cannot create dataset.\n"
+            f"This usually means no meetings were provided.\n"
+            f"Please check your data and ensure meetings are available."
+        )
+    
     # Step 1: Process all meetings to detect and create overlapping segments
     all_samples_info, total_original_segments, total_overlapping_segments, total_same_speaker_overlaps, meeting_to_slot_speakers = _process_all_meetings_with_overlaps(
         grouped_data, N
@@ -1350,8 +1439,45 @@ def create_dataset_from_grouped(grouped_data, speaker_encoder, power_set_encoder
     total_samples = len(all_samples_info)
     logger.info(f"Total samples to process (including overlaps): {total_samples}")
     
+    # Validate that we have samples to process
+    if total_samples == 0:
+        meeting_ids = list(grouped_data.keys())
+        sample_counts = {mid: len(samples) for mid, samples in grouped_data.items()}
+        raise ValueError(
+            f"all_samples_info is empty after processing meetings! Cannot create dataset.\n"
+            f"  - Number of meetings: {len(grouped_data)}\n"
+            f"  - Meeting IDs: {meeting_ids[:10]}{'...' if len(meeting_ids) > 10 else ''}\n"
+            f"  - Sample counts per meeting: {dict(list(sample_counts.items())[:5])}{'...' if len(sample_counts) > 5 else ''}\n"
+            f"  - Total original segments: {total_original_segments}\n"
+            f"  - Total overlapping segments: {total_overlapping_segments}\n"
+            f"This usually means:\n"
+            f"  1. All meetings are empty (no samples)\n"
+            f"  2. All meetings failed to process (check logs for errors)\n"
+            f"  3. _process_meeting_with_overlaps() returned empty results for all meetings\n"
+            f"Please check your data and ensure meetings contain valid audio samples."
+        )
+    
     # Step 2: First pass - find maximum sequence length and feature dimension
     max_len, feature_dim = _find_max_sequence_length(all_samples_info, chunk_size)
+    
+    # Validate that feature_dim was determined
+    if feature_dim is None:
+        raise ValueError(
+            f"Failed to determine feature_dim. This usually means:\n"
+            f"  1. all_samples_info is empty (total_samples={total_samples})\n"
+            f"  2. extract_features() returned invalid features\n"
+            f"  3. No samples were processed successfully\n"
+            f"Please check your data and ensure samples contain valid audio arrays."
+        )
+    
+    if max_len is None or max_len == 0:
+        raise ValueError(
+            f"Failed to determine max_len. This usually means:\n"
+            f"  1. all_samples_info is empty (total_samples={total_samples})\n"
+            f"  2. extract_features() returned empty features\n"
+            f"  3. No samples were processed successfully\n"
+            f"Please check your data and ensure samples contain valid audio arrays."
+        )
     
     # Apply max_sequence_length limit if specified
     original_max_len = max_len
@@ -1820,6 +1946,40 @@ def build_train_dataset_for_grouped_meetings(
     logger.info(f"Building train dataset for FL client...")
     logger.info(f"  Train meetings: {len(grouped_train_subset)}")
     logger.info(f"  Max speakers: {max_speakers}, chunk_size: {chunk_size}, max_sequence_length: {max_sequence_length}")
+    
+    # Validate that grouped_train_subset is not empty
+    if not grouped_train_subset:
+        raise ValueError(
+            f"grouped_train_subset is empty! Cannot build train dataset.\n"
+            f"This usually means the client was assigned no meetings during partitioning.\n"
+            f"Please check partition_meetings_among_clients() to ensure all clients get meetings."
+        )
+    
+    # Check that meetings have samples
+    empty_meetings = []
+    total_samples = 0
+    for meeting_id, samples in grouped_train_subset.items():
+        if not samples or len(samples) == 0:
+            empty_meetings.append(meeting_id)
+        else:
+            total_samples += len(samples)
+    
+    if empty_meetings:
+        logger.warning(f"Found {len(empty_meetings)} empty meetings: {empty_meetings[:5]}{'...' if len(empty_meetings) > 5 else ''}")
+    
+    if total_samples == 0:
+        meeting_ids = list(grouped_train_subset.keys())
+        raise ValueError(
+            f"All meetings in grouped_train_subset are empty! Cannot build train dataset.\n"
+            f"  - Number of meetings: {len(grouped_train_subset)}\n"
+            f"  - Meeting IDs: {meeting_ids[:10]}{'...' if len(meeting_ids) > 10 else ''}\n"
+            f"  - Empty meetings: {len(empty_meetings)}\n"
+            f"  - Total samples: {total_samples}\n"
+            f"This usually means the meetings assigned to this client have no valid samples.\n"
+            f"Please check your data and ensure meetings contain valid audio samples."
+        )
+    
+    logger.info(f"  Total samples across {len(grouped_train_subset)} meetings: {total_samples}")
     
     # Create dataset using the same logic as prepare_data_loaders
     train_features, train_labels, train_meeting_ids, train_speaker_ids, train_meeting_to_slot_speakers = create_dataset_from_grouped(
