@@ -1303,6 +1303,147 @@ class SENDClient(NumPyClient):
         )
 
 
+def get_domain(meeting_id: str) -> str:
+    """
+    Extract domain from meeting_id.
+    
+    AMI style: EN2001a, ES2011a, IB4001, IS1008a ...
+    Domain is the first 2 characters.
+    
+    Args:
+        meeting_id: Meeting identifier string
+        
+    Returns:
+        str: Domain code (e.g., "EN", "ES", "IB", "IS")
+    """
+    return meeting_id[:2]
+
+
+def subsample_grouped_by_meetings(grouped: dict, max_meetings, seed: int) -> dict:
+    """
+    Subsample grouped data by selecting a subset of meetings.
+    
+    Args:
+        grouped: Dictionary of meeting_id to samples {meeting_id: [samples...]}
+        max_meetings: Maximum number of meetings to keep (None = keep all)
+        seed: Random seed for reproducibility
+        
+    Returns:
+        dict: Subsampled grouped dictionary with selected meetings
+    """
+    if max_meetings is None or max_meetings >= len(grouped):
+        return grouped
+    
+    rng = random.Random(seed)
+    mids = list(grouped.keys())
+    rng.shuffle(mids)
+    selected_mids = mids[:max_meetings]
+    
+    result = {mid: grouped[mid] for mid in selected_mids}
+    
+    logger.info(f"Subsampled {len(grouped)} meetings to {len(result)} meetings (seed={seed})")
+    logger.info(f"  Selected meeting IDs (first 5): {selected_mids[:5]}")
+    
+    return result
+
+
+def stratified_partition_meetings(grouped_train: dict, num_clients: int, seed: int) -> list[dict]:
+    """
+    Partition meetings among FL clients using stratified (near-IID) distribution by domain.
+    
+    This ensures each client gets a similar mix of domains (EN/ES/IB/IS),
+    which is important for stable FL training and better DER.
+    
+    Args:
+        grouped_train: Dictionary of meeting_id to samples {meeting_id: [samples...]}
+        num_clients: Number of clients to partition meetings among
+        seed: Random seed for reproducibility
+        
+    Returns:
+        list[dict]: List of grouped_train subsets, one per client
+                   Each element is a dict {meeting_id: [samples...]}
+    """
+    logger.info(f"Stratified partitioning {len(grouped_train)} meetings among {num_clients} clients (near-IID by domain)...")
+    
+    # Validate input
+    if not grouped_train:
+        raise ValueError(f"grouped_train is empty! Cannot partition meetings among {num_clients} clients.")
+    
+    # Filter out empty meetings and log warnings
+    non_empty_meetings = {}
+    empty_meetings = []
+    for meeting_id, samples in grouped_train.items():
+        if samples and len(samples) > 0:
+            non_empty_meetings[meeting_id] = samples
+        else:
+            empty_meetings.append(meeting_id)
+    
+    if empty_meetings:
+        logger.warning(f"Found {len(empty_meetings)} empty meetings that will be excluded: {empty_meetings[:10]}{'...' if len(empty_meetings) > 10 else ''}")
+    
+    if not non_empty_meetings:
+        raise ValueError(
+            f"All meetings in grouped_train are empty! Cannot partition.\n"
+            f"  - Total meetings: {len(grouped_train)}\n"
+            f"  - Empty meetings: {len(empty_meetings)}\n"
+            f"Please check your data and ensure meetings contain valid samples."
+        )
+    
+    if len(non_empty_meetings) < num_clients:
+        raise ValueError(
+            f"Not enough non-empty meetings ({len(non_empty_meetings)}) for {num_clients} clients!\n"
+            f"  - Total meetings: {len(grouped_train)}\n"
+            f"  - Non-empty meetings: {len(non_empty_meetings)}\n"
+            f"  - Required clients: {num_clients}\n"
+            f"Please reduce num_clients or ensure you have more meetings with valid samples."
+        )
+    
+    # Set random seed for reproducibility
+    rng = random.Random(seed)
+    
+    # Bucket meetings by domain
+    domain_to_mids = {}
+    for mid in non_empty_meetings.keys():
+        dom = get_domain(mid)
+        domain_to_mids.setdefault(dom, []).append(mid)
+    
+    logger.info(f"Found {len(domain_to_mids)} domains: {list(domain_to_mids.keys())}")
+    for dom, mids in domain_to_mids.items():
+        logger.info(f"  Domain {dom}: {len(mids)} meetings")
+    
+    # Shuffle within each domain
+    for dom in domain_to_mids:
+        rng.shuffle(domain_to_mids[dom])
+    
+    # Round-robin assign within each domain (stratified distribution)
+    client_mids = [[] for _ in range(num_clients)]
+    for dom, mids in domain_to_mids.items():
+        for i, mid in enumerate(mids):
+            client_mids[i % num_clients].append(mid)
+    
+    # Build grouped dict for each client
+    client_grouped = []
+    for c in range(num_clients):
+        client_grouped.append({mid: non_empty_meetings[mid] for mid in client_mids[c]})
+    
+    # Log detailed distribution for each client
+    logger.info(f"✓ Stratified partition complete. Distribution by client:")
+    for client_idx in range(num_clients):
+        client_meeting_ids = client_mids[client_idx]
+        num_samples = sum(len(non_empty_meetings[mid]) for mid in client_meeting_ids)
+        
+        # Count meetings by domain for this client
+        domain_counts = {}
+        for mid in client_meeting_ids:
+            dom = get_domain(mid)
+            domain_counts[dom] = domain_counts.get(dom, 0) + 1
+        
+        logger.info(f"  Client {client_idx}: meetings={len(client_meeting_ids)}, segments={num_samples}, domains={domain_counts}")
+        logger.info(f"    Meeting IDs (first 5): {client_meeting_ids[:5]}{'...' if len(client_meeting_ids) > 5 else ''}")
+    
+    return client_grouped
+
+
 def partition_meetings_among_clients(grouped_train: dict, num_clients: int, seed: int = 42):
     """Partition meetings among FL clients by meeting_id.
     
@@ -1405,7 +1546,11 @@ def main():
     
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description="Federated Learning for Overlapping Speech Diarization")
-    parser.add_argument('--test_size', type=int, default=None, help='Number of dataset records to use for training (if not specified, use all available data)')
+    parser.add_argument('--test_size', type=int, default=None, help='[DEPRECATED] Number of dataset records to use for training. Use --subset_*_meetings instead to avoid domain skew. If subset_*_meetings are set, this parameter is ignored.')
+    parser.add_argument('--subset_train_meetings', type=int, default=None, help='Number of meetings to use for training (default: None = use all meetings). Recommended: 40 for quick testing.')
+    parser.add_argument('--subset_val_meetings', type=int, default=None, help='Number of meetings to use for validation (default: None = use all meetings). Recommended: 10 for quick testing.')
+    parser.add_argument('--subset_test_meetings', type=int, default=None, help='Number of meetings to use for testing (default: None = use all meetings). Recommended: 10 for quick testing.')
+    parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility (default: 42)')
     parser.add_argument('--epochs', type=int, default=2, help='Number of epochs for local training')
     parser.add_argument('--num_rounds', type=int, default=3, help='Number of federated learning rounds')
     parser.add_argument('--num_clients', type=int, default=2, help='Number of federated clients')
@@ -1433,6 +1578,10 @@ def main():
 
     # Assign arguments to variables
     test_size = args.test_size
+    subset_train_meetings = args.subset_train_meetings
+    subset_val_meetings = args.subset_val_meetings
+    subset_test_meetings = args.subset_test_meetings
+    seed = args.seed
     epochs = args.epochs
     num_rounds = args.num_rounds
     num_clients = args.num_clients
@@ -1456,7 +1605,11 @@ def main():
     early_stopping_min_delta = args.early_stopping_min_delta
     
     # Determine if we're using all data or a subset
-    use_all_data = test_size is None
+    # Determine if using all data (no subsampling)
+    use_all_data = (test_size is None and 
+                    subset_train_meetings is None and 
+                    subset_val_meetings is None and 
+                    subset_test_meetings is None)
 
     print("MAIN STARTED")
     print(f"MAIN: Starting main()")
@@ -1492,26 +1645,46 @@ def main():
         dataset = load_dataset("edinburghcstr/ami", "ihm")
         print(f"MAIN: Dataset loaded successfully")
         
-        # Determine dataset sizes
-        if use_all_data:
-            train_size = len(dataset["train"])
-            val_size = len(dataset["validation"])
-            test_size_val = len(dataset["test"])
-            print(f"MAIN: Using ALL data - Train: {train_size}, Val: {val_size}, Test: {test_size_val}")
-        else:
+        # Group data by meeting ID for all splits (before subsampling)
+        print(f"MAIN: Grouping data by meeting ID...")
+        grouped_train_raw = group_by_meeting(dataset["train"])
+        grouped_validation_raw = group_by_meeting(dataset["validation"])
+        grouped_test_raw = group_by_meeting(dataset["test"])
+        
+        print(f"MAIN: Raw grouped data - Train: {len(grouped_train_raw)} meetings, Val: {len(grouped_validation_raw)} meetings, Test: {len(grouped_test_raw)} meetings")
+        
+        # Apply subsampling by meetings if specified (NEW: better than test_size which cuts segments)
+        if subset_train_meetings is not None or subset_val_meetings is not None or subset_test_meetings is not None:
+            print(f"MAIN: Applying meeting-based subsampling (recommended for near-IID distribution)...")
+            if test_size is not None:
+                logger.warning("⚠️  WARNING: Both --test_size and --subset_*_meetings are set. Ignoring --test_size (deprecated).")
+            
+            grouped_train = subsample_grouped_by_meetings(grouped_train_raw, subset_train_meetings, seed)
+            grouped_validation = subsample_grouped_by_meetings(grouped_validation_raw, subset_val_meetings, seed + 1)
+            grouped_test = subsample_grouped_by_meetings(grouped_test_raw, subset_test_meetings, seed + 2)
+            
+            print(f"MAIN: After subsampling - Train: {len(grouped_train)} meetings, Val: {len(grouped_validation)} meetings, Test: {len(grouped_test)} meetings")
+        elif test_size is not None:
+            # Fallback to old behavior (test_size cuts segments - can cause domain skew)
+            logger.warning("⚠️  WARNING: Using deprecated --test_size parameter. This cuts segments and can cause extreme non-IID distribution.")
+            logger.warning("   Consider using --subset_train_meetings, --subset_val_meetings, --subset_test_meetings instead.")
+            
             train_size = test_size
             val_size = round(test_size/0.7*0.3)
             test_size_val = round(test_size/0.7*0.3)
-            print(f"MAIN: Using SUBSET - Train: {train_size}, Val: {val_size}, Test: {test_size_val}")
+            print(f"MAIN: Using SUBSET (deprecated) - Train: {train_size} segments, Val: {val_size} segments, Test: {test_size_val} segments")
+            
+            grouped_train = group_by_meeting(dataset["train"].select(range(train_size)))
+            grouped_validation = group_by_meeting(dataset["validation"].select(range(val_size)))
+            grouped_test = group_by_meeting(dataset["test"].select(range(test_size_val)))
+        else:
+            # Use all data
+            grouped_train = grouped_train_raw
+            grouped_validation = grouped_validation_raw
+            grouped_test = grouped_test_raw
+            print(f"MAIN: Using ALL data - Train: {len(grouped_train)} meetings, Val: {len(grouped_validation)} meetings, Test: {len(grouped_test)} meetings")
         
-        print_dataset_overview("AMI", len(dataset["train"]), train_size)
-        
-        # Group data by meeting ID for all splits
-        print(f"MAIN: Grouping data by meeting ID...")
-        grouped_train = group_by_meeting(dataset["train"].select(range(train_size)))
-        grouped_validation = group_by_meeting(dataset["validation"].select(range(val_size)))
-        grouped_test = group_by_meeting(dataset["test"].select(range(test_size_val)))
-        
+        print_dataset_overview("AMI", len(dataset["train"]), len(grouped_train))
         print_grouping_results(grouped_train, grouped_validation, grouped_test)
         
         # Print statistics for each meeting
@@ -1647,7 +1820,14 @@ def main():
             print("   3. Label overwriting during padding/truncation")
         
         # Print experiment configuration
-        print_experiment_config(num_clients, num_rounds, epochs, test_size)
+        # For backward compatibility, pass test_size if using old method, otherwise pass number of test meetings
+        config_test_size = test_size if test_size is not None and subset_test_meetings is None else (len(grouped_test) if subset_test_meetings is None else subset_test_meetings)
+        print_experiment_config(num_clients, num_rounds, epochs, config_test_size)
+        
+        # Log meeting-based subsampling info if used
+        if subset_train_meetings is not None or subset_val_meetings is not None or subset_test_meetings is not None:
+            print(f"MAIN: Meeting-based subsampling: Train={len(grouped_train)} meetings, Val={len(grouped_validation)} meetings, Test={len(grouped_test)} meetings")
+            print(f"MAIN: Seed used: {seed} (train), {seed+1} (val), {seed+2} (test)")
 
         
         # Get all unique speakers for speaker embedding computation
@@ -1679,10 +1859,10 @@ def main():
         # Print SENDModel statistics
         print_send_model_statistics(model)
         
-        # NEW FL PIPELINE: Partition meetings among clients by meeting_id
-        print(f"MAIN: Partitioning meetings among {num_clients} clients...")
-        client_grouped_trains = partition_meetings_among_clients(
-            grouped_train, num_clients, seed=42
+        # NEW FL PIPELINE: Partition meetings among clients using stratified (near-IID) distribution
+        print(f"MAIN: Partitioning meetings among {num_clients} clients using stratified distribution (near-IID by domain)...")
+        client_grouped_trains = stratified_partition_meetings(
+            grouped_train, num_clients, seed=seed
         )
         
         # Validate partition
