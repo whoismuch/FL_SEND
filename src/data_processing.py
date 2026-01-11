@@ -1655,6 +1655,9 @@ def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, 
     # Instead of skipping frames with continue, we use empty sets for invalid frames
     downsampled_indices = [i for i in range(len(predictions)) if i % downsample_factor == 0]
     
+    # Store raw predictions for post-processing (before downsampling)
+    raw_predictions = predictions.copy() if hasattr(predictions, 'copy') else list(predictions)
+    
     for downsampled_idx, i in enumerate(downsampled_indices):
         pred, label = predictions[i], labels[i]
         
@@ -1697,9 +1700,46 @@ def calculate_der(predictions, labels, power_set_encoder, speaker_id_list=None, 
             print(f"[DER DEBUG] Frame {i} (downsampled_idx {downsampled_idx}): label={label}, pred={pred}, true_indices={true_indices}, pred_indices={pred_indices}")
             mismatches += 1
     
-    # Use optimized frames_to_annotation to merge consecutive frames
+    # Create reference annotation (NO post-processing for reference)
     reference = frames_to_annotation(active_speakers_labels, effective_frame_shift, speaker_id_list, uri=uri)
-    hypothesis = frames_to_annotation(active_speakers_preds, effective_frame_shift, speaker_id_list, uri=uri)
+    
+    # POST-PROCESSING FIX: Apply speaker-activity smoothing to HYPOTHESIS only
+    # Do NOT smooth power-set class IDs (they are not ordinal).
+    # Instead: decode -> smooth per speaker -> convert back -> segment regularization
+    # Apply to downsampled predictions to match reference temporal resolution
+    try:
+        from post_processing_fix import postprocess_predicted_classes
+        
+        # Extract downsampled predictions for post-processing
+        # This ensures hypothesis and reference use the same temporal resolution
+        downsampled_predictions = [predictions[i] for i in downsampled_indices]
+        
+        # Adaptive smoothing window: target ~0.15-0.25s temporal window
+        # At effective_frame_shift=0.05s: 3 frames = 0.15s, 5 frames = 0.25s
+        # At frame_shift=0.01s: 15 frames = 0.15s, 25 frames = 0.25s
+        # Use 5 frames for 0.05s (0.25s smoothing) or 3 frames if very conservative
+        target_smoothing_seconds = 0.25  # Target ~0.25s smoothing window
+        adaptive_window = max(3, int(round(target_smoothing_seconds / effective_frame_shift)))
+        if adaptive_window % 2 == 0:
+            adaptive_window += 1  # Ensure odd
+        
+        hypothesis = postprocess_predicted_classes(
+            pred_classes=downsampled_predictions,
+            encoder=power_set_encoder,
+            frame_shift=effective_frame_shift,  # Match reference temporal resolution
+            max_speakers=power_set_encoder.max_speakers,
+            speaker_id_list=speaker_id_list,
+            uri=uri,
+            smooth_window_frames=adaptive_window,  # Adaptive: ~0.25s at effective_frame_shift
+            min_duration_s=0.3,
+            max_gap_s=0.2,
+            frames_to_annotation_func=frames_to_annotation  # Pass function to avoid circular import
+        )
+        
+    except ImportError:
+        logger.warning("[DER] post_processing_fix not available, using raw predictions")
+        # Fallback: use raw decoded predictions without post-processing
+        hypothesis = frames_to_annotation(active_speakers_preds, effective_frame_shift, speaker_id_list, uri=uri)
     
     # Check if we have any valid frames
     if valid_frames_count == 0:
