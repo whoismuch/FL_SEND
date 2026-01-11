@@ -1653,6 +1653,11 @@ def main():
         
         print(f"MAIN: Raw grouped data - Train: {len(grouped_train_raw)} meetings, Val: {len(grouped_validation_raw)} meetings, Test: {len(grouped_test_raw)} meetings")
         
+        # Initialize variables for exp_tag (used later in export)
+        train_size = None
+        val_size = None
+        test_size_val = None
+        
         # Apply subsampling by meetings if specified (NEW: better than test_size which cuts segments)
         if subset_train_meetings is not None or subset_val_meetings is not None or subset_test_meetings is not None:
             print(f"MAIN: Applying meeting-based subsampling (recommended for near-IID distribution)...")
@@ -1663,7 +1668,13 @@ def main():
             grouped_validation = subsample_grouped_by_meetings(grouped_validation_raw, subset_val_meetings, seed + 1)
             grouped_test = subsample_grouped_by_meetings(grouped_test_raw, subset_test_meetings, seed + 2)
             
-            print(f"MAIN: After subsampling - Train: {len(grouped_train)} meetings, Val: {len(grouped_validation)} meetings, Test: {len(grouped_test)} meetings")
+            # Calculate total number of samples (not just meetings) for exp_tag
+            # grouped_train is {meeting_id: [samples...]}, so sum lengths of all sample lists
+            train_size = sum(len(samples) for samples in grouped_train.values()) if subset_train_meetings is not None else None
+            val_size = sum(len(samples) for samples in grouped_validation.values()) if subset_val_meetings is not None else None
+            test_size_val = sum(len(samples) for samples in grouped_test.values()) if subset_test_meetings is not None else None
+            
+            print(f"MAIN: After subsampling - Train: {len(grouped_train)} meetings ({train_size} samples), Val: {len(grouped_validation)} meetings ({val_size} samples), Test: {len(grouped_test)} meetings ({test_size_val} samples)")
         elif test_size is not None:
             # Fallback to old behavior (test_size cuts segments - can cause domain skew)
             logger.warning("⚠️  WARNING: Using deprecated --test_size parameter. This cuts segments and can cause extreme non-IID distribution.")
@@ -1682,7 +1693,11 @@ def main():
             grouped_train = grouped_train_raw
             grouped_validation = grouped_validation_raw
             grouped_test = grouped_test_raw
-            print(f"MAIN: Using ALL data - Train: {len(grouped_train)} meetings, Val: {len(grouped_validation)} meetings, Test: {len(grouped_test)} meetings")
+            # Calculate total samples for all data case
+            train_size = sum(len(samples) for samples in grouped_train.values())
+            val_size = sum(len(samples) for samples in grouped_validation.values())
+            test_size_val = sum(len(samples) for samples in grouped_test.values())
+            print(f"MAIN: Using ALL data - Train: {len(grouped_train)} meetings ({train_size} samples), Val: {len(grouped_validation)} meetings ({val_size} samples), Test: {len(grouped_test)} meetings ({test_size_val} samples)")
         
         print_dataset_overview("AMI", len(dataset["train"]), len(grouped_train))
         print_grouping_results(grouped_train, grouped_validation, grouped_test)
@@ -2915,7 +2930,13 @@ def main():
         if use_all_data:
             exp_tag = f"exp_all_{epochs}epochs_{num_rounds}rounds_{num_clients}clients_{dt_str_human}"
         else:
-            exp_tag = f"exp_{train_size}size_{epochs}epochs_{num_rounds}rounds_{num_clients}clients_{dt_str_human}"
+            # Use train_size (total samples) if available, otherwise fallback to meeting count
+            if train_size is not None:
+                exp_tag = f"exp_{train_size}samples_{epochs}epochs_{num_rounds}rounds_{num_clients}clients_{dt_str_human}"
+            else:
+                # Fallback: use meeting count (shouldn't happen, but safe)
+                train_meetings_count = len(grouped_train) if 'grouped_train' in locals() else 0
+                exp_tag = f"exp_{train_meetings_count}meetings_{epochs}epochs_{num_rounds}rounds_{num_clients}clients_{dt_str_human}"
         
         try:
             from diarization_export import export_diarization_results
@@ -2968,10 +2989,10 @@ def main():
         # Prepare lines for logging
         result_lines = [
             f"Experiment: {exp_tag}",
-            f"Dataset size: {'ALL' if use_all_data else f'{train_size} records'}",
-            f"Train records: {train_size}",
-            f"Validation records: {val_size}",
-            f"Test records: {test_size_val}",
+            f"Dataset size: {'ALL' if use_all_data else (f'{train_size} samples' if train_size is not None else f'{len(grouped_train)} meetings')}",
+            f"Train samples: {train_size if train_size is not None else sum(len(samples) for samples in grouped_train.values())}",
+            f"Validation samples: {val_size if val_size is not None else sum(len(samples) for samples in grouped_validation.values())}",
+            f"Test samples: {test_size_val if test_size_val is not None else sum(len(samples) for samples in grouped_test.values())}",
             f"Num clients: {num_clients}",
             f"Num epochs: {epochs}",
             f"Num rounds: {num_rounds}",
@@ -3159,10 +3180,10 @@ def main():
             # 3. Final experiment results
             final_results = [{
                 'experiment_tag': exp_tag,
-                'dataset_size': 'ALL' if use_all_data else f'{train_size}',
-                'train_records': train_size,
-                'val_records': val_size,
-                'test_records': test_size_val,
+                'dataset_size': 'ALL' if use_all_data else (f'{train_size}samples' if train_size is not None else f'{len(grouped_train)}meetings'),
+                'train_samples': train_size if train_size is not None else sum(len(samples) for samples in grouped_train.values()),
+                'val_samples': val_size if val_size is not None else sum(len(samples) for samples in grouped_validation.values()),
+                'test_samples': test_size_val if test_size_val is not None else sum(len(samples) for samples in grouped_test.values()),
                 'num_clients': num_clients,
                 'num_epochs': epochs,
                 'num_rounds': num_rounds,
